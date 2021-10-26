@@ -154,7 +154,4 @@ func (r *RelationBuilder) Match(models interface{}, relationResults interface{},
 		relation.Name = relationName
 		MatchMorphByMany(models, relationResults, relation)
 	}
-	//fmt.Println("match")
-	//fmt.Println(models)
-	//fmt.Println(relationResults)
 }
