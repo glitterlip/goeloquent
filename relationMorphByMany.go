@@ -17,10 +17,10 @@ type MorphByManyRelation struct {
 	ParentKey       string
 	RelatedKey      string
 	Builder         *Builder
-	PivotTypeColumn       string
+	PivotTypeColumn string
 }
 
-func (m *EloquentModel) MorphByMany(self , related interface{}, pivotTable, pivotParentKey, pivotRelatedKey, parentKey, relatedKey, pivotTypeColumn string) *RelationBuilder {
+func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivotParentKey, pivotRelatedKey, parentKey, relatedKey, pivotTypeColumn string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphByManyRelation{
 		Relation: Relation{
