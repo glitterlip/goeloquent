@@ -2,12 +2,24 @@ package goeloquent
 
 import (
 	"database/sql"
+	"errors"
 	_ "fmt"
 	"reflect"
 	"strings"
 )
 
-func ScanAll(rows *sql.Rows, dest interface{}) {
+type ScanResult struct {
+	Count int
+}
+
+func (ScanResult) LastInsertId() (int64, error) {
+	return 0, errors.New("no insert in select")
+}
+
+func (v ScanResult) RowsAffected() (int64, error) {
+	return int64(v.Count), nil
+}
+func ScanAll(rows *sql.Rows, dest interface{}) (result ScanResult) {
 	//*model *[]model *[]*model
 	value := reflect.ValueOf(dest)
 	//get pointer value could be a normal slice or a reflect.value created by reflect.MakeSlice
@@ -76,6 +88,7 @@ func ScanAll(rows *sql.Rows, dest interface{}) {
 		var needProcessPivot bool
 		var pivotColumnMap = make(map[string]int, 2)
 		for rows.Next() {
+			result.Count++
 			for i, column := range columns {
 				if f, ok := model.FieldsByDbName[column]; ok {
 					scanArgs[i] = v.Field(f.Index).Addr().Interface()
@@ -110,6 +123,7 @@ func ScanAll(rows *sql.Rows, dest interface{}) {
 		v := reflect.Indirect(vp)
 
 		for rows.Next() {
+			result.Count++
 			for i, column := range columns {
 				if f, ok := model.FieldsByDbName[column]; ok {
 					scanArgs[i] = v.Field(f.Index).Addr().Interface()
@@ -129,11 +143,12 @@ func ScanAll(rows *sql.Rows, dest interface{}) {
 		}
 	} else {
 		for rows.Next() {
+			result.Count++
 			err := rows.Scan(dest)
 			if err != nil {
 				panic(err.Error())
 			}
 		}
 	}
-
+	return
 }

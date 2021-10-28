@@ -40,8 +40,8 @@ func (c *MysqlConnection) Select(query string, bindings []interface{}, dest inte
 		}
 	}
 	defer rows.Close()
-	ScanAll(rows, dest)
-	return
+
+	return ScanAll(rows, dest), nil
 }
 
 func (c *MysqlConnection) BeginTransaction() {
@@ -87,8 +87,9 @@ func (c *MysqlConnection) Delete(query string, bindings []interface{}) (result s
 func (c *MysqlConnection) AffectingStatement(query string, bindings []interface{}) (result sql.Result, err error) {
 
 	if c.Tx != nil {
-		stmt, err := c.Tx.Prepare(query)
-		if err != nil {
+		stmt, errT := c.Tx.Prepare(query)
+		if errT != nil {
+			err = errT
 			return
 		}
 		defer stmt.Close()
@@ -97,8 +98,9 @@ func (c *MysqlConnection) AffectingStatement(query string, bindings []interface{
 			return
 		}
 	} else {
-		stmt, err := c.Connection.Prepare(query)
-		if err != nil {
+		stmt, errP := c.Connection.Prepare(query)
+		if errP != nil {
+			err = errP
 			return
 		}
 		defer stmt.Close()
