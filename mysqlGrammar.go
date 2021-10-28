@@ -3,7 +3,6 @@ package goeloquent
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 type MysqlGrammar struct {
@@ -239,18 +238,7 @@ func (m *MysqlGrammar) compileComponentWheres() {
 func (m *MysqlGrammar) parameter(values ...interface{}) string {
 	var ps []string
 	for _, v := range values {
-		var s string
-
-		switch v.(type) {
-		//case bool:
-		//	s = fmt.Sprintf("`%v`", v)
-		case time.Time:
-			s = v.(time.Time).Format("2006-01-02 15:04:05")
-		default:
-			s = fmt.Sprintf("%v", v)
-		}
-
-		m.GetBuilder().Bindings = append(m.GetBuilder().Bindings, s)
+		m.GetBuilder().Bindings = append(m.GetBuilder().Bindings, v)
 		ps = append(ps, "?")
 	}
 	return strings.Join(ps, ",")
