@@ -674,6 +674,9 @@ func (b *Builder) First(dest interface{}) (result sql.Result, err error) {
 	b.Limit(1)
 	return b.Get(dest)
 }
+
+// SetModel
+//parameter model should either be a model pointer or a reflect.Type
 func (b *Builder) SetModel(model interface{}) *Builder {
 	if model != nil {
 		b.Model = GetParsedModel(model)
@@ -693,7 +696,8 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 func (b *Builder) RunSelect() (result sql.Result, err error) {
 	result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
 	if b.Model.IsEloquent {
-		BatchSync(b.Dest, true)
+		c, _ := result.RowsAffected()
+		BatchSync(b.Dest, c > 0)
 	}
 	return
 }
@@ -835,8 +839,8 @@ func (b *Builder) With(relations ...interface{}) *Builder {
 				}
 			}
 		case map[string]func(builder *Builder) *Builder:
-			for relation, fn := range relation.(map[string]func(builder *RelationBuilder) *RelationBuilder) {
-				b.EagerLoad[relation] = fn
+			for relationName, fn := range relation.(map[string]func(builder *RelationBuilder) *RelationBuilder) {
+				b.EagerLoad[relationName] = fn
 			}
 		}
 	}
