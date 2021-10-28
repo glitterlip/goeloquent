@@ -352,10 +352,10 @@ func (b *Builder) WhereIn(params ...interface{}) *Builder {
 	pv := reflect.ValueOf(params[1])
 	if pv.Type().Kind() == reflect.Slice {
 		for i := 0; i < pv.Len(); i++ {
-			values = append(values, reflect.ValueOf(pv.Index(i)).Interface())
+			values = append(values, pv.Index(i).Interface())
 		}
 	} else {
-		values = append(values, reflect.ValueOf(pv).Interface())
+		values = append(values, pv.Interface())
 	}
 
 	b.Wheres = append(b.Wheres, Where{
