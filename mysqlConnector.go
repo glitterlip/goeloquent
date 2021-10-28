@@ -3,6 +3,7 @@ package goeloquent
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 type MysqlConnector struct {
@@ -24,7 +25,25 @@ func (c MysqlConnector) connect(config DBConfig) *MysqlConnection {
 	// user:password@/
 	*/
 
-	db, err := sql.Open(DriverMysql, fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", config.Username, config.Password, config.Host, config.Port, config.Database))
+	if config.MaxOpenConns == 0 {
+		config.MaxOpenConns = 10
+	}
+	if config.MaxIdleConns == 0 {
+		config.MaxIdleConns = 5
+	}
+	if config.ConnMaxLifetime == 0 {
+		config.ConnMaxLifetime = 86400
+	}
+	if config.ConnMaxIdleTime == 0 {
+		config.ConnMaxIdleTime = 7200
+	}
+	if config.Charset == "" {
+		config.Charset = "utf8mb4"
+	}
+	if config.Collation == "" {
+		config.Collation = "utf8mb4_unicode_ci"
+	}
+	db, err := sql.Open(DriverMysql, fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=%s&collation=%s", config.Username, config.Password, config.Host, config.Port, config.Database, config.Charset, config.Collation))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -32,6 +51,10 @@ func (c MysqlConnector) connect(config DBConfig) *MysqlConnection {
 	if err != nil {
 		panic(err.Error())
 	}
+	db.SetMaxOpenConns(config.MaxOpenConns)
+	db.SetMaxIdleConns(config.MaxIdleConns)
+	db.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Second)
+	db.SetConnMaxIdleTime(time.Duration(config.ConnMaxIdleTime) * time.Second)
 	return &MysqlConnection{
 		Connection: db,
 		Config:     config,
