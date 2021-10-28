@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
 var (
@@ -46,8 +47,10 @@ type Model struct {
 	IsEloquent         bool
 	PivotFieldIndex    []int
 	//DefaultAttributes  map[string]interface{}
-	UpdatedAt string
-	CreatedAt string
+	UpdatedAt  string
+	CreatedAt  string
+	DeletedAt  string
+	SoftDelete bool
 	//EagerLoad     []
 	//GlobalScopes map[string]interface{}
 	DispatchesEvents map[string]reflect.Value
@@ -174,6 +177,13 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 				m.DbFields = append(m.DbFields, modelField.ColumnName)
 			case "primaryKey":
 				m.PrimaryKey = modelField
+			case "CREATED_AT":
+				m.CreatedAt = modelField.ColumnName
+			case "UPDATED_AT":
+				m.UpdatedAt = modelField.ColumnName
+			case "DELETED_AT":
+				m.DeletedAt = modelField.ColumnName
+				m.SoftDelete = true
 			case RelationHasMany,
 				RelationHasOne,
 				RelationBelongsToMany,
@@ -288,22 +298,35 @@ func BatchSync(models interface{}, exists ...bool) {
 }
 
 type EloquentModel struct {
-	Origin       map[string]interface{}    //store original attribute that get from database or default
-	Changes      map[string]interface{}    //store changes attribute after save to database
-	ModelPointer reflect.Value             //model pointer points to the model hold this
-	Pivot        map[string]sql.NullString //pivot relation table attribute
-	Exists       bool                      //indicate whether the model is get from database or newly created and not store to db yet
-	Related      reflect.Value             //when call save/create on relationship ,this holds the related key
-	Muted        []string                  //mute events
+	Origin        map[string]interface{}    `json:"-"` //store original attribute that get from database or default
+	Changes       map[string]interface{}    `json:"-"` //store changes attribute after save to database
+	ModelPointer  reflect.Value             `json:"-"` //model pointer points to the model hold this
+	Pivot         map[string]sql.NullString `json:"-"` //pivot relation table attribute
+	Exists        bool                      `json:"-"` //indicate whether the model is get from database or newly created and not store to db yet
+	Related       reflect.Value             `json:"-"` //when call save/create on relationship ,this holds the related key
+	Muted         []string                  `json:"-"` //mute events
+	OnlyColumns   map[string]interface{}    `json:"-"` //only update/save these columns
+	ExceptColumns map[string]interface{}    `json:"-"` //exclude update/save there columns
 }
 
-func NewModel(modelPointer interface{}) {
+func NewModel(modelPointer interface{}) *EloquentModel {
 	e := NewEloquentModel(modelPointer, false)
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
 	parsed := GetParsedModel(m.Type())
 	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
+	return &e
 }
-func NewEloquentModel(modelPointer interface{}, exists bool) EloquentModel {
+func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
+	m := reflect.Indirect(reflect.ValueOf(modelPointer))
+	parsed := GetParsedModel(m.Type())
+	if len(exists) == 0 {
+		exists = []bool{m.Field(parsed.PrimaryKey.Index).IsZero()}
+	}
+	e := NewEloquentModel(modelPointer, exists[0])
+	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
+	return &e
+}
+func NewEloquentModel(modelPointer interface{}, exists ...bool) EloquentModel {
 	m := EloquentModel{
 		Origin: make(map[string]interface{}),
 	}
@@ -311,7 +334,10 @@ func NewEloquentModel(modelPointer interface{}, exists bool) EloquentModel {
 	m.Origin = make(map[string]interface{}, 4)
 	m.Changes = make(map[string]interface{}, 4)
 	m.Pivot = make(map[string]sql.NullString, 0)
-	m.Exists = exists
+	if len(exists) == 0 {
+		exists = []bool{false}
+	}
+	m.Exists = exists[0]
 	var tmap reflect.Value
 	parsed := GetParsedModel(modelPointer)
 	if len(parsed.PivotFieldIndex) > 1 {
@@ -407,7 +433,9 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 		//todo:set created_at timestamps
 		id, err1 := res.LastInsertId()
 		if err1 == nil {
-			reflect.Indirect(m.ModelPointer).Field(parsed.PrimaryKey.Index).Set(reflect.ValueOf(id))
+			if parsed.PrimaryKey != nil {
+				reflect.Indirect(m.ModelPointer).Field(parsed.PrimaryKey.Index).Set(reflect.ValueOf(id))
+			}
 		} else {
 			err = err1
 			return
@@ -422,7 +450,7 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 		}
 		//todo:set updated_at timestamps
 		m.Changes = m.GetDirty()
-		res, err = Eloquent.Model(parsed.ModelType).Update(m.GetAttributesForUpdate())
+		res, err = Eloquent.Model(parsed.ModelType).Where(parsed.PrimaryKey.ColumnName, m.ModelPointer.Elem().Field(parsed.PrimaryKey.Index).Interface()).Update(m.GetAttributesForUpdate())
 		m.FireModelEvent(EventUpdated)
 	}
 	m.FireModelEvent(EventSaved)
@@ -435,17 +463,74 @@ func (m *EloquentModel) Create() (sql.Result, error) {
 	return m.Save()
 }
 func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) {
-	return m.GetAttributes()
+	model := reflect.Indirect(m.ModelPointer)
+	attrs = make(map[string]interface{})
+	modelType := GetParsedModel(model.Type())
+	var hasOnlyColumns, hasExceptColumns bool
+	if m.OnlyColumns != nil && len(m.OnlyColumns) > 0 {
+		hasOnlyColumns = true
+	}
+	if m.ExceptColumns != nil && len(m.ExceptColumns) > 0 {
+		hasExceptColumns = true
+	}
+	for _, key := range modelType.DbFields {
+		keyIndex := modelType.FieldsByDbName[key].Index
+		if hasExceptColumns {
+			if _, ok := m.ExceptColumns[key]; ok {
+				continue
+			}
+			attrs[key] = model.Field(keyIndex).Interface()
+			continue
+		}
+		if hasOnlyColumns {
+			if _, ok := m.OnlyColumns[key]; !ok {
+				continue
+			}
+			attrs[key] = model.Field(keyIndex).Interface()
+			continue
+		}
+		if !model.Field(keyIndex).IsZero() && keyIndex != modelType.PrimaryKey.Index {
+			attrs[key] = model.Field(keyIndex).Interface()
+		}
+	}
+	if modelType.UpdatedAt != "" {
+		attrs[modelType.UpdatedAt] = time.Now()
+	}
+	return
 }
 func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) {
 	model := reflect.Indirect(m.ModelPointer)
 	attrs = make(map[string]interface{})
 	modelType := GetParsedModel(model.Type())
+	var hasOnlyColumns, hasExceptColumns bool
+	if m.OnlyColumns != nil && len(m.OnlyColumns) > 0 {
+		hasOnlyColumns = true
+	}
+	if m.ExceptColumns != nil && len(m.ExceptColumns) > 0 {
+		hasExceptColumns = true
+	}
 	for _, key := range modelType.DbFields {
 		keyIndex := modelType.FieldsByDbName[key].Index
+		if hasExceptColumns {
+			if _, ok := m.ExceptColumns[key]; ok {
+				continue
+			}
+			attrs[key] = model.Field(keyIndex).Interface()
+			continue
+		}
+		if hasOnlyColumns {
+			if _, ok := m.OnlyColumns[key]; !ok {
+				continue
+			}
+			attrs[key] = model.Field(keyIndex).Interface()
+			continue
+		}
 		if !model.Field(keyIndex).IsZero() {
 			attrs[key] = model.Field(keyIndex).Interface()
 		}
+	}
+	if modelType.CreatedAt != "" {
+		attrs[modelType.CreatedAt] = time.Now()
 	}
 	return
 
@@ -474,7 +559,48 @@ func (m *EloquentModel) FireModelEvent(name string) bool {
 
 //scope
 //increment decrement
-//fill
 //fresh
 //paginate
 //touch
+func (m *EloquentModel) Fill(attrs map[string]interface{}) *EloquentModel {
+	model := reflect.Indirect(m.ModelPointer)
+	modelType := GetParsedModel(model.Type())
+	for k, v := range attrs {
+		if f, ok := modelType.FieldsByDbName[k]; ok {
+			model.Field(f.Index).Set(reflect.ValueOf(v))
+		} else if f, ok := modelType.FieldsByStructName[k]; ok {
+			model.Field(f.Index).Set(reflect.ValueOf(v))
+		}
+	}
+	return m
+}
+func (m *EloquentModel) Only(columns ...string) *EloquentModel {
+	m.OnlyColumns = make(map[string]interface{}, len(columns))
+	for i := 0; i < len(columns); i++ {
+		m.OnlyColumns[columns[i]] = nil
+	}
+	return m
+}
+func (m *EloquentModel) Except(columns ...string) *EloquentModel {
+	m.ExceptColumns = make(map[string]interface{}, len(columns))
+	for i := 0; i < len(columns); i++ {
+		m.ExceptColumns[columns[i]] = nil
+	}
+	return m
+}
+func (m *EloquentModel) Load(relations ...interface{}) {
+	var connection IConnection
+	if c, ok := m.ModelPointer.Elem().Interface().(ConnectionName); ok {
+		connection = *Eloquent.Connection(c.ConnectionName())
+	} else {
+		connection = *Eloquent.Connection("default")
+	}
+	b := NewBuilder(connection)
+	b.SetModel(m.ModelPointer.Interface())
+	b.With(relations...)
+	b.Dest = m.ModelPointer.Interface()
+	rb := RelationBuilder{
+		Builder: b,
+	}
+	rb.EagerLoadRelations(b.Dest)
+}
