@@ -111,13 +111,18 @@ func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRe
 	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
-			e := rvP.Index(i)
-			modelKey := e.Field(modelKeyFiledIndex)
+			model := rvP.Index(i)
+			modelKey := model.Field(modelKeyFiledIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				e.Field(modelRelationFiledIndex).Set(value)
+				if isPtr {
+					model.Field(modelRelationFiledIndex).Set(value.Elem().Index(0).Addr())
+				} else {
+					model.Field(modelRelationFiledIndex).Set(value.Index(0))
+
+				}
 			}
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {

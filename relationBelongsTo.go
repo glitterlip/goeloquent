@@ -87,13 +87,17 @@ func MatchBelongsTo(models interface{}, related interface{}, relation *BelongsTo
 	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentRelatedKey].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
-			e := rvP.Index(i)
-			modelKey := e.Field(modelKeyFiledIndex)
+			model := rvP.Index(i)
+			modelKey := model.Field(modelKeyFiledIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				e.Field(modelRelationFiledIndex).Set(value)
+				if relationFieldIsPtr {
+					model.Field(modelRelationFiledIndex).Set(value)
+				} else {
+					model.Field(modelRelationFiledIndex).Set(value.Elem())
+				}
 			}
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {

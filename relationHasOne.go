@@ -80,13 +80,17 @@ func MatchHasOne(models interface{}, related interface{}, relation *HasOneRelati
 	modelKeyFiledIndex := parsedModel.FieldsByDbName[relation.ParentKey].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
-			e := rvP.Index(i)
-			modelKey := e.Field(modelKeyFiledIndex)
+			model := rvP.Index(i)
+			modelKey := model.Field(modelKeyFiledIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				e.Field(modelRelationFiledIndex).Set(value)
+				if isPtr {
+					model.Field(modelRelationFiledIndex).Set(value)
+				} else {
+					model.Field(modelRelationFiledIndex).Set(value.Elem())
+				}
 			}
 
 		}

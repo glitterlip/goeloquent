@@ -121,7 +121,11 @@ func MatchMorphMany(models interface{}, related interface{}, relation *MorphMany
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				e.Field(modelRelationFiledIndex).Set(value)
+				if relationFieldIsPtr {
+					e.Field(modelRelationFiledIndex).Set(value)
+				} else {
+					e.Field(modelRelationFiledIndex).Set(value.Elem())
+				}
 			}
 
 		}
