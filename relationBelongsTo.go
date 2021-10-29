@@ -30,7 +30,7 @@ func (m *EloquentModel) BelongsTo(parent interface{}, related interface{}, paren
 	parentModel := GetParsedModel(parent)
 	parentDirect := reflect.Indirect(reflect.ValueOf(parent))
 	//select * from users(related table) where users.id(relatedkey) = phone.user_id(parentRelatedKey)
-	b.Where(relation.RelatedKey, parentDirect.Field(parentModel.FieldsByDbName[parentRelatedKey].Index))
+	b.Where(relation.RelatedKey, parentDirect.Field(parentModel.FieldsByDbName[parentRelatedKey].Index).Interface())
 
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
@@ -45,6 +45,11 @@ func (r *BelongsToRelation) AddEagerConstraints(parentModels interface{}) {
 			parentModel := parentModelSlice.Index(i)
 			parentModelRelatedKey := reflect.Indirect(parentModel).Field(parentRelatedKeyIndex).Interface()
 			parentModelRelatedKeys = append(parentModelRelatedKeys, parentModelRelatedKey)
+		}
+	} else if ms, ok := parentModels.(*reflect.Value); ok {
+		for i := 0; i < ms.Len(); i++ {
+			modelKey := ms.Index(i).Field(parentRelatedKeyIndex).Interface()
+			parentModelRelatedKeys = append(parentModelRelatedKeys, modelKey)
 		}
 	} else {
 		model := parentModelSlice
@@ -80,8 +85,18 @@ func MatchBelongsTo(models interface{}, related interface{}, relation *BelongsTo
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
 	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentRelatedKey].Index
-
-	if targetSlice.Type().Kind() != reflect.Slice {
+	if rvP, ok := models.(*reflect.Value); ok {
+		for i := 0; i < rvP.Len(); i++ {
+			e := rvP.Index(i)
+			modelKey := e.Field(modelKeyFiledIndex)
+			modelKeyStr := fmt.Sprint(modelKey)
+			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
+			if value.IsValid() {
+				value = value.Interface().(reflect.Value)
+				e.Field(modelRelationFiledIndex).Set(value)
+			}
+		}
+	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
 		modelKey := model.Field(modelKeyFiledIndex)
 		modelKeyStr := fmt.Sprint(modelKey)

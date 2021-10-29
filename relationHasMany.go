@@ -26,7 +26,7 @@ func (m *EloquentModel) HasMany(self interface{}, related interface{}, releatedP
 	}
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(releatedParentKey, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index))
+	b.Where(releatedParentKey, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
 	b.WhereNotNull(releatedParentKey)
 
 	return &RelationBuilder{Builder: b, Relation: &relation}
@@ -40,6 +40,11 @@ func (r *HasManyRelation) AddEagerConstraints(models interface{}) {
 		for i := 0; i < modelSlice.Len(); i++ {
 			model := modelSlice.Index(i)
 			modelKey := reflect.Indirect(model).Field(index).Interface()
+			keys = append(keys, modelKey)
+		}
+	} else if ms, ok := models.(*reflect.Value); ok {
+		for i := 0; i < ms.Len(); i++ {
+			modelKey := ms.Index(i).Field(index).Interface()
 			keys = append(keys, modelKey)
 		}
 	} else {
@@ -98,7 +103,19 @@ func MatchHasMany(models interface{}, related interface{}, relation *HasManyRela
 	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
 	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
 
-	if targetSlice.Type().Kind() != reflect.Slice {
+	if rvP, ok := models.(*reflect.Value); ok {
+		for i := 0; i < rvP.Len(); i++ {
+			e := rvP.Index(i)
+			modelKey := e.Field(modelKeyFiledIndex)
+			modelKeyStr := fmt.Sprint(modelKey)
+			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
+			if value.IsValid() {
+				value = value.Interface().(reflect.Value)
+				e.Field(modelRelationFiledIndex).Set(value)
+			}
+
+		}
+	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
 		modelKey := model.Field(modelKeyFiledIndex)
 		modelKeyStr := fmt.Sprint(modelKey)

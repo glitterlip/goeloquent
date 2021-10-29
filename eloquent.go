@@ -8,7 +8,7 @@ type DB struct {
 	DatabaseManager
 	MorphDBMap    map[string]reflect.Value //dbvalue=>model
 	MorphModelMap map[string]string        //modelname=>dbvalue
-
+	Models        map[string]reflect.Value
 }
 
 func Open(config map[string]DBConfig) *DB {
@@ -31,5 +31,13 @@ func RegistMorphMap(morphMap map[string]interface{}) {
 		}
 		Eloquent.MorphDBMap[DbName] = reflect.Indirect(reflect.ValueOf(pointer))
 		Eloquent.MorphModelMap[reflect.Indirect(reflect.ValueOf(pointer)).Type().Name()] = DbName
+	}
+}
+func RegisterModels(models []interface{}) {
+	Eloquent.Models = make(map[string]reflect.Value)
+
+	for _, m := range models {
+		t := reflect.ValueOf(m).Elem().Type()
+		Eloquent.Models[t.PkgPath()+"."+t.Name()] = reflect.Indirect(reflect.ValueOf(m))
 	}
 }

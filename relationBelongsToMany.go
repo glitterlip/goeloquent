@@ -44,7 +44,7 @@ func (m *EloquentModel) BelongsToMany(parent interface{}, related interface{}, p
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
 	selfModel := GetParsedModel(parent)
 	selfDirect := reflect.Indirect(reflect.ValueOf(parent))
-	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index))
+	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
 }
@@ -80,6 +80,11 @@ func (relation *BelongsToManyRelation) AddEagerConstraints(parentModels interfac
 		for i := 0; i < modelSlice.Len(); i++ {
 			model := modelSlice.Index(i)
 			modelKey := reflect.Indirect(model).Field(index).Interface()
+			parentKeys = append(parentKeys, modelKey)
+		}
+	} else if ms, ok := parentModels.(*reflect.Value); ok {
+		for i := 0; i < ms.Len(); i++ {
+			modelKey := ms.Index(i).Field(index).Interface()
 			parentKeys = append(parentKeys, modelKey)
 		}
 	} else {
@@ -135,7 +140,19 @@ func MatchBelongsToMany(models interface{}, related interface{}, relation *Belon
 	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
 	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
 
-	if targetSlice.Type().Kind() != reflect.Slice {
+	if rvP, ok := models.(*reflect.Value); ok {
+		for i := 0; i < rvP.Len(); i++ {
+			e := rvP.Index(i)
+			modelKey := e.Field(modelKeyFiledIndex)
+			modelKeyStr := fmt.Sprint(modelKey)
+			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
+			if value.IsValid() {
+				value = value.Interface().(reflect.Value)
+				e.Field(modelRelationFiledIndex).Set(value)
+			}
+
+		}
+	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
 		modelKey := model.Field(modelKeyFiledIndex)
 		modelKeyStr := fmt.Sprint(modelKey)

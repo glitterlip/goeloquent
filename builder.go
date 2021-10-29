@@ -826,26 +826,53 @@ func (b *Builder) Load(...interface{}) *Builder {
 }
 
 func (b *Builder) With(relations ...interface{}) *Builder {
+	var name string
+	var res = make(map[string]func(*RelationBuilder) *RelationBuilder)
 	for _, relation := range relations {
 		switch relation.(type) {
 		case string:
-			b.EagerLoad[relation.(string)] = func(builder *RelationBuilder) *RelationBuilder {
+			name = relation.(string)
+			res = b.addNestedWiths(name, res)
+			res[name] = func(builder *RelationBuilder) *RelationBuilder {
 				return builder
 			}
 		case []string:
 			for _, r := range relation.([]string) {
-				b.EagerLoad[r] = func(builder *RelationBuilder) *RelationBuilder {
+				name = r
+				res = b.addNestedWiths(name, res)
+				res[name] = func(builder *RelationBuilder) *RelationBuilder {
 					return builder
 				}
 			}
-		case map[string]func(builder *Builder) *Builder:
+		case map[string]func(builder *RelationBuilder) *RelationBuilder:
 			for relationName, fn := range relation.(map[string]func(builder *RelationBuilder) *RelationBuilder) {
-				b.EagerLoad[relationName] = fn
+				name = relationName
+				res = b.addNestedWiths(name, res)
+				res[relationName] = fn
 			}
 		}
 	}
 
+	for s, f := range res {
+		b.EagerLoad[s] = f
+	}
 	return b
+}
+func (b *Builder) addNestedWiths(name string, results map[string]func(builder *RelationBuilder) *RelationBuilder) map[string]func(builder *RelationBuilder) *RelationBuilder {
+	var progress []string
+	for _, segment := range strings.Split(name, ".") {
+		progress = append(progress, segment)
+		var ts string
+		for j := 0; j < len(progress); j++ {
+			ts = strings.Join(progress, ".")
+		}
+		if _, ok := results[ts]; !ok {
+			results[ts] = func(builder *RelationBuilder) *RelationBuilder {
+				return builder
+			}
+		}
+	}
+	return results
 }
 func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Duration) {
 	//if b.LoggingQueries {

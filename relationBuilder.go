@@ -38,10 +38,19 @@ func (r *RelationBuilder) EagerLoadRelations(models interface{}) {
 	//get pointer value
 	//realDest := reflect.Indirect(value)
 
-	model := GetParsedModel(dest)
+	var model *Model
+	if t, ok := models.(*reflect.Value); ok {
+		sliceEleType := t.Type().Elem()
+		model = GetParsedModel(sliceEleType.PkgPath() + "." + sliceEleType.Name())
+	} else {
+		model = GetParsedModel(models)
+	}
+
 	//models = realDest.Interface()
 	for relationName, fn := range r.Builder.EagerLoad {
-		r.EagerLoadRelation(models, model, relationName, fn)
+		if !strings.Contains(relationName, ".") {
+			r.EagerLoadRelation(models, model, relationName, fn)
+		}
 	}
 }
 func (r *RelationBuilder) LoadPivotColumns(pivots ...string) {
@@ -63,6 +72,17 @@ func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, re
 		var params []reflect.Value
 		builderI := relationMethod.Call(params)[0].Interface()
 		if builder, ok := builderI.(*RelationBuilder); ok {
+			//load nested relations
+			wanted := relationName + "."
+			nestedRelation := make(map[string]func(*RelationBuilder) *RelationBuilder)
+			for name, f := range r.Builder.EagerLoad {
+				if strings.Index(name, wanted) == 0 {
+					nestedRelation[strings.Replace(name, wanted, "", -1)] = f
+				}
+			}
+			if len(nestedRelation) > 0 {
+				builder.With(nestedRelation)
+			}
 			//make sure this line runs first so we clear previous wheres and then add dynamic constraints
 			builder.Relation.AddEagerConstraints(models)
 			builder.LoadPivotColumns(r.Builder.Pivots...)

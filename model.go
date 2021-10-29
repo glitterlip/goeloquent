@@ -234,6 +234,8 @@ func GetParsedModel(model interface{}) *Model {
 
 	if t, ok := model.(reflect.Type); ok {
 		target = t
+	} else if s, ok := model.(string); ok {
+		target = Eloquent.Models[s].Type()
 	} else {
 		value := reflect.ValueOf(model)
 		if value.Kind() != reflect.Ptr {

@@ -37,7 +37,7 @@ func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivot
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotParentKey, PivotAlias, relation.PivotParentKey))
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index))
+	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
 	modelMorphName := Eloquent.MorphModelMap[relatedModel.Name]
 	b.Where(pivotTypeColumn, modelMorphName)
 	return &RelationBuilder{Builder: b, Relation: &relation}
@@ -53,6 +53,11 @@ func (r *MorphByManyRelation) AddEagerConstraints(models interface{}) {
 		for i := 0; i < modelSlice.Len(); i++ {
 			model := modelSlice.Index(i)
 			modelKey := reflect.Indirect(model).Field(index).Interface()
+			keys = append(keys, modelKey)
+		}
+	} else if ms, ok := models.(*reflect.Value); ok {
+		for i := 0; i < ms.Len(); i++ {
+			modelKey := ms.Index(i).Field(index).Interface()
 			keys = append(keys, modelKey)
 		}
 	} else {
@@ -111,7 +116,19 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
 	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
 
-	if targetSlice.Type().Kind() != reflect.Slice {
+	if rvP, ok := models.(*reflect.Value); ok {
+		for i := 0; i < rvP.Len(); i++ {
+			e := rvP.Index(i)
+			modelKey := e.Field(modelKeyFiledIndex)
+			modelKeyStr := fmt.Sprint(modelKey)
+			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
+			if value.IsValid() {
+				value = value.Interface().(reflect.Value)
+				e.Field(modelRelationFiledIndex).Set(value)
+			}
+
+		}
+	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
 		modelKey := model.Field(modelKeyFiledIndex)
 		modelKeyStr := fmt.Sprint(modelKey)
