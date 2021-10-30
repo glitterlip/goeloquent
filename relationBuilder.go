@@ -23,18 +23,11 @@ func (r *RelationBuilder) Get(dest interface{}) (result sql.Result, err error) {
 		}
 	}
 	result, err = r.Builder.Get(dest)
-	if len(r.Builder.EagerLoad) > 0 {
-		//value := reflect.ValueOf(dest)
-		//get pointer value
-		//realDest := reflect.Indirect(value)
-		//models := realDest.Interface().([]interface{})
-		r.EagerLoadRelations(dest)
-	}
 
 	return
 }
 func (r *RelationBuilder) EagerLoadRelations(models interface{}) {
-	dest := r.Builder.Dest
+	//dest := r.Builder.Dest
 	//value := reflect.ValueOf(dest)
 	//get pointer value
 	//realDest := reflect.Indirect(value)
