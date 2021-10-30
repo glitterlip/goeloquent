@@ -14,8 +14,13 @@ type DB struct {
 	RegisteredMorphModelsMap sync.Map
 	RegisteredDBMap          sync.Map
 	ParsedModelsMap          sync.Map
+	LogFunc                  func(log Log)
 }
 
+func (d *DB) SetLogger(f func(log Log)) *DB {
+	d.LogFunc = f
+	return d
+}
 func Open(config map[string]DBConfig) *DB {
 	db := DB{
 		DatabaseManager: DatabaseManager{

@@ -69,13 +69,12 @@ type Builder struct {
 	PivotWheres      []Where
 }
 
-//type EloquentBuilder struct {
-//	Builder
-//	Model  *Model
-//	Booted bool
-//	//GlobalScopes
-//	//RemovedScope
-//}
+type Log struct {
+	SQL      string
+	Bindings []interface{}
+	Result   sql.Result
+	Time     time.Duration
+}
 
 func (b *Builder) WithOutGlobalScope(...interface{}) *Builder {
 
@@ -733,7 +732,7 @@ func (b *Builder) Aggregate(dest interface{}, fn string, column ...string) (resu
 	})
 	b.Components["aggregate"] = nil
 	result, err = b.RunSelect()
-	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start))
+	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	return
 }
 func (b *Builder) Count(dest interface{}, column ...string) (result sql.Result, err error) {
@@ -874,16 +873,16 @@ func (b *Builder) addNestedWiths(name string, results map[string]func(builder *R
 	}
 	return results
 }
-func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Duration) {
-	//if b.LoggingQueries {
-	log := map[string]interface{}{
-		"query":    query,
-		"bindings": bindings,
-		"time":     elapsed.String(),
+func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Duration, result sql.Result) {
+	if Eloquent.LogFunc != nil {
+		Eloquent.LogFunc(Log{
+			SQL:      query,
+			Bindings: bindings,
+			Result:   result,
+			Time:     elapsed,
+		})
 	}
-	fmt.Println(log)
-	//b.QueryLog = append(b.QueryLog)
-	//}
+
 }
 func (b *Builder) Get(dest interface{}) (result sql.Result, err error) {
 	var start = time.Now()
@@ -895,7 +894,7 @@ func (b *Builder) Get(dest interface{}) (result sql.Result, err error) {
 	}
 
 	result, err = b.RunSelect()
-	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start))
+	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	if len(b.EagerLoad) > 0 {
 		rb := RelationBuilder{
 			Builder: b,
