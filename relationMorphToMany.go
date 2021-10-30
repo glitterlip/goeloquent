@@ -42,7 +42,7 @@ func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivot
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
 	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
-	modelMorphName := Eloquent.MorphModelMap[selfModel.Name]
+	modelMorphName := GetMorphMap(selfModel.Name)
 	b.Where(morphType, modelMorphName)
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
@@ -71,7 +71,7 @@ func (relation *MorphToManyRelation) AddEagerConstraints(models interface{}) {
 	}
 	relation.Builder.Wheres = nil
 	relation.Builder.WhereIn(relation.PivotTable+"."+relation.PivotParentKey, keys)
-	relation.Builder.Where(relation.MorphType, Eloquent.MorphModelMap[parentParsedModel.Name])
+	relation.Builder.Where(relation.MorphType, GetMorphMap(parentParsedModel.Name))
 
 }
 func MatchMorphToMany(models interface{}, related interface{}, relation *MorphToManyRelation) {

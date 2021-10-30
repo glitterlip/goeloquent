@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type RelationBuilder struct {
@@ -116,10 +117,7 @@ func (r *RelationBuilder) GetEager(relation interface{}) interface{} {
 		morphto := relation.(*MorphToRelation)
 		relationResults := make(map[string]reflect.Value)
 		for key, keys := range morphto.Groups {
-			modelPointer, ok := Eloquent.MorphDBMap[key]
-			if !ok {
-				panic("no morph map key found for:" + key)
-			}
+			modelPointer := GetMorphDBMap(key)
 			models := reflect.MakeSlice(reflect.SliceOf(modelPointer.Type()), 0, 10)
 			_, err := Eloquent.Model(modelPointer.Type()).WhereIn(morphto.RelatedKey, keys).Get(&models)
 			if err != nil {

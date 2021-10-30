@@ -1,14 +1,19 @@
 package goeloquent
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+	"sync"
+)
 
 var Eloquent *DB
 
 type DB struct {
 	DatabaseManager
-	MorphDBMap    map[string]reflect.Value //dbvalue=>model
-	MorphModelMap map[string]string        //modelname=>dbvalue
-	Models        map[string]reflect.Value
+	RegisteredModelsMap      sync.Map
+	RegisteredMorphModelsMap sync.Map
+	RegisteredDBMap          sync.Map
+	ParsedModelsMap          sync.Map
 }
 
 func Open(config map[string]DBConfig) *DB {
@@ -23,21 +28,41 @@ func Open(config map[string]DBConfig) *DB {
 	return Eloquent
 }
 func RegistMorphMap(morphMap map[string]interface{}) {
-	Eloquent.MorphDBMap = make(map[string]reflect.Value)
-	Eloquent.MorphModelMap = make(map[string]string)
 	for DbName, pointer := range morphMap {
 		if reflect.TypeOf(pointer).Kind() != reflect.Ptr {
 			panic("morph map value must be model pointer")
 		}
-		Eloquent.MorphDBMap[DbName] = reflect.Indirect(reflect.ValueOf(pointer))
-		Eloquent.MorphModelMap[reflect.Indirect(reflect.ValueOf(pointer)).Type().Name()] = DbName
+		Eloquent.RegisteredDBMap.Store(DbName, reflect.Indirect(reflect.ValueOf(pointer)))
+		Eloquent.RegisteredMorphModelsMap.Store(reflect.Indirect(reflect.ValueOf(pointer)).Type().Name(), DbName)
 	}
 }
+func GetMorphMap(name string) string {
+	v, ok := Eloquent.RegisteredMorphModelsMap.Load(name)
+	if !ok {
+		panic(fmt.Sprintf("no registered model found for %s", name))
+	}
+	return v.(string)
+}
+func GetMorphDBMap(name string) reflect.Value {
+	v, ok := Eloquent.RegisteredDBMap.Load(name)
+	if !ok {
+		panic(fmt.Sprintf("no registered model found for %s", name))
+	}
+	return v.(reflect.Value)
+}
 func RegisterModels(models []interface{}) {
-	Eloquent.Models = make(map[string]reflect.Value)
-
 	for _, m := range models {
 		t := reflect.ValueOf(m).Elem().Type()
-		Eloquent.Models[t.PkgPath()+"."+t.Name()] = reflect.Indirect(reflect.ValueOf(m))
+		Eloquent.RegisteredModelsMap.Store(t.PkgPath()+"."+t.Name(), reflect.Indirect(reflect.ValueOf(m)))
 	}
+}
+func GetRegisteredModel(name string) reflect.Value {
+	v, ok := Eloquent.RegisteredModelsMap.Load(name)
+	if !ok {
+		panic(fmt.Sprintf("no registered model found for %s", name))
+	}
+	return v.(reflect.Value)
+}
+func GetParsed(name string) (interface{}, bool) {
+	return Eloquent.ParsedModelsMap.Load(name)
 }

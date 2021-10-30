@@ -26,7 +26,7 @@ func (m *EloquentModel) MorphMany(self interface{}, related interface{}, related
 	}
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	relation.MorphType = Eloquent.MorphModelMap[selfModel.Name]
+	relation.MorphType = GetMorphMap(selfModel.Name)
 
 	b.Where(relatedIdColumn, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
 	b.WhereNotNull(relatedIdColumn)

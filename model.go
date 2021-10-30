@@ -235,7 +235,7 @@ func GetParsedModel(model interface{}) *Model {
 	if t, ok := model.(reflect.Type); ok {
 		target = t
 	} else if s, ok := model.(string); ok {
-		target = Eloquent.Models[s].Type()
+		target = GetRegisteredModel(s).Type()
 	} else {
 		value := reflect.ValueOf(model)
 		if value.Kind() != reflect.Ptr {
@@ -253,8 +253,13 @@ func GetParsedModel(model interface{}) *Model {
 			target = modelValue.Type()
 		}
 	}
-
+	name := target.PkgPath() + "." + target.Name()
+	i, ok := GetParsed(name)
+	if ok {
+		return i.(*Model)
+	}
 	parsed, _ := Parse(target)
+	Eloquent.ParsedModelsMap.Store(name, parsed)
 	return parsed
 
 }

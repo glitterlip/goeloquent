@@ -35,7 +35,7 @@ func (m *EloquentModel) MorphTo(self interface{}, parentRelatedKey, relatedKey, 
 	relatedTypeField := parent.FieldsByDbName[parentRelatedType]
 	t := reflect.Indirect(reflect.ValueOf(self)).Field(relatedTypeField.Index).Interface().(string)
 	if t != "" {
-		m := Eloquent.MorphDBMap[t]
+		m := GetMorphDBMap(t)
 		builder.SetModel(m.Type())
 		builder.Where(relatedKey, reflect.Indirect(reflect.ValueOf(self)).Field(parent.FieldsByDbName[parentRelatedKey].Index).Interface())
 	}
@@ -85,7 +85,7 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 		groupedResults := make(map[string]reflect.Value)
 		for i := 0; i < relatedSliceValue.Len(); i++ {
 			morphModelValue := relatedSliceValue.Index(i)
-			parsedMorphModel := GetParsedModel(Eloquent.MorphDBMap[morphType].Type())
+			parsedMorphModel := GetParsedModel(GetMorphDBMap(morphType).Type())
 			ownerKeyIndex := parsedMorphModel.FieldsByDbName[relation.RelatedKey].Index
 			idIndex := morphModelValue.Field(ownerKeyIndex)
 			idStr := fmt.Sprint(idIndex.Interface())
