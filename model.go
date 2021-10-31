@@ -121,6 +121,14 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 	for i := 0; i < modelType.NumField(); i++ {
 		model.ParseField(modelType.Field(i))
 	}
+	if len(model.DbFields) == 0 {
+		for i := 0; i < len(model.Fields); i++ {
+			name := ToSnakeCase(model.Fields[i].Name)
+			model.Fields[i].ColumnName = name
+			model.FieldsByDbName[name] = model.Fields[i]
+			model.DbFields = append(model.DbFields, name)
+		}
+	}
 	funcs := map[string]string{
 		EventSaving:    EventSaving,
 		EventSaved:     EventSaved,
