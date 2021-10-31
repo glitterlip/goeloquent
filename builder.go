@@ -169,10 +169,6 @@ func (b *Builder) Select(columns ...string) *Builder {
 	b.Columns = append(b.Columns, columns...)
 	return b
 }
-func (b *Builder) MapInto(dest interface{}) *Builder {
-	b.Dest = dest
-	return b
-}
 func (b *Builder) Distinct() *Builder {
 	b.IsDistinct = true
 	return b
@@ -222,6 +218,17 @@ func (b *Builder) join(table, firstColumn, joinOperator, secondColumn, joinType 
 //column,operator,value,
 func (b *Builder) Where(params ...interface{}) *Builder {
 
+	if maps, ok := params[0].(map[string][]interface{}); ok {
+		for column, conditions := range maps {
+			t := []interface{}{column}
+			tp := append(t, conditions...)
+			b.Where(tp)
+		}
+		return b
+	}
+	if tp, ok := params[0].([]interface{}); ok {
+		params = tp
+	}
 	column := params[0].(string)
 	paramsLength := len(params)
 	var operator string
@@ -694,7 +701,11 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 }
 func (b *Builder) RunSelect() (result sql.Result, err error) {
 	result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
-	if b.Model.IsEloquent {
+	d := reflect.TypeOf(b.Dest).Elem()
+	if d.Kind() == reflect.Slice {
+		d = d.Elem()
+	}
+	if b.Model != nil && b.Model.IsEloquent && d.Kind() == reflect.Struct {
 		c, _ := result.RowsAffected()
 		BatchSync(b.Dest, c > 0)
 	}
