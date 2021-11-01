@@ -183,57 +183,78 @@ func (m *MysqlGrammar) compileComponentWheres() {
 		if i != 0 {
 			m.GetBuilder().PreSql.WriteString(" " + w.Boolean + " ")
 		}
-		switch w.Type {
-		case CONDITION_TYPE_BASIC:
-			m.GetBuilder().PreSql.WriteString(m.Wrap(w.Column))
-			m.GetBuilder().PreSql.WriteString(" " + w.Operator + " ")
-			m.GetBuilder().PreSql.WriteString(m.parameter(w.Value))
-		case CONDITION_TYPE_BETWEEN:
-			m.GetBuilder().PreSql.WriteString(m.Wrap(w.Column))
-			if w.Not {
-				m.GetBuilder().PreSql.WriteString(" not between ")
-			} else {
-				m.GetBuilder().PreSql.WriteString(" between ")
-			}
-			m.GetBuilder().PreSql.WriteString(m.parameter(w.Values[0]))
-			m.GetBuilder().PreSql.WriteString(" and ")
-			m.GetBuilder().PreSql.WriteString(m.parameter(w.Values[1]))
-		case CONDITION_TYPE_IN:
-			m.GetBuilder().PreSql.WriteString(m.Wrap(w.Column))
-			if w.Not {
-				m.GetBuilder().PreSql.WriteString(" not in (")
-			} else {
-				m.GetBuilder().PreSql.WriteString(" in (")
-			}
-			m.GetBuilder().PreSql.WriteString(m.parameter(w.Values...))
-			m.GetBuilder().PreSql.WriteString(")")
-		case CONDITION_TYPE_DATE, CONDITION_TYPE_TIME, CONDITION_TYPE_DAY, CONDITION_TYPE_MONTH, CONDITION_TYPE_YEAR:
-			m.GetBuilder().PreSql.WriteString(w.Type)
+		if w.Type == CONDITION_TYPE_NESTED {
 			m.GetBuilder().PreSql.WriteString("(")
-			m.GetBuilder().PreSql.WriteString(m.Wrap(w.Column))
-			m.GetBuilder().PreSql.WriteString(") ")
-			m.GetBuilder().PreSql.WriteString(w.Operator)
-			m.GetBuilder().PreSql.WriteString(" ")
-			m.GetBuilder().PreSql.WriteString(m.parameter(w.Value))
-		case CONDITION_TYPE_NULL:
-			m.GetBuilder().PreSql.WriteString(m.Wrap(w.Column))
-			m.GetBuilder().PreSql.WriteString(" is ")
-			if w.Not {
-				m.GetBuilder().PreSql.WriteString(" not ")
+			cloneBuilder := w.Value.(*Builder)
+			for j := 0; j < len(cloneBuilder.Wheres); j++ {
+				nestedWhere := cloneBuilder.Wheres[j]
+				if j != 0 {
+					m.GetBuilder().PreSql.WriteString(" " + nestedWhere.Boolean + " ")
+				}
+				nestedSql := cloneBuilder.Grammar.(*MysqlGrammar).compileWhere(nestedWhere)
+				m.GetBuilder().PreSql.WriteString(nestedSql)
 			}
-			m.GetBuilder().PreSql.WriteString("null ")
-		case CONDITION_TYPE_COLUMN:
-			m.GetBuilder().PreSql.WriteString(m.Wrap(w.FirstColumn))
-			m.GetBuilder().PreSql.WriteString(" ")
-			m.GetBuilder().PreSql.WriteString(w.Operator)
-			m.GetBuilder().PreSql.WriteString(" ")
-			m.GetBuilder().PreSql.WriteString(m.Wrap(w.SecondColumn))
-		case CONDITION_TYPE_RAW:
-			m.GetBuilder().PreSql.WriteString(w.RawSql)
-		default:
-			panic("where type not Found")
+			m.GetBuilder().PreSql.WriteString(")")
+		} else {
+			m.GetBuilder().PreSql.WriteString(m.compileWhere(w))
 		}
+
 	}
+}
+func (m *MysqlGrammar) compileWhere(w Where) (sql string) {
+	var sqlBuilder strings.Builder
+	switch w.Type {
+	case CONDITION_TYPE_BASIC:
+		sqlBuilder.WriteString(m.Wrap(w.Column))
+		sqlBuilder.WriteString(" " + w.Operator + " ")
+		sqlBuilder.WriteString(m.parameter(w.Value))
+	case CONDITION_TYPE_BETWEEN:
+		sqlBuilder.WriteString(m.Wrap(w.Column))
+		if w.Not {
+			sqlBuilder.WriteString(" not between ")
+		} else {
+			sqlBuilder.WriteString(" between ")
+		}
+		sqlBuilder.WriteString(m.parameter(w.Values[0]))
+		sqlBuilder.WriteString(" and ")
+		sqlBuilder.WriteString(m.parameter(w.Values[1]))
+	case CONDITION_TYPE_IN:
+		sqlBuilder.WriteString(m.Wrap(w.Column))
+		if w.Not {
+			sqlBuilder.WriteString(" not in (")
+		} else {
+			sqlBuilder.WriteString(" in (")
+		}
+		sqlBuilder.WriteString(m.parameter(w.Values...))
+		sqlBuilder.WriteString(")")
+	case CONDITION_TYPE_DATE, CONDITION_TYPE_TIME, CONDITION_TYPE_DAY, CONDITION_TYPE_MONTH, CONDITION_TYPE_YEAR:
+		sqlBuilder.WriteString(w.Type)
+		sqlBuilder.WriteString("(")
+		sqlBuilder.WriteString(m.Wrap(w.Column))
+		sqlBuilder.WriteString(") ")
+		sqlBuilder.WriteString(w.Operator)
+		sqlBuilder.WriteString(" ")
+		sqlBuilder.WriteString(m.parameter(w.Value))
+	case CONDITION_TYPE_NULL:
+		sqlBuilder.WriteString(m.Wrap(w.Column))
+		sqlBuilder.WriteString(" is ")
+		if w.Not {
+			sqlBuilder.WriteString(" not ")
+		}
+		sqlBuilder.WriteString("null ")
+	case CONDITION_TYPE_COLUMN:
+		sqlBuilder.WriteString(m.Wrap(w.FirstColumn))
+		sqlBuilder.WriteString(" ")
+		sqlBuilder.WriteString(w.Operator)
+		sqlBuilder.WriteString(" ")
+		sqlBuilder.WriteString(m.Wrap(w.SecondColumn))
+	case CONDITION_TYPE_RAW:
+		sqlBuilder.WriteString(w.RawSql)
+	default:
+		panic("where type not Found")
+	}
+	return sqlBuilder.String()
+
 }
 func (m *MysqlGrammar) parameter(values ...interface{}) string {
 	var ps []string

@@ -86,32 +86,34 @@ func (b *Builder) WithOutGlobalScopes(...interface{}) *Builder {
 }
 
 const (
-	CONDITION_TYPE_BASIC      = "basic"
-	CONDITION_TYPE_COLUMN     = "column"
-	CONDITION_TYPE_RAW        = "raw"
-	CONDITION_TYPE_IN         = "in"
-	CONDITION_TYPE_NULL       = "null"
-	CONDITION_TYPE_BETWEEN    = "between"
-	CONDITION_TYPE_DATE       = "date"
-	CONDITION_TYPE_TIME       = "time"
-	CONDITION_TYPE_DATETIME   = "datetime"
-	CONDITION_TYPE_DAY        = "day"
-	CONDITION_TYPE_MONTH      = "month"
-	CONDITION_TYPE_YEAR       = "year"
-	CONDITION_TYPE_CLOSURE    = "closure"   //todo
-	CONDITION_TYPE_NESTED     = "nested"    //todo
-	CONDITION_TYPE_SUB        = "subquery"  //todo
-	CONDITION_TYPE_EXIST      = "exist"     //todo
-	CONDITION_TYPE_ROW_VALUES = "rowValues" //todo
-	BOOLEAN_AND               = "and"
-	BOOLEAN_OR                = "or"
-	CONDITION_JOIN_NOT        = "not" //todo
-	JOIN_TYPE_LEFT            = "left"
-	JOIN_TYPE_RIGHT           = "right"
-	JOIN_TYPE_INNER           = "inner"
-	JOIN_TYPE_CROSS           = "cross"
-	ORDER_ASC                 = "asc"
-	ORDER_DESC                = "desc"
+	CONDITION_TYPE_BASIC       = "basic"
+	CONDITION_TYPE_COLUMN      = "column"
+	CONDITION_TYPE_RAW         = "raw"
+	CONDITION_TYPE_IN          = "in"
+	CONDITION_TYPE_NOT_IN      = "not in"
+	CONDITION_TYPE_NULL        = "null"
+	CONDITION_TYPE_BETWEEN     = "between"
+	CONDITION_TYPE_NOT_BETWEEN = "not between"
+	CONDITION_TYPE_DATE        = "date"
+	CONDITION_TYPE_TIME        = "time"
+	CONDITION_TYPE_DATETIME    = "datetime"
+	CONDITION_TYPE_DAY         = "day"
+	CONDITION_TYPE_MONTH       = "month"
+	CONDITION_TYPE_YEAR        = "year"
+	CONDITION_TYPE_CLOSURE     = "closure"   //todo
+	CONDITION_TYPE_NESTED      = "nested"    //todo
+	CONDITION_TYPE_SUB         = "subquery"  //todo
+	CONDITION_TYPE_EXIST       = "exist"     //todo
+	CONDITION_TYPE_ROW_VALUES  = "rowValues" //todo
+	BOOLEAN_AND                = "and"
+	BOOLEAN_OR                 = "or"
+	CONDITION_JOIN_NOT         = "not" //todo
+	JOIN_TYPE_LEFT             = "left"
+	JOIN_TYPE_RIGHT            = "right"
+	JOIN_TYPE_INNER            = "inner"
+	JOIN_TYPE_CROSS            = "cross"
+	ORDER_ASC                  = "asc"
+	ORDER_DESC                 = "desc"
 )
 
 type Aggregate struct {
@@ -160,7 +162,18 @@ func NewBuilder(c IConnection) *Builder {
 	}
 	return &b
 }
-
+func CloneBuilder(b *Builder) *Builder {
+	cb := Builder{
+		Connection: b.Connection,
+		Components: make(map[string]interface{}),
+		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+		Grammar:    &MysqlGrammar{},
+	}
+	cb.Grammar.SetTablePrefix(b.TablePrefix)
+	cb.Grammar.SetBuilder(&cb)
+	cb.From(b.FromTable)
+	return &cb
+}
 func (b *Builder) Select(columns ...string) *Builder {
 	if columns == nil {
 		columns = []string{"*"}
@@ -218,33 +231,65 @@ func (b *Builder) join(table, firstColumn, joinOperator, secondColumn, joinType 
 //column,operator,value,
 func (b *Builder) Where(params ...interface{}) *Builder {
 
-	if maps, ok := params[0].(map[string][]interface{}); ok {
-		for column, conditions := range maps {
-			t := []interface{}{column}
-			tp := append(t, conditions...)
-			b.Where(tp)
+	//map of where conditions
+	if maps, ok := params[0].([][]interface{}); ok {
+		for _, conditions := range maps {
+			b.Where(conditions)
 		}
 		return b
 	}
+	//convert item of map of where conditions
 	if tp, ok := params[0].([]interface{}); ok {
 		params = tp
 	}
-	column := params[0].(string)
 	paramsLength := len(params)
 	var operator string
 	var value interface{}
 	var boolean = BOOLEAN_AND
+	if clousure, ok := params[0].(func(builder *Builder)); ok {
+		var boolean string
+		if paramsLength > 1 {
+			boolean = params[1].(string)
+		} else {
+			boolean = BOOLEAN_AND
+		}
+		//clousure
+		cb := CloneBuilder(b)
+		clousure(cb)
+		return b.addNestedWhereQuery(cb, boolean)
+	}
 	switch paramsLength {
 	case 2:
+		//assume operator is = and omitted
 		operator = "="
 		value = params[1]
 	case 3:
+		//correspond to column,operator,value
 		operator = params[1].(string)
 		value = params[2]
 	case 4:
+		//correspond to column,operator,value,boolean jointer
 		operator = params[1].(string)
 		value = params[2]
 		boolean = params[3].(string)
+	}
+	column := params[0].(string)
+	//operator might be in/not in/between/not between,in there cases we need take value as slice
+	if strings.Contains("in,not in,between,not between", operator) {
+		switch operator {
+		case CONDITION_TYPE_IN:
+			b.WhereIn(column, value, boolean)
+			return b
+		case CONDITION_TYPE_NOT_IN:
+			b.WhereNotIn(column, value, boolean)
+			return b
+		case CONDITION_TYPE_BETWEEN:
+			b.WhereBetween(column, value, boolean)
+			return b
+		case CONDITION_TYPE_NOT_BETWEEN:
+			b.WhereNotBetween(column, value, boolean)
+			return b
+		}
 	}
 
 	b.Wheres = append(b.Wheres, Where{
@@ -462,7 +507,7 @@ func (b *Builder) WhereBetween(params ...interface{}) *Builder {
 	var boolean = BOOLEAN_AND
 	not := false
 	if paramsLength > 2 {
-		boolean = params[3].(string)
+		boolean = params[2].(string)
 	}
 	var betweenType = CONDITION_TYPE_BETWEEN
 	if paramsLength > 3 {
@@ -656,6 +701,19 @@ func (b *Builder) WhereModel(model interface{}) *Builder {
 	}
 	return b
 }
+func (b *Builder) addNestedWhereQuery(cloneBuilder *Builder, boolean string) *Builder {
+
+	if len(cloneBuilder.Wheres) > 0 {
+		b.Wheres = append(b.Wheres, Where{
+			Type:    CONDITION_TYPE_NESTED,
+			Value:   cloneBuilder,
+			Boolean: boolean,
+		})
+		b.Components["wheres"] = nil
+	}
+	return b
+}
+
 func (b *Builder) BeginTransaction() *Builder {
 	b.Connection.BeginTransaction()
 	return b
@@ -768,6 +826,20 @@ func (b *Builder) Sum(dest interface{}, column ...string) (result sql.Result, er
 
 	return b.Aggregate(dest, "sum", column...)
 
+}
+func (b *Builder) Only(columns ...string) *Builder {
+	b.OnlyColumns = make(map[string]interface{}, len(columns))
+	for i := 0; i < len(columns); i++ {
+		b.OnlyColumns[columns[i]] = nil
+	}
+	return b
+}
+func (b *Builder) Except(columns ...string) *Builder {
+	b.ExceptColumns = make(map[string]interface{}, len(columns))
+	for i := 0; i < len(columns); i++ {
+		b.ExceptColumns[columns[i]] = nil
+	}
+	return b
 }
 
 //todo: support struct
