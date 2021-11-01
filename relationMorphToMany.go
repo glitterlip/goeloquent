@@ -90,7 +90,7 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotKey := PivotAlias + relation.PivotRelatedKey
+	pivotKey := PivotAlias + relation.PivotParentKey
 	if !relatedResults.IsValid() || relatedResults.IsNil() {
 		return
 	}
