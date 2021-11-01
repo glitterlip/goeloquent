@@ -123,10 +123,15 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 	}
 	if len(model.DbFields) == 0 {
 		for i := 0; i < len(model.Fields); i++ {
-			name := ToSnakeCase(model.Fields[i].Name)
-			model.Fields[i].ColumnName = name
-			model.FieldsByDbName[name] = model.Fields[i]
-			model.DbFields = append(model.DbFields, name)
+			if model.Fields[i].Name == "Table" && strings.Contains(model.Fields[i].Tag.Get("goelo"), "TableName:") {
+				model.Table = strings.Replace(model.Fields[i].Tag.Get("goelo"), "TableName:", "", 1)
+			} else {
+				name := ToSnakeCase(model.Fields[i].Name)
+				model.Fields[i].ColumnName = name
+				model.FieldsByDbName[name] = model.Fields[i]
+				model.DbFields = append(model.DbFields, name)
+			}
+
 		}
 	}
 	funcs := map[string]string{
