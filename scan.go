@@ -19,97 +19,78 @@ func (v ScanResult) RowsAffected() (int64, error) {
 	return int64(v.Count), nil
 }
 func ScanAll(rows *sql.Rows, dest interface{}) (result ScanResult) {
-	//*model *[]model *[]*model *map[string]interface *[]map[string]interface *SimpleStruct *[]SimpleStruct
-	value := reflect.ValueOf(dest)
-	//get pointer value could be a normal slice or a reflect.value created by reflect.MakeSlice
-	realDest := reflect.Indirect(value)
-	//&[]User &[]*User
-	columns, _ := rows.Columns()
+	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	if realDest.Kind() == reflect.Slice {
-		slice := value.Type().Elem()
-		base := slice.Elem()
-		if base.Kind() == reflect.Map {
-			for rows.Next() {
-				scanArgs := make([]interface{}, len(columns))
-				element := make(map[string]interface{})
-				result.Count++
-				for i, _ := range columns {
-					scanArgs[i] = new(interface{})
-				}
-				err := rows.Scan(scanArgs...)
-				if err != nil {
-					panic(err.Error())
-				}
-				for i, column := range columns {
-					element[column] = reflect.ValueOf(scanArgs[i]).Elem().Interface()
-				}
-				realDest.Set(reflect.Append(realDest, reflect.ValueOf(element)))
-			}
+		slice := realDest.Type()
+		sliceItem := slice.Elem()
+		if sliceItem.Kind() == reflect.Map {
+			return scanMapSlice(rows, dest)
 		} else {
-			itemIsPtr := base.Kind() == reflect.Ptr
-			model := GetParsedModel(dest)
-			scanArgs := make([]interface{}, len(columns))
-			var needProcessPivot bool
-			var pivotColumnMap = make(map[string]int, 2)
-			for rows.Next() {
-				var v, vp reflect.Value
-				if itemIsPtr {
-					vp = reflect.New(base.Elem())
-					v = reflect.Indirect(vp)
-				} else {
-					vp = reflect.New(base)
-					v = reflect.Indirect(vp)
-				}
-				for i, column := range columns {
-					if f, ok := model.FieldsByDbName[column]; ok {
-						scanArgs[i] = v.Field(f.Index).Addr().Interface()
-					} else {
-						if strings.Contains(column, "goelo_pivot_") {
-							if !needProcessPivot {
-								needProcessPivot = true
-							}
-							pivotColumnMap[column] = i
-							scanArgs[i] = new(sql.NullString)
-						} else {
-							scanArgs[i] = new(interface{})
-						}
-					}
-				}
-				err := rows.Scan(scanArgs...)
-				if err != nil {
-					panic(err.Error())
-				}
-				if needProcessPivot {
-					t := make(map[string]sql.NullString, 2)
-					for columnName, index := range pivotColumnMap {
-						t[columnName] = *(scanArgs[index].(*sql.NullString))
-					}
-					v.Field(model.PivotFieldIndex[0]).Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
-				}
-				if itemIsPtr {
-					realDest.Set(reflect.Append(realDest, vp))
-				} else {
-					realDest.Set(reflect.Append(realDest, v))
-				}
-			}
+			return scanStructSlice(rows, dest)
 		}
-	} else if destValue, ok := dest.(*reflect.Value); ok {
-		//relation reflect results
-		slice := destValue.Type()
-		base := slice.Elem()
-		//itemIsPtr := base.Kind() == reflect.Ptr
-		model := GetParsedModel(base)
-		scanArgs := make([]interface{}, len(columns))
-		vp := reflect.New(base)
-		v := reflect.Indirect(vp)
-		var needProcessPivot bool
-		var pivotColumnMap = make(map[string]int, 2)
+	} else if _, ok := dest.(*reflect.Value); ok {
+		return scanRelations(rows, dest)
+	} else if realDest.Kind() == reflect.Struct {
+		return scanStruct(rows, dest)
+	} else if realDest.Kind() == reflect.Map {
+		return scanMap(rows, dest)
+	} else {
 		for rows.Next() {
 			result.Count++
-			for i, column := range columns {
-				if f, ok := model.FieldsByDbName[column]; ok {
-					scanArgs[i] = v.Field(f.Index).Addr().Interface()
-				} else if strings.Contains(column, "goelo_pivot_") {
+			err := rows.Scan(dest)
+			if err != nil {
+				panic(err.Error())
+			}
+		}
+	}
+	return
+}
+
+func scanMapSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
+	columns, _ := rows.Columns()
+	realDest := reflect.Indirect(reflect.ValueOf(dest))
+	for rows.Next() {
+		scanArgs := make([]interface{}, len(columns))
+		element := make(map[string]interface{})
+		result.Count++
+		for i, _ := range columns {
+			scanArgs[i] = new(interface{})
+		}
+		err := rows.Scan(scanArgs...)
+		if err != nil {
+			panic(err.Error())
+		}
+		for i, column := range columns {
+			element[column] = reflect.ValueOf(scanArgs[i]).Elem().Interface()
+		}
+		realDest.Set(reflect.Append(realDest, reflect.ValueOf(element)))
+	}
+	return
+}
+func scanStructSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
+	realDest := reflect.Indirect(reflect.ValueOf(dest))
+	columns, _ := rows.Columns()
+	slice := realDest.Type()
+	sliceItem := slice.Elem()
+	itemIsPtr := sliceItem.Kind() == reflect.Ptr
+	model := GetParsedModel(dest)
+	scanArgs := make([]interface{}, len(columns))
+	var needProcessPivot bool
+	var pivotColumnMap = make(map[string]int, 2)
+	for rows.Next() {
+		var v, vp reflect.Value
+		if itemIsPtr {
+			vp = reflect.New(sliceItem.Elem())
+			v = reflect.Indirect(vp)
+		} else {
+			vp = reflect.New(sliceItem)
+			v = reflect.Indirect(vp)
+		}
+		for i, column := range columns {
+			if f, ok := model.FieldsByDbName[column]; ok {
+				scanArgs[i] = v.Field(f.Index).Addr().Interface()
+			} else {
+				if strings.Contains(column, "goelo_pivot_") {
 					if !needProcessPivot {
 						needProcessPivot = true
 					}
@@ -119,67 +100,114 @@ func ScanAll(rows *sql.Rows, dest interface{}) (result ScanResult) {
 					scanArgs[i] = new(interface{})
 				}
 			}
-			err := rows.Scan(scanArgs...)
-			if err != nil {
-				panic(err.Error())
-			}
-			if needProcessPivot {
-				t := make(map[string]sql.NullString, 2)
-				for columnName, index := range pivotColumnMap {
-					t[columnName] = *(scanArgs[index].(*sql.NullString))
-				}
-				v.Field(model.PivotFieldIndex[0]).Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
-			}
-			*destValue = reflect.Append(*destValue, v)
 		}
-	} else if realDest.Kind() == reflect.Struct {
-		model := GetParsedModel(dest)
-		scanArgs := make([]interface{}, len(columns))
-		vp := reflect.New(realDest.Type())
-		v := reflect.Indirect(vp)
-
-		for rows.Next() {
-			result.Count++
-			for i, column := range columns {
-				if f, ok := model.FieldsByDbName[column]; ok {
-					scanArgs[i] = v.Field(f.Index).Addr().Interface()
-				} else {
-					scanArgs[i] = new(interface{})
+		err := rows.Scan(scanArgs...)
+		if err != nil {
+			panic(err.Error())
+		}
+		if needProcessPivot {
+			t := make(map[string]sql.NullString, 2)
+			for columnName, index := range pivotColumnMap {
+				t[columnName] = *(scanArgs[index].(*sql.NullString))
+			}
+			v.Field(model.PivotFieldIndex[0]).Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
+		}
+		if itemIsPtr {
+			realDest.Set(reflect.Append(realDest, vp))
+		} else {
+			realDest.Set(reflect.Append(realDest, v))
+		}
+	}
+	return
+}
+func scanRelations(rows *sql.Rows, dest interface{}) (result ScanResult) {
+	columns, _ := rows.Columns()
+	destValue := dest.(*reflect.Value)
+	//relation reflect results
+	slice := destValue.Type()
+	sliceItem := slice.Elem()
+	//itemIsPtr := base.Kind() == reflect.Ptr
+	model := GetParsedModel(sliceItem)
+	scanArgs := make([]interface{}, len(columns))
+	vp := reflect.New(sliceItem)
+	v := reflect.Indirect(vp)
+	var needProcessPivot bool
+	var pivotColumnMap = make(map[string]int, 2)
+	for rows.Next() {
+		result.Count++
+		for i, column := range columns {
+			if f, ok := model.FieldsByDbName[column]; ok {
+				scanArgs[i] = v.Field(f.Index).Addr().Interface()
+			} else if strings.Contains(column, "goelo_pivot_") {
+				if !needProcessPivot {
+					needProcessPivot = true
 				}
-			}
-			err := rows.Scan(scanArgs...)
-			if err != nil {
-				panic(err.Error())
-			}
-			if realDest.Kind() == reflect.Ptr {
-				realDest.Set(vp)
+				pivotColumnMap[column] = i
+				scanArgs[i] = new(sql.NullString)
 			} else {
-				realDest.Set(v)
-			}
-		}
-	} else if realDest.Kind() == reflect.Map {
-		scanArgs := make([]interface{}, len(columns))
-		for rows.Next() {
-			result.Count++
-			for i, _ := range columns {
 				scanArgs[i] = new(interface{})
 			}
-			err := rows.Scan(scanArgs...)
-			if err != nil {
-				panic(err.Error())
+		}
+		err := rows.Scan(scanArgs...)
+		if err != nil {
+			panic(err.Error())
+		}
+		if needProcessPivot {
+			t := make(map[string]sql.NullString, 2)
+			for columnName, index := range pivotColumnMap {
+				t[columnName] = *(scanArgs[index].(*sql.NullString))
 			}
-			for i, column := range columns {
-				//If elem is the zero Value, SetMapIndex deletes the key from the map.
-				realDest.SetMapIndex(reflect.ValueOf(column), reflect.ValueOf(reflect.ValueOf(scanArgs[i]).Elem().Interface()))
+			v.Field(model.PivotFieldIndex[0]).Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
+		}
+		*destValue = reflect.Append(*destValue, v)
+	}
+	return
+}
+func scanStruct(rows *sql.Rows, dest interface{}) (result ScanResult) {
+	realDest := reflect.Indirect(reflect.ValueOf(dest))
+	model := GetParsedModel(dest)
+	columns, _ := rows.Columns()
+	scanArgs := make([]interface{}, len(columns))
+	vp := reflect.New(realDest.Type())
+	v := reflect.Indirect(vp)
+
+	for rows.Next() {
+		result.Count++
+		for i, column := range columns {
+			if f, ok := model.FieldsByDbName[column]; ok {
+				scanArgs[i] = v.Field(f.Index).Addr().Interface()
+			} else {
+				scanArgs[i] = new(interface{})
 			}
 		}
-	} else {
-		for rows.Next() {
-			result.Count++
-			err := rows.Scan(dest)
-			if err != nil {
-				panic(err.Error())
-			}
+		err := rows.Scan(scanArgs...)
+		if err != nil {
+			panic(err.Error())
+		}
+		if realDest.Kind() == reflect.Ptr {
+			realDest.Set(vp)
+		} else {
+			realDest.Set(v)
+		}
+	}
+	return
+}
+func scanMap(rows *sql.Rows, dest interface{}) (result ScanResult) {
+	columns, _ := rows.Columns()
+	realDest := reflect.Indirect(reflect.ValueOf(dest))
+	scanArgs := make([]interface{}, len(columns))
+	for rows.Next() {
+		result.Count++
+		for i, _ := range columns {
+			scanArgs[i] = new(interface{})
+		}
+		err := rows.Scan(scanArgs...)
+		if err != nil {
+			panic(err.Error())
+		}
+		for i, column := range columns {
+			//If elem is the zero Value, SetMapIndex deletes the key from the map.
+			realDest.SetMapIndex(reflect.ValueOf(column), reflect.ValueOf(reflect.ValueOf(scanArgs[i]).Elem().Interface()))
 		}
 	}
 	return
