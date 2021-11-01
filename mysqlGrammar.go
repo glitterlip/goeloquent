@@ -32,12 +32,14 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 	m.compileComponentTable()
 	b.PreSql.WriteString(" ( ")
 	first := values[0]
-	columnLength := len(first)
 	length := len(values)
 	var columns []string
 	for key := range first {
-		columns = append(columns, key)
+		if (b.OnlyColumns == nil && b.ExceptColumns == nil) || b.FileterColumn(key) {
+			columns = append(columns, key)
+		}
 	}
+	columnLength := len(columns)
 	m.columnize(columns)
 	b.PreSql.WriteString(" ) values ")
 
@@ -78,9 +80,11 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 	length := len(value)
 	for k, v := range value {
 		count++
-		b.PreSql.WriteString(m.Wrap(k))
-		b.PreSql.WriteString(" = ")
-		b.PreSql.WriteString(m.parameter(v))
+		if (b.OnlyColumns == nil && b.ExceptColumns == nil) || b.FileterColumn(k) {
+			b.PreSql.WriteString(m.Wrap(k))
+			b.PreSql.WriteString(" = ")
+			b.PreSql.WriteString(m.parameter(v))
+		}
 		if count != length {
 			b.PreSql.WriteString(" , ")
 		}

@@ -67,6 +67,8 @@ type Builder struct {
 	EagerLoad        map[string]func(*RelationBuilder) *RelationBuilder //TODO map[string]callback to dynamicly add constraints
 	Pivots           []string
 	PivotWheres      []Where
+	OnlyColumns      map[string]interface{}
+	ExceptColumns    map[string]interface{}
 }
 
 type Log struct {
@@ -841,20 +843,61 @@ func (b *Builder) Except(columns ...string) *Builder {
 	}
 	return b
 }
+func (b *Builder) FileterColumn(column string) bool {
+	if b.OnlyColumns != nil {
+		if _, ok := b.OnlyColumns[column]; !ok {
+			return false
+		}
+	}
+	if b.ExceptColumns != nil {
+		if _, ok := b.ExceptColumns[column]; ok {
+			return false
+		}
+	}
+	return true
+}
 
 //todo: support struct
 func (b *Builder) Insert(values interface{}) (sql.Result, error) {
-	v := reflect.Indirect(reflect.ValueOf(values))
+	var start = time.Now()
+	rv := reflect.ValueOf(values)
 	var items []map[string]interface{}
-	if v.Kind() == reflect.Slice {
-		items = v.Interface().([]map[string]interface{})
-	} else {
-		s := reflect.MakeSlice(reflect.SliceOf(reflect.TypeOf(values)), 1, 1)
-		s.Index(0).Set(v)
-		items = s.Interface().([]map[string]interface{})
+	if rv.Kind() == reflect.Ptr {
+		rv = reflect.Indirect(rv)
+	}
+	if rv.Kind() == reflect.Map {
+		items = append(items, rv.Interface().(map[string]interface{}))
+	} else if rv.Kind() == reflect.Slice {
+		eleType := rv.Type().Elem()
+		if eleType.Kind() == reflect.Ptr {
+			switch eleType.Elem().Kind() {
+			case reflect.Struct:
+				for i := 0; i < rv.Len(); i++ {
+					items = append(items, ExtractStruct(rv.Index(i).Elem().Interface()))
+				}
+			case reflect.Map:
+				for i := 0; i < rv.Len(); i++ {
+					items = append(items, rv.Index(i).Elem().Interface().(map[string]interface{}))
+				}
+			}
+		} else if eleType.Kind() == reflect.Map {
+			if tv, ok := values.(*[]map[string]interface{}); ok {
+				items = *tv
+			} else {
+				items = values.([]map[string]interface{})
+			}
+		} else if eleType.Kind() == reflect.Struct {
+			for i := 0; i < rv.Len(); i++ {
+				items = append(items, ExtractStruct(rv.Index(i).Interface()))
+			}
+		}
+	} else if rv.Kind() == reflect.Struct {
+		items = append(items, ExtractStruct(rv.Interface()))
 	}
 	b.Grammar.CompileInsert(items)
-	return b.Connection.Insert(b.PreparedSql, b.Bindings)
+	result, err := b.Connection.Insert(b.PreparedSql, b.Bindings)
+	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	return result, err
 }
 func (b *Builder) InsertGetId(n int) interface{} {
 
