@@ -1,6 +1,7 @@
 package goeloquent
 
 import (
+	"reflect"
 	"regexp"
 	"strings"
 )
@@ -12,4 +13,18 @@ func ToSnakeCase(str string) string {
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
+}
+func ExtractStruct(target interface{}) map[string]interface{} {
+	tv := reflect.Indirect(reflect.ValueOf(target))
+	tt := tv.Type()
+	result := make(map[string]interface{}, tv.NumField())
+	for i := 0; i < tv.NumField(); i++ {
+		//when using simple struct ,provide a convenient way to set table
+		if tt.Field(i).Name == "Table" && strings.Contains(tt.Field(i).Tag.Get("goelo"), "TableName:") {
+			continue
+		}
+		key := ToSnakeCase(tt.Field(i).Name)
+		result[key] = tv.Field(i).Interface()
+	}
+	return result
 }
