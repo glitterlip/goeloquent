@@ -1,6 +1,7 @@
 package goeloquent
 
 import (
+	"database/sql"
 	"fmt"
 	"reflect"
 	"sync"
@@ -70,4 +71,14 @@ func GetRegisteredModel(name string) reflect.Value {
 }
 func GetParsed(name string) (interface{}, bool) {
 	return Eloquent.ParsedModelsMap.Load(name)
+}
+func Raw(connectionName ...string) *sql.DB {
+
+	if len(connectionName) > 0 {
+		c := Eloquent.Connection(connectionName[0])
+		return (*c).GetDB()
+	} else {
+		c := Eloquent.Connection("default")
+		return (*c).GetDB()
+	}
 }

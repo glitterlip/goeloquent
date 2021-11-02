@@ -11,6 +11,7 @@ type IConnection interface {
 	BeginTransaction()
 	Commit() error
 	RollBack()
+	GetDB() *sql.DB
 	//GetGrammar() IGrammar
 	//SetGrammar(IGrammar)
 	//Run()

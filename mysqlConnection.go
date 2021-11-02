@@ -112,3 +112,7 @@ func (c *MysqlConnection) AffectingStatement(query string, bindings []interface{
 
 	return
 }
+
+func (c *MysqlConnection) GetDB() *sql.DB {
+	return c.Connection
+}

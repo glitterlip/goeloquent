@@ -925,9 +925,8 @@ func (b *Builder) Delete() (sql.Result, error) {
 	b.Grammar.CompileDelete()
 	return b.Connection.Delete(b.PreparedSql, b.Bindings)
 }
-func (b *Builder) Raw(n int) interface{} {
-
-	return 1
+func (b *Builder) Raw() *sql.DB {
+	return b.Connection.GetDB()
 }
 func (b *Builder) Dd(n int) interface{} {
 
