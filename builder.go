@@ -857,7 +857,6 @@ func (b *Builder) FileterColumn(column string) bool {
 	return true
 }
 
-//todo: support struct
 func (b *Builder) Insert(values interface{}) (sql.Result, error) {
 	var start = time.Now()
 	rv := reflect.ValueOf(values)
@@ -896,6 +895,17 @@ func (b *Builder) Insert(values interface{}) (sql.Result, error) {
 	}
 	b.Grammar.CompileInsert(items)
 	result, err := b.Connection.Insert(b.PreparedSql, b.Bindings)
+	if len(items) == 1 && rv.Kind() == reflect.Struct {
+		//set id for simple struct
+		m, _ := GetParsed(rv.Type().PkgPath() + "." + rv.Type().Name())
+		if m != nil {
+			mp := m.(*Model)
+			if !mp.IsEloquent && mp.FieldsByDbName["id"].StructField.Type.Kind() == reflect.Int64 {
+				id, _ := result.LastInsertId()
+				rv.Field(mp.FieldsByDbName["id"].StructField.Index[0]).Set(reflect.ValueOf(id))
+			}
+		}
+	}
 	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	return result, err
 }
@@ -904,9 +914,11 @@ func (b *Builder) InsertGetId(n int) interface{} {
 	return 1
 }
 func (b *Builder) Update(v map[string]interface{}) (sql.Result, error) {
-
+	var start = time.Now()
 	b.Grammar.CompileUpdate(v)
-	return b.Connection.Update(b.PreparedSql, b.Bindings)
+	result, err := b.Connection.Update(b.PreparedSql, b.Bindings)
+	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	return result, err
 }
 func (b *Builder) UpdateOrInsert(n int) interface{} {
 
@@ -921,32 +933,14 @@ func (b *Builder) Decrement(n int) interface{} {
 	return 1
 }
 func (b *Builder) Delete() (sql.Result, error) {
-
+	var start = time.Now()
 	b.Grammar.CompileDelete()
-	return b.Connection.Delete(b.PreparedSql, b.Bindings)
+	result, err := b.Connection.Delete(b.PreparedSql, b.Bindings)
+	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	return result, err
 }
 func (b *Builder) Raw() *sql.DB {
 	return b.Connection.GetDB()
-}
-func (b *Builder) Dd(n int) interface{} {
-
-	return 1
-}
-func (b *Builder) Dump(n int) interface{} {
-
-	return 1
-}
-func (b *Builder) ToSql(n int) interface{} {
-
-	return 1
-}
-func (b *Builder) Pretend() {
-
-	b.Pretending = true
-}
-
-func (b *Builder) Load(...interface{}) *Builder {
-	return b
 }
 
 func (b *Builder) With(relations ...interface{}) *Builder {
