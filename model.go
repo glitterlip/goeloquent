@@ -324,7 +324,7 @@ type EloquentModel struct {
 	Pivot         map[string]sql.NullString `json:"-"` //pivot relation table attribute
 	Exists        bool                      `json:"-"` //indicate whether the model is get from database or newly created and not store to db yet
 	Related       reflect.Value             `json:"-"` //when call save/create on relationship ,this holds the related key
-	Muted         []string                  `json:"-"` //mute events
+	Muted         string                    `json:"-"` //mute events
 	OnlyColumns   map[string]interface{}    `json:"-"` //only update/save these columns
 	ExceptColumns map[string]interface{}    `json:"-"` //exclude update/save there columns
 }
@@ -340,7 +340,7 @@ func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
 	parsed := GetParsedModel(m.Type())
 	if len(exists) == 0 {
-		exists = []bool{m.Field(parsed.PrimaryKey.Index).IsZero()}
+		exists = []bool{!m.Field(parsed.PrimaryKey.Index).IsZero()}
 	}
 	e := NewEloquentModel(modelPointer, exists[0])
 	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
@@ -450,7 +450,6 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 		if err != nil {
 			return
 		}
-		//todo:set created_at timestamps
 		id, err1 := res.LastInsertId()
 		if err1 == nil {
 			if parsed.PrimaryKey != nil {
@@ -463,12 +462,10 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 		m.Exists = true
 		//m.WasRecentlyCreated = true for createOrNew createOrUpdate?
 		m.FireModelEvent(EventCreated)
-
 	} else {
 		if !m.FireModelEvent(EventUpdating) {
 			return nil, errors.New("abort by EventUpdating func")
 		}
-		//todo:set updated_at timestamps
 		m.Changes = m.GetDirty()
 		res, err = Eloquent.Model(parsed.ModelType).Where(parsed.PrimaryKey.ColumnName, m.ModelPointer.Elem().Field(parsed.PrimaryKey.Index).Interface()).Update(m.GetAttributesForUpdate())
 		m.FireModelEvent(EventUpdated)
@@ -481,6 +478,16 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 
 func (m *EloquentModel) Create() (sql.Result, error) {
 	return m.Save()
+}
+func (m *EloquentModel) Mute(events ...string) *EloquentModel {
+	for i := 0; i < len(events); i++ {
+		if events[i] == "ALL" {
+			m.Muted = "Creating,Created,Updating,Updated,Saving,Saved,Deleting,Deleted"
+			break
+		}
+		m.Muted = m.Muted + "," + events[i]
+	}
+	return m
 }
 func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) {
 	model := reflect.Indirect(m.ModelPointer)
@@ -514,7 +521,13 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 		}
 	}
 	if modelType.UpdatedAt != "" {
-		attrs[modelType.UpdatedAt] = time.Now()
+		//if user set it manually,we won't change it
+		if _, ok := attrs[modelType.UpdatedAt]; !ok {
+			attrs[modelType.UpdatedAt] = time.Now()
+			m.Fill(map[string]interface{}{
+				modelType.UpdatedAt: time.Now(),
+			})
+		}
 	}
 	return
 }
@@ -550,7 +563,13 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 		}
 	}
 	if modelType.CreatedAt != "" {
-		attrs[modelType.CreatedAt] = time.Now()
+		//if user set it manually,we won't change it
+		if _, ok := attrs[modelType.CreatedAt]; !ok {
+			attrs[modelType.CreatedAt] = time.Now()
+			m.Fill(map[string]interface{}{
+				modelType.CreatedAt: time.Now(),
+			})
+		}
 	}
 	return
 
@@ -571,7 +590,14 @@ func (m *EloquentModel) FireModelEvent(name string) bool {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
 	method, ok := parsed.DispatchesEvents[name]
 	if ok {
-		return method.Call([]reflect.Value{m.ModelPointer})[0].Interface().(bool)
+		if strings.Contains(m.Muted, name) {
+			return true
+		}
+		result := method.Call([]reflect.Value{m.ModelPointer})
+		if len(result) == 0 {
+			return true
+		}
+		return result[0].Interface().(bool)
 	} else {
 		return true
 	}
