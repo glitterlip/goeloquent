@@ -634,6 +634,17 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	b.Components["wheres"] = nil
 	return b
 }
+func (b *Builder) WhereSub(column string, operator string, value func(builder *Builder), boolean string) *Builder {
+	b.Wheres = append(b.Wheres, Where{
+		Type:     CONDITION_TYPE_SUB,
+		Operator: operator,
+		Value:    value,
+		Column:   column,
+		Boolean:  boolean,
+	})
+	b.Components["wheres"] = nil
+	return b
+}
 func (b *Builder) WhereExists(params ...interface{}) *Builder {
 	return b.Where()
 }
