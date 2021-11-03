@@ -327,7 +327,10 @@ func (m *MysqlGrammar) compileComponentHavings() {
 
 func (m *MysqlGrammar) compileComponentOrders() {
 	m.GetBuilder().PreSql.WriteString(" order by ")
-	for _, order := range m.GetBuilder().Orders {
+	for i, order := range m.GetBuilder().Orders {
+		if i != 0 {
+			m.GetBuilder().PreSql.WriteString(" , ")
+		}
 		m.GetBuilder().PreSql.WriteString(m.Wrap(order.Column))
 		m.GetBuilder().PreSql.WriteString(" ")
 		m.GetBuilder().PreSql.WriteString(order.Direction)
