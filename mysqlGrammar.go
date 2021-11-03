@@ -34,13 +34,15 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 	first := values[0]
 	length := len(values)
 	var columns []string
+	var columnizeVars []interface{}
 	for key := range first {
 		if (b.OnlyColumns == nil && b.ExceptColumns == nil) || b.FileterColumn(key) {
 			columns = append(columns, key)
+			columnizeVars = append(columnizeVars, key)
 		}
 	}
 	columnLength := len(columns)
-	m.columnize(columns)
+	m.columnize(columnizeVars)
 	b.PreSql.WriteString(" ) values ")
 
 	for k, v := range values {
@@ -83,7 +85,11 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 		if (b.OnlyColumns == nil && b.ExceptColumns == nil) || b.FileterColumn(k) {
 			b.PreSql.WriteString(m.Wrap(k))
 			b.PreSql.WriteString(" = ")
-			b.PreSql.WriteString(m.parameter(v))
+			if e, ok := v.(Expression); ok {
+				b.PreSql.WriteString(e.Value)
+			} else {
+				b.PreSql.WriteString(m.parameter(v))
+			}
 		}
 		if count != length {
 			b.PreSql.WriteString(" , ")
@@ -332,10 +338,14 @@ func (m *MysqlGrammar) compileLock() {
 		m.GetBuilder().PreSql.WriteString(m.GetBuilder().Lock)
 	}
 }
-func (m *MysqlGrammar) columnize(columns []string) {
+func (m *MysqlGrammar) columnize(columns []interface{}) {
 	var t []string
 	for _, value := range columns {
-		t = append(t, m.Wrap(value))
+		if s, ok := value.(string); ok {
+			t = append(t, m.Wrap(s))
+		} else if e, ok := value.(Expression); ok {
+			t = append(t, e.Value)
+		}
 	}
 	m.GetBuilder().PreSql.WriteString(strings.Join(t, ","))
 }
