@@ -458,6 +458,8 @@ func (b *Builder) WhereNull(column string, params ...interface{}) *Builder {
 	})
 	return b
 }
+
+//column,boolean
 func (b *Builder) WhereNotNull(column string, params ...interface{}) *Builder {
 	paramsLength := len(params)
 	if paramsLength == 0 {
@@ -468,18 +470,19 @@ func (b *Builder) WhereNotNull(column string, params ...interface{}) *Builder {
 	return b.WhereNull(column, params...)
 }
 
+//column not
 func (b *Builder) OrWhereNull(column string, params ...interface{}) *Builder {
 	paramsLength := len(params)
 	if paramsLength == 0 {
 		params = append(params, BOOLEAN_OR, false)
 	} else if paramsLength == 1 {
-		params = append(params, false)
+		params = []interface{}{BOOLEAN_OR, params[0]}
 	}
 	return b.WhereNull(column, params...)
 }
 func (b *Builder) OrWhereNotNull(column string) *Builder {
 	params := []interface{}{BOOLEAN_OR, true}
-	return b.WhereNull(column, params)
+	return b.WhereNull(column, params...)
 }
 
 /*
