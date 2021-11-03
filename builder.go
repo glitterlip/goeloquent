@@ -537,6 +537,7 @@ func (b *Builder) OrWhereNotBetween(params ...interface{}) *Builder {
 }
 
 //timefuncion column operator value boolean
+//minum timefuncion column value
 
 func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 	paramsLength := len(params)
@@ -544,22 +545,42 @@ func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 	var boolean = BOOLEAN_AND
 	var operator string
 	var value string
+	var tvalue interface{}
 	//timefunction column value
 	if paramsLength == 3 {
 		operator = "="
-		value = params[2].(string)
+		tvalue = params[2]
 	} else if paramsLength > 3 {
 		//timefunction column operator value
 		operator = params[2].(string)
-		value = params[3].(string)
+		tvalue = params[3]
 		//timefunction column operator value boolean
 		if paramsLength > 4 && params[4].(string) != boolean {
 			boolean = BOOLEAN_OR
 		}
+	} else {
+		tvalue = params[3]
+	}
+	switch tvalue.(type) {
+	case string:
+		value = tvalue.(string)
+	case time.Time:
+		switch timeType.(string) {
+		case CONDITION_TYPE_DATE:
+			value = tvalue.(time.Time).Format("2006-01-02")
+		case CONDITION_TYPE_MONTH:
+			value = tvalue.(time.Time).Format("01")
+		case CONDITION_TYPE_YEAR:
+			value = tvalue.(time.Time).Format("2006")
+		case CONDITION_TYPE_TIME:
+			value = tvalue.(time.Time).Format("15:04:05")
+		case CONDITION_TYPE_DAY:
+			value = tvalue.(time.Time).Format("02")
+		}
 	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:     timeType.(string),
-		Column:   params[0].(string),
+		Column:   params[1].(string),
 		Boolean:  boolean,
 		Value:    value,
 		Operator: operator,
@@ -570,22 +591,24 @@ func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 
 //column operator value boolean
 func (b *Builder) WhereDate(params ...interface{}) *Builder {
-	return b.AddTimeBasedWhere(CONDITION_TYPE_DATE, params)
+	p := append([]interface{}{CONDITION_TYPE_DATE}, params...)
+	return b.AddTimeBasedWhere(p...)
 }
 func (b *Builder) WhereTime(params ...interface{}) *Builder {
-
-	return b.AddTimeBasedWhere(CONDITION_TYPE_TIME, params)
-
+	p := append([]interface{}{CONDITION_TYPE_TIME}, params...)
+	return b.AddTimeBasedWhere(p...)
 }
 func (b *Builder) WhereDay(params ...interface{}) *Builder {
-
-	return b.AddTimeBasedWhere(CONDITION_TYPE_DAY, params)
+	p := append([]interface{}{CONDITION_TYPE_DAY}, params...)
+	return b.AddTimeBasedWhere(p...)
 }
 func (b *Builder) WhereMonth(params ...interface{}) *Builder {
-	return b.AddTimeBasedWhere(CONDITION_TYPE_MONTH, params)
+	p := append([]interface{}{CONDITION_TYPE_MONTH}, params...)
+	return b.AddTimeBasedWhere(p...)
 }
 func (b *Builder) WhereYear(params ...interface{}) *Builder {
-	return b.AddTimeBasedWhere(CONDITION_TYPE_YEAR, params)
+	p := append([]interface{}{CONDITION_TYPE_YEAR}, params...)
+	return b.AddTimeBasedWhere(p...)
 }
 func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	if len(params) == 1 {
