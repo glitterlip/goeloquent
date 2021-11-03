@@ -510,7 +510,7 @@ func (b *Builder) WhereBetween(params ...interface{}) *Builder {
 	if paramsLength > 3 {
 		not = params[3].(bool)
 	}
-
+	b.Components["wheres"] = nil
 	b.Wheres = append(b.Wheres, Where{
 		Type:    betweenType,
 		Column:  params[0].(string),
@@ -522,19 +522,18 @@ func (b *Builder) WhereBetween(params ...interface{}) *Builder {
 }
 func (b *Builder) WhereNotBetween(params ...interface{}) *Builder {
 	if len(params) == 2 {
-		params[2] = BOOLEAN_AND
+		params = append(params, BOOLEAN_AND, true)
 	}
-	params[3] = true
-	return b.WhereBetween(params)
+	return b.WhereBetween(params...)
 }
 func (b *Builder) OrWhereBetween(params ...interface{}) *Builder {
-	params[2] = BOOLEAN_OR
-	return b.WhereBetween(params)
+	params = append(params, BOOLEAN_OR)
+	return b.WhereBetween(params...)
 }
 func (b *Builder) OrWhereNotBetween(params ...interface{}) *Builder {
-	params[2] = BOOLEAN_OR
-	params[3] = true
-	return b.WhereBetween(params)
+	params = append(params, BOOLEAN_OR, true)
+
+	return b.WhereBetween(params...)
 }
 
 //timefuncion column operator value boolean
