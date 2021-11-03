@@ -25,8 +25,10 @@ func ScanAll(rows *sql.Rows, dest interface{}) (result ScanResult) {
 		sliceItem := slice.Elem()
 		if sliceItem.Kind() == reflect.Map {
 			return scanMapSlice(rows, dest)
-		} else {
+		} else if sliceItem.Kind() == reflect.Struct {
 			return scanStructSlice(rows, dest)
+		} else {
+			return scanValues(rows, dest)
 		}
 	} else if _, ok := dest.(*reflect.Value); ok {
 		return scanRelations(rows, dest)
@@ -78,6 +80,7 @@ func scanStructSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 	var needProcessPivot bool
 	var pivotColumnMap = make(map[string]int, 2)
 	for rows.Next() {
+		result.Count++
 		var v, vp reflect.Value
 		if itemIsPtr {
 			vp = reflect.New(sliceItem.Elem())
@@ -209,6 +212,21 @@ func scanMap(rows *sql.Rows, dest interface{}) (result ScanResult) {
 			//If elem is the zero Value, SetMapIndex deletes the key from the map.
 			realDest.SetMapIndex(reflect.ValueOf(column), reflect.ValueOf(reflect.ValueOf(scanArgs[i]).Elem().Interface()))
 		}
+	}
+	return
+}
+func scanValues(rows *sql.Rows, dest interface{}) (result ScanResult) {
+	columns, _ := rows.Columns()
+	realDest := reflect.Indirect(reflect.ValueOf(dest))
+	scanArgs := make([]interface{}, len(columns))
+	for rows.Next() {
+		result.Count++
+		scanArgs[0] = reflect.New(realDest.Type().Elem()).Interface()
+		err := rows.Scan(scanArgs...)
+		if err != nil {
+			panic(err.Error())
+		}
+		realDest.Set(reflect.Append(realDest, reflect.ValueOf(reflect.ValueOf(scanArgs[0]).Elem().Interface())))
 	}
 	return
 }

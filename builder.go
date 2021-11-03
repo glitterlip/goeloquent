@@ -1016,3 +1016,10 @@ func (b *Builder) Get(dest interface{}) (result sql.Result, err error) {
 	}
 	return
 }
+func (b *Builder) Pluck(dest interface{}, params string) (sql.Result, error) {
+	return b.Get(dest, params)
+}
+
+func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
+	return b.Get(dest, column)
+}
