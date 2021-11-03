@@ -259,6 +259,10 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		cb := CloneBuilder(b)
 		clousure(cb)
 		return b.addNestedWhereQuery(cb, boolean)
+	} else if where, ok := params[0].(Where); ok {
+		b.Wheres = append(b.Wheres, where)
+		b.Components["wheres"] = nil
+		return b
 	}
 	switch paramsLength {
 	case 2:
@@ -335,6 +339,9 @@ func (b *Builder) WherePivot(params ...interface{}) *Builder {
 }
 func (b *Builder) OrWhere(params ...interface{}) *Builder {
 	paramsLength := len(params)
+	if clousure, ok := params[0].(func(builder *Builder)); ok {
+		return b.Where(clousure, BOOLEAN_OR)
+	}
 	if paramsLength == 2 {
 		params = []interface{}{params[0], "=", params[1], BOOLEAN_OR}
 	} else {
