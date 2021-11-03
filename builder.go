@@ -698,8 +698,12 @@ func (b *Builder) SharedLock() *Builder {
 	return b
 }
 func (b *Builder) WhereKey(keys interface{}) *Builder {
-
-	b.WhereIn(b.Model.PrimaryKey.ColumnName, keys)
+	pt := reflect.TypeOf(keys)
+	if pt.Kind() == reflect.Slice {
+		b.WhereIn(b.Model.PrimaryKey.ColumnName, keys)
+	} else {
+		b.WhereIn(b.Model.PrimaryKey.ColumnName, keys)
+	}
 	return b
 }
 func (b *Builder) WhereMap(params map[string]interface{}) *Builder {
@@ -911,9 +915,12 @@ func (b *Builder) Insert(values interface{}) (sql.Result, error) {
 		m, _ := GetParsed(rv.Type().PkgPath() + "." + rv.Type().Name())
 		if m != nil {
 			mp := m.(*Model)
-			if !mp.IsEloquent && mp.FieldsByDbName["id"].StructField.Type.Kind() == reflect.Int64 {
-				id, _ := result.LastInsertId()
-				rv.Field(mp.FieldsByDbName["id"].StructField.Index[0]).Set(reflect.ValueOf(id))
+			if !mp.IsEloquent {
+				if mp.PrimaryKey.Name != "" && mp.PrimaryKey.FieldType.Kind() == reflect.Int64 {
+					id, _ := result.LastInsertId()
+					rv.Field(mp.PrimaryKey.Index).Set(reflect.ValueOf(id))
+				}
+
 			}
 		}
 	}
