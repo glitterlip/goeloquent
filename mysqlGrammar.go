@@ -303,14 +303,24 @@ func (m *MysqlGrammar) compileComponentHavings() {
 		if i != 0 {
 			m.GetBuilder().PreSql.WriteString(" " + having.HavingBoolean + " ")
 		}
-		if having.HavingType == CONDITION_TYPE_RAW {
-			m.GetBuilder().PreSql.WriteString(having.RawSql)
-		} else {
+		if having.HavingType == CONDITION_TYPE_BASIC {
 			m.GetBuilder().PreSql.WriteString(m.Wrap(having.HavingColumn))
 			m.GetBuilder().PreSql.WriteString(" ")
 			m.GetBuilder().PreSql.WriteString(having.HavingOperator)
 			m.GetBuilder().PreSql.WriteString(" ")
 			m.GetBuilder().PreSql.WriteString(m.parameter(having.HavingValue))
+		} else if having.HavingType == CONDITION_TYPE_RAW {
+			m.GetBuilder().PreSql.WriteString(having.RawSql)
+		} else if having.HavingType == CONDITION_TYPE_BETWEEN {
+			vs := having.HavingValue.([]interface{})
+			m.GetBuilder().PreSql.WriteString(m.Wrap(having.HavingColumn))
+			m.GetBuilder().PreSql.WriteString(" ")
+			m.GetBuilder().PreSql.WriteString(CONDITION_TYPE_BETWEEN)
+			m.GetBuilder().PreSql.WriteString(" ")
+			m.GetBuilder().PreSql.WriteString(m.parameter(vs[0]))
+			m.GetBuilder().PreSql.WriteString(" and ")
+			m.GetBuilder().PreSql.WriteString(m.parameter(vs[1]))
+			m.GetBuilder().PreSql.WriteString(" ")
 		}
 	}
 }

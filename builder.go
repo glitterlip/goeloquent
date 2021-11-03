@@ -652,10 +652,12 @@ func (b *Builder) GroupBy(column string) *Builder {
 	b.Components["groups"] = nil
 	return b
 }
+
+//column operator value boolean
 func (b *Builder) Having(params ...interface{}) *Builder {
 	havingBoolean := BOOLEAN_AND
 	if len(params) > 3 {
-		if params[4] != BOOLEAN_AND {
+		if params[3] != BOOLEAN_AND {
 			havingBoolean = BOOLEAN_OR
 		}
 	}
@@ -671,22 +673,21 @@ func (b *Builder) Having(params ...interface{}) *Builder {
 	return b
 }
 func (b *Builder) OrHaving(params ...interface{}) *Builder {
-	params[4] = BOOLEAN_OR
-	return b.Having(params)
+	params = append(params, BOOLEAN_OR)
+	return b.Having(params...)
 }
 func (b *Builder) HavingBetween(params ...interface{}) *Builder {
 	havingBoolean := BOOLEAN_AND
-	if len(params) > 3 {
-		if params[4] != BOOLEAN_AND {
+	if len(params) > 2 {
+		if params[2] != BOOLEAN_AND {
 			havingBoolean = BOOLEAN_OR
 		}
 	}
 	having := Having{
-		HavingType:     CONDITION_TYPE_BETWEEN,
-		HavingColumn:   params[0].(string),
-		HavingOperator: params[1].(string),
-		HavingValue:    params[2],
-		HavingBoolean:  havingBoolean,
+		HavingType:    CONDITION_TYPE_BETWEEN,
+		HavingColumn:  params[0].(string),
+		HavingValue:   params[1],
+		HavingBoolean: havingBoolean,
 	}
 	b.Components["havings"] = nil
 	b.Havings = append(b.Havings, having)
