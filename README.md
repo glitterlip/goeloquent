@@ -438,6 +438,212 @@ goeloquent.Eloquent.Model(&DefaultUser{}).Where("age", ">", 30).WhereNested([][]
 //select `username`,`email` from `users` where `age` > ? or (`age` > ? and `balance` > ?) [30 18 5000] {8} 64.868523ms	
 ```
 ## Subquery Where Clauses
+```
+goeloquent.Eloquent.Model(&DefaultUser{}).Where("age", ">", 0).WhereSub("id","in", func(builder *goeloquent.Builder) {
+    builder.From("users").Where("balance",">",0).Select("id")
+    //don't use any finisher function like first/find/get/value/pluck,otherwise it will turn into execute two seperated sql 
+},goeloquent.BOOLEAN_OR).Get(&userStructSlice)
+```
+## Ordering, Grouping, Limit & Offset
+### Ordering
+default order is `asc`
+```
+goeloquent.Eloquent.Model(&DefaultUser{}).Where("age", ">", 0).OrderBy("balance",goeloquent.ORDER_DESC).OrderBy("id").Get(&userStructSlice)
+//{select * from `users` where `age` > ? order by `balance` desc , `id` asc [0] {24} 73.264891ms}
+```
+### Grouping
+```
+var m []map[string]interface{}
+goeloquent.Eloquent.Table("comments").GroupBy("commentable_type").Get(&m,"commentable_type",goeloquent.Expression{Value: "count(*) as c"})
+//{select `commentable_type`,count(*) as c from `comments` group by `commentable_type` [] {2} 64.624213ms}
+fmt.Println(string(m[0]["commentable_type"].([]byte)))
+//post
+fmt.Println(m[0]["c"])
+//2
+```
+When using `Select` to specify columns, we will quote columns with "`" as string, if you want avoid this, use `Expression`
 
+### Having
+```
+var m []map[string]interface{}
+goeloquent.Eloquent.Table("comments").GroupBy("commentable_type").Having("c",">",2).Get(&m,"commentable_type",goeloquent.Expression{Value: "count(*) as c"})
+//{select `commentable_type`,count(*) as c from `comments` group by `commentable_type` having `c` > ? [2] {1} 66.393615ms}
+fmt.Println(string(m[0]["commentable_type"].([]byte)))
+//video
+fmt.Println(m[0]["c"])
+//3
+```
+#### HavingBetween
+```
+var m []map[string]interface{}
+goeloquent.Eloquent.Table("comments").GroupBy("commentable_type").HavingBetween("c",[]interface{}{0,3}).Get(&m,"commentable_type",goeloquent.Expression{Value: "count(*) as c"})
+//{select `commentable_type`,count(*) as c from `comments` group by `commentable_type` having `c` between? and ?  [0 3] {2} 65.1953ms}
+fmt.Println(string(m[0]["commentable_type"].([]byte)))
+//video
+fmt.Println(m[0]["c"])
+//3
+```
+### Limit & Offset
+```
+goeloquent.Eloquent.Conn("chat").Model(&ChatPkUser{}).Limit(5).Offset(3).Select("id","phone","location").Get(&userStructSlice)
+//{select `id`,`phone`,`location` from `users` limit 5 offset 3 [] {5} 76.978184ms}
+```
+## Insert Statement
+### Insert map
+```
+var userMap = map[string]interface{}{
+    "username": fmt.Sprintf("%s%d", "Only", time.Now().Unix()),
+    "balance":  100,
+    "age":      50,
+}
+result, err := goeloquent.Eloquent.Table("users").Only("balance", "username").Insert(&userMap)
+//{insert into `users` ( `username`,`balance` ) values  ( ? , ? )  [Only1635947804 100] {0xc00007a000 0xc00001e160} 78.784832ms}
+if err != nil {
+    panic(err.Error())
+}
+insertId, _ := result.LastInsertId()
+var inserted = make(map[string]interface{})
+goeloquent.Eloquent.Table("users").Where("id",insertId).First(&inserted)
+//{select * from `users` where `id` = ? limit 1 [162] {1} 67.92676ms}
+fmt.Println(inserted)
+//map[age:0 balance:100 id:162 username:[79 110 108 121 49 54 51 53 57 52 55 56 48 52]]
+```
+
+While updating/inserting,you can use `Only` to specify which columns to include ,you can use `Except` to specify which columns to exclude
+### Batch Insert Map
+You can pass by a slice of map to insert several records at once
+```
+s := []map[string]interface{}{
+    {
+        "id":       1,
+        "username": "userr1",
+        "balance":  1000,
+        "age":      20,
+    },
+    {
+        "username": "userr2",
+        "balance":  50000,
+        "age":      50,
+    },
+}
+result, err := goeloquent.Eloquent.Table("users").Except("id").Insert(&s)
+//{insert into `users` ( `age`,`username`,`balance` ) values  ( ? , ? , ? )  ,  ( ? , ? , ? )  [20 userr1 1000 50 userr2 50000] {0xc00010c000 0xc00001e160} 86.2694ms}
+if err != nil {
+    panic(err.Error())
+}
+fmt.Println(result.LastInsertId())
+//168 <nil> 
+fmt.Println(result.RowsAffected())
+//2 <nil> 
+```
+When batch insert,`LastInsertId()` will return the first record id
+### Insert Struct
+```
+type Post struct {
+    Table   string `goelo:"TableName:posts"`
+    Id      int64  `goelo:"primaryKey"`
+    UserId  int64
+    Title   string
+    Summary string
+    Content string
+}
+fmt.Println("table struct insert Only")
+var post = Post{
+    Id:      10,
+    UserId:  2,
+    Title:   fmt.Sprintf("%s%d", "table struct insert Only", time.Now().Unix()+1),
+    Summary: "Summary",
+    Content: fmt.Sprintf("%s%d", "Summary table struct insert Only", time.Now().Unix()+2),
+}
+//{insert into `posts` ( `summary`,`content`,`user_id`,`title` ) values  ( ? , ? , ? , ? )  [Summary Summary table struct insert Only1635949167 2 table struct insert Only1635949166] {0xc0000da120 0xc0000b0540} 68.205202ms}
+result, err := goeloquent.Eloquent.Table("posts").Only("user_id", "title", "content", "summary").Insert(&post)
+if err != nil {
+    panic(err.Error())
+}
+fmt.Printf("%#v",post)
+//main.Post{Table:"", Id:174, UserId:2, Title:"table struct insert Only1635949166", Summary:"Summary", Content:"Summary table struct insert Only1635949167"}
+fmt.Println(result.LastInsertId())
+//174 <nil>
+```
+If you add an tag ``goelo:"primaryKey"`` on primaryKey field , we will update it for you ,otherwise it is its original value 
+
+### Batch Insert Structs
+```
+s := []Post{
+    {
+        Id:      10,
+        UserId:  4,
+        Title:   fmt.Sprintf("%s%d", "table slice struct insert ", time.Now().Unix()+1),
+        Summary: "Summary",
+        Content: fmt.Sprintf("%s%d", "table slice struct insert ", time.Now().Unix()+2),
+    },
+    {
+        Id:      10,
+        UserId:  4,
+        Title:   fmt.Sprintf("%s%d", "table slice struct insert ", time.Now().Unix()+1),
+        Summary: "Summary",
+        Content: fmt.Sprintf("%s%d", "table slice struct insert ", time.Now().Unix()+2),
+    },
+}
+result, err = goeloquent.Eloquent.Table("posts").Except("id").Insert(&s)
+if err != nil {
+    panic(err.Error())
+}
+```
+Insert can accept a pointer of slice of struct
+## Update Statements
+```
+r, err := goeloquent.Eloquent.Table("users").Where([][]interface{}{
+    {"age", 18},
+    {"balance", 0},
+}).Update(map[string]interface{}{
+    "balance": 100,
+})
+//{update `users` set `balance` = ? where `age` = ? and `balance` = ? [100 18 0] {0xc000204000 0xc0002260d0} 80.266387ms}
+if err != nil {
+    panic(err.Error())
+}
+fmt.Println(r.RowsAffected())
+//2 <nil>
+```
+## Use Expression
+```
+r, err := goeloquent.Eloquent.Table("users").Where([][]interface{}{
+    {"age", 18},
+    {"balance", "!=", 0},
+}).Update(map[string]interface{}{
+    "balance": goeloquent.Expression{Value: "balance + 100"},
+})
+//{update `users` set `balance` = balance + 100 where `age` = ? and `balance` != ? [18 0] {0xc0000de120 0xc0000b83a0} 75.251657ms}
+if err != nil {
+    panic(err.Error())
+}
+fmt.Println(r.RowsAffected())
+//2 <nil>
+```
+Another Example
+```
+r, err := goeloquent.Eloquent.Table("users").Update(map[string]interface{}{
+    "balance": goeloquent.Expression{Value: "balance + age*100"},
+})
+//{update `users` set `balance` = balance + age*100 [] {0xc000110000 0xc000128090} 68.057742ms}
+if err != nil {
+    panic(err.Error())
+}
+fmt.Println(r.RowsAffected())
+//32 <nil>
+```
+You can use `Expression` to update column base on another column
+## Delete
+```
+r,err:=goeloquent.Eloquent.Table("users").Where("id",2).Delete()
+if err!=nil {
+    panic(err.Error())
+}
+fmt.Println(r.RowsAffected())
+//{ delete from `users` where `id` = ? [2] {0xc000102000 0xc00001e150} 73.972219ms}
+//1 <nil>
+```
+#
 [https://github.com/qclaogui/database](https://github.com/qclaogui/database)      
 [https://github.com/jmoiron/sqlx](https://github.com/jmoiron/sqlx)
