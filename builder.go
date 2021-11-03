@@ -45,7 +45,7 @@ type Builder struct {
 	Columns          []interface{} // The columns that should be returned.
 	IsDistinct       bool          // Indicates if the query returns distinct results.
 	Joins            []Join
-	Groups           []string
+	Groups           []interface{}
 	Havings          []Having
 	Orders           []Order
 	LimitNum         int
