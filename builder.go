@@ -588,7 +588,28 @@ func (b *Builder) WhereYear(params ...interface{}) *Builder {
 	return b.AddTimeBasedWhere(CONDITION_TYPE_YEAR, params)
 }
 func (b *Builder) WhereNested(params ...interface{}) *Builder {
-	return b.Where()
+	if len(params) == 1 {
+		params = append(params, BOOLEAN_AND)
+	}
+	cb := CloneBuilder(b)
+	switch params[0].(type) {
+	case Where:
+		cb.Wheres = append(cb.Wheres, params[0].(Where))
+	case [][]interface{}:
+		tp := params[0].([][]interface{})
+		for i := 0; i < len(tp); i++ {
+			cb.Where(tp[i])
+		}
+	case []interface{}:
+		cb.Where(params[0].([]interface{}))
+	}
+	b.Wheres = append(b.Wheres, Where{
+		Type:    CONDITION_TYPE_NESTED,
+		Boolean: params[1].(string),
+		Value:   cb,
+	})
+	b.Components["wheres"] = nil
+	return b
 }
 func (b *Builder) WhereExists(params ...interface{}) *Builder {
 	return b.Where()
@@ -778,10 +799,6 @@ func (b *Builder) SimplePaginate(n int) *Builder {
 	return b
 }
 func (b *Builder) Exists(n int) *Builder {
-	b.OffsetNum = n
-	return b
-}
-func (b *Builder) Pluck(n int) *Builder {
 	b.OffsetNum = n
 	return b
 }

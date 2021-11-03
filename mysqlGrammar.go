@@ -195,7 +195,11 @@ func (m *MysqlGrammar) compileComponentWheres() {
 				if j != 0 {
 					m.GetBuilder().PreSql.WriteString(" " + nestedWhere.Boolean + " ")
 				}
-				nestedSql := cloneBuilder.Grammar.(*MysqlGrammar).compileWhere(nestedWhere)
+				//when compile nested where,we need bind the generated sql and params to the current builder
+				g := cloneBuilder.Grammar.(*MysqlGrammar)
+				//this will bind params to current builder when call m.parameter()
+				g.SetBuilder(m.GetBuilder())
+				nestedSql := g.compileWhere(nestedWhere)
 				m.GetBuilder().PreSql.WriteString(nestedSql)
 			}
 			m.GetBuilder().PreSql.WriteString(")")

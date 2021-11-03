@@ -126,6 +126,9 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 			if model.Fields[i].Name == "Table" && strings.Contains(model.Fields[i].Tag.Get("goelo"), "TableName:") {
 				model.Table = strings.Replace(model.Fields[i].Tag.Get("goelo"), "TableName:", "", 1)
 			} else {
+				if strings.Contains(model.Fields[i].Tag.Get("goelo"), "primaryKey") {
+					model.PrimaryKey = model.Fields[i]
+				}
 				name := ToSnakeCase(model.Fields[i].Name)
 				model.Fields[i].ColumnName = name
 				model.FieldsByDbName[name] = model.Fields[i]
