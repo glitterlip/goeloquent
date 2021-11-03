@@ -1021,7 +1021,10 @@ func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Du
 	}
 
 }
-func (b *Builder) Get(dest interface{}) (result sql.Result, err error) {
+func (b *Builder) Get(dest interface{}, columns ...string) (result sql.Result, err error) {
+	if len(columns) > 0 {
+		b.Select(columns...)
+	}
 	var start = time.Now()
 	b.Dest = dest
 	b.DestReflectValue = reflect.ValueOf(dest)
