@@ -42,8 +42,8 @@ type Builder struct {
 	TableAlias       string
 	Wheres           []Where
 	Aggregates       []Aggregate
-	Columns          []string // The columns that should be returned.
-	IsDistinct       bool     // Indicates if the query returns distinct results.
+	Columns          []interface{} // The columns that should be returned.
+	IsDistinct       bool          // Indicates if the query returns distinct results.
 	Joins            []Join
 	Groups           []string
 	Havings          []Having
@@ -176,9 +176,9 @@ func CloneBuilder(b *Builder) *Builder {
 	cb.From(b.FromTable)
 	return &cb
 }
-func (b *Builder) Select(columns ...string) *Builder {
+func (b *Builder) Select(columns ...interface{}) *Builder {
 	if columns == nil {
-		columns = []string{"*"}
+		columns = []interface{}{"*"}
 	}
 	b.Components["columns"] = nil
 	b.Columns = append(b.Columns, columns...)
@@ -1052,7 +1052,7 @@ func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Du
 	}
 
 }
-func (b *Builder) Get(dest interface{}, columns ...string) (result sql.Result, err error) {
+func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Result, err error) {
 	if len(columns) > 0 {
 		b.Select(columns...)
 	}
