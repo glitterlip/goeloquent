@@ -344,7 +344,7 @@ func (b *Builder) OrWhere(params ...interface{}) *Builder {
 	} else {
 		params = append(params, BOOLEAN_OR)
 	}
-	return b.Where(params)
+	return b.Where(params...)
 }
 func (b *Builder) WhereColumn(first string, operator string, second ...string) *Builder {
 	length := len(second)
