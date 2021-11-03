@@ -956,9 +956,13 @@ func (b *Builder) Insert(values interface{}) (sql.Result, error) {
 	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	return result, err
 }
-func (b *Builder) InsertGetId(n int) interface{} {
+func (b *Builder) InsertGetId(values interface{}) (int64, error) {
 
-	return 1
+	result, err := b.Insert(values)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 func (b *Builder) Update(v map[string]interface{}) (sql.Result, error) {
 	var start = time.Now()
