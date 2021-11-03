@@ -401,20 +401,11 @@ func (b *Builder) WhereIn(params ...interface{}) *Builder {
 	if paramsLength > 3 {
 		not = params[3].(bool)
 	}
-	var values []interface{}
-	pv := reflect.ValueOf(params[1])
-	if pv.Type().Kind() == reflect.Slice {
-		for i := 0; i < pv.Len(); i++ {
-			values = append(values, pv.Index(i).Interface())
-		}
-	} else {
-		values = append(values, pv.Interface())
-	}
 
 	b.Wheres = append(b.Wheres, Where{
 		Type:    CONDITION_TYPE_IN,
 		Column:  params[0].(string),
-		Values:  values,
+		Values:  params[1].([]interface{}),
 		Boolean: boolean,
 		Not:     not,
 	})
@@ -424,26 +415,20 @@ func (b *Builder) WhereIn(params ...interface{}) *Builder {
 
 //column values
 func (b *Builder) OrWhereIn(params ...interface{}) *Builder {
-	params[2] = BOOLEAN_OR
-	return b.WhereIn(params)
+	params = append(params, BOOLEAN_OR, false)
+	return b.WhereIn(params...)
 }
 
 //column values [ boolean ]
 func (b *Builder) WhereNotIn(params ...interface{}) *Builder {
-	if len(params) == 2 {
-		params[2] = BOOLEAN_AND
-		params[3] = true
-	} else {
-		params[3] = true
-	}
-	return b.WhereIn(params)
+	params = append(params, BOOLEAN_AND, true)
+	return b.WhereIn(params...)
 }
 
 //column values
 func (b *Builder) OrWhereNotIn(params ...interface{}) *Builder {
-	params[2] = BOOLEAN_OR
-	params[3] = false
-	return b.WhereIn(params)
+	params = append(params, BOOLEAN_OR, true)
+	return b.WhereIn(params...)
 }
 
 /*
