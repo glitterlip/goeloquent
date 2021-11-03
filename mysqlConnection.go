@@ -20,20 +20,20 @@ func (c *MysqlConnection) Select(query string, bindings []interface{}, dest inte
 	var rows *sql.Rows
 	if c.Tx != nil {
 		stmt, err = c.Tx.Prepare(query)
-		defer stmt.Close()
 		if err != nil {
 			return
 		}
+		defer stmt.Close()
 		rows, err = c.Tx.Stmt(stmt).Query(bindings...)
 		if err != nil {
 			return
 		}
 	} else {
 		stmt, err = c.Connection.Prepare(query)
-		defer stmt.Close()
 		if err != nil {
 			return
 		}
+		defer stmt.Close()
 		rows, err = stmt.Query(bindings...)
 		if err != nil {
 			return
