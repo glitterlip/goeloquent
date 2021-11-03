@@ -943,16 +943,13 @@ func (b *Builder) Insert(values interface{}) (sql.Result, error) {
 	result, err := b.Connection.Insert(b.PreparedSql, b.Bindings)
 	if len(items) == 1 && rv.Kind() == reflect.Struct {
 		//set id for simple struct
-		m, _ := GetParsed(rv.Type().PkgPath() + "." + rv.Type().Name())
-		if m != nil {
-			mp := m.(*Model)
-			if !mp.IsEloquent {
-				if mp.PrimaryKey.Name != "" && mp.PrimaryKey.FieldType.Kind() == reflect.Int64 {
-					id, _ := result.LastInsertId()
-					rv.Field(mp.PrimaryKey.Index).Set(reflect.ValueOf(id))
-				}
-
+		mp := GetParsedModel(rv.Type())
+		if !mp.IsEloquent {
+			if mp.PrimaryKey.Name != "" && mp.PrimaryKey.FieldType.Kind() == reflect.Int64 {
+				id, _ := result.LastInsertId()
+				rv.Field(mp.PrimaryKey.Index).Set(reflect.ValueOf(id))
 			}
+
 		}
 	}
 	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
