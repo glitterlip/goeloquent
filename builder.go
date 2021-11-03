@@ -236,14 +236,11 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 	//map of where conditions
 	if maps, ok := params[0].([][]interface{}); ok {
 		for _, conditions := range maps {
-			b.Where(conditions)
+			b.Where(conditions...)
 		}
 		return b
 	}
-	//convert item of map of where conditions
-	if tp, ok := params[0].([]interface{}); ok {
-		params = tp
-	}
+
 	paramsLength := len(params)
 	var operator string
 	var value interface{}

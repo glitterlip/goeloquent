@@ -203,6 +203,20 @@ func (m *MysqlGrammar) compileComponentWheres() {
 				m.GetBuilder().PreSql.WriteString(nestedSql)
 			}
 			m.GetBuilder().PreSql.WriteString(")")
+		} else if w.Type == CONDITION_TYPE_SUB {
+			m.GetBuilder().PreSql.WriteString(m.Wrap(w.Column))
+			m.GetBuilder().PreSql.WriteString(" " + w.Operator + " ")
+			m.GetBuilder().PreSql.WriteString("(")
+			cb := CloneBuilder(m.GetBuilder())
+
+			if clousure, ok := w.Value.(func(builder *Builder)); ok {
+				clousure(cb)
+				sql := cb.Grammar.CompileSelect()
+				m.GetBuilder().PreSql.WriteString(sql)
+				m.GetBuilder().Bindings = append(m.GetBuilder().Bindings, cb.Bindings...)
+			}
+			m.GetBuilder().PreSql.WriteString(")")
+
 		} else {
 			m.GetBuilder().PreSql.WriteString(m.compileWhere(w))
 		}

@@ -1,6 +1,7 @@
 package goeloquent
 
 import (
+	"database/sql"
 	"fmt"
 )
 
@@ -18,7 +19,9 @@ func (dm *DatabaseManager) Connection(connectionName string) *IConnection {
 	}
 	return connection
 }
-
+func (dm *DatabaseManager) Conn(connectionName string) IConnection {
+	return *(dm.Connection(connectionName))
+}
 func (dm *DatabaseManager) getDefaultConnection() (defaultConnectionName string) {
 	defaultConnectionName = "default"
 	return
@@ -54,4 +57,24 @@ func (dm *DatabaseManager) Model(model interface{}) *Builder {
 	builder.Grammar.SetBuilder(builder)
 	builder.SetModel(model)
 	return builder
+}
+func (dm *DatabaseManager) Select(query string, bindings []interface{}, dest interface{}) (sql.Result, error) {
+	ic := dm.Connections["default"]
+	return (*ic).Select(query, bindings, dest)
+}
+func (dm *DatabaseManager) Insert(query string, bindings []interface{}) (sql.Result, error) {
+	ic := dm.Connections["default"]
+	return (*ic).Insert(query, bindings)
+}
+func (dm *DatabaseManager) Update(query string, bindings []interface{}) (sql.Result, error) {
+	ic := dm.Connections["default"]
+	return (*ic).Update(query, bindings)
+}
+func (dm *DatabaseManager) Delete(query string, bindings []interface{}) (sql.Result, error) {
+	ic := dm.Connections["default"]
+	return (*ic).Delete(query, bindings)
+}
+func (dm *DatabaseManager) Statement(query string, bindings []interface{}) (sql.Result, error) {
+	ic := dm.Connections["default"]
+	return (*ic).Delete(query, bindings)
 }

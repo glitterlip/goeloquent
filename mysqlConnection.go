@@ -113,6 +113,26 @@ func (c *MysqlConnection) AffectingStatement(query string, bindings []interface{
 	return
 }
 
+func (c *MysqlConnection) Table(tableName string) *Builder {
+	builder := NewBuilder(c)
+	builder.Grammar = &MysqlGrammar{}
+	builder.Grammar.SetTablePrefix(c.Config.Prefix)
+	builder.Grammar.SetBuilder(builder)
+	builder.From(tableName)
+	return builder
+}
+
+func (c *MysqlConnection) Model(modelPointer interface{}) *Builder {
+	builder := NewBuilder(c)
+	builder.Grammar = &MysqlGrammar{}
+	builder.Grammar.SetTablePrefix(c.Config.Prefix)
+	builder.Grammar.SetBuilder(builder)
+	builder.SetModel(modelPointer)
+	return builder
+}
+func (c *MysqlConnection) Statement(query string, bindings []interface{}) (sql.Result, error) {
+	panic("1")
+}
 func (c *MysqlConnection) GetDB() *sql.DB {
 	return c.Connection
 }
