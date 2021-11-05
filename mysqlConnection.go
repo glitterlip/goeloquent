@@ -131,7 +131,7 @@ func (c *MysqlConnection) Model(modelPointer interface{}) *Builder {
 	return builder
 }
 func (c *MysqlConnection) Statement(query string, bindings []interface{}) (sql.Result, error) {
-	panic("1")
+	return c.AffectingStatement(query, bindings)
 }
 func (c *MysqlConnection) GetDB() *sql.DB {
 	return c.Connection
