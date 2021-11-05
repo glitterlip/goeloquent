@@ -27,6 +27,10 @@ func ScanAll(rows *sql.Rows, dest interface{}) (result ScanResult) {
 			return scanMapSlice(rows, dest)
 		} else if sliceItem.Kind() == reflect.Struct {
 			return scanStructSlice(rows, dest)
+		} else if sliceItem.Kind() == reflect.Ptr {
+			if sliceItem.Elem().Kind() == reflect.Struct {
+				return scanStructSlice(rows, dest)
+			}
 		} else {
 			return scanValues(rows, dest)
 		}
