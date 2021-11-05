@@ -131,8 +131,10 @@ type Join struct {
 	JoinOperator   string
 }
 type Order struct {
+	OrderType string
 	Direction string
 	Column    string
+	RawSql    interface{}
 }
 type Having struct {
 	HavingType     string
@@ -140,7 +142,7 @@ type Having struct {
 	HavingOperator string
 	HavingValue    interface{}
 	HavingBoolean  string
-	RawSql         string
+	RawSql         interface{}
 }
 type Where struct {
 	Type         string
@@ -148,7 +150,7 @@ type Where struct {
 	Operator     string
 	FirstColumn  string
 	SecondColumn string
-	RawSql       string
+	RawSql       interface{}
 	Value        interface{}
 	Values       []interface{}
 	Boolean      string
@@ -258,6 +260,19 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		return b.addNestedWhereQuery(cb, boolean)
 	} else if where, ok := params[0].(Where); ok {
 		b.Wheres = append(b.Wheres, where)
+		b.Components["wheres"] = nil
+		return b
+	} else if e, ok := params[0].(Expression); ok {
+		if paramsLength > 1 {
+			boolean = params[1].(string)
+		} else {
+			boolean = BOOLEAN_AND
+		}
+		b.Wheres = append(b.Wheres, Where{
+			Type:    CONDITION_TYPE_RAW,
+			RawSql:  e,
+			Boolean: boolean,
+		})
 		b.Components["wheres"] = nil
 		return b
 	}
@@ -618,7 +633,7 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	case [][]interface{}:
 		tp := params[0].([][]interface{})
 		for i := 0; i < len(tp); i++ {
-			cb.Where(tp[i])
+			cb.Where(tp[i]...)
 		}
 	case []interface{}:
 		cb.Where(params[0].([]interface{}))
@@ -647,7 +662,7 @@ func (b *Builder) WhereExists(params ...interface{}) *Builder {
 }
 
 //column operator value boolean
-func (b *Builder) GroupBy(column string) *Builder {
+func (b *Builder) GroupBy(column interface{}) *Builder {
 	b.Groups = append(b.Groups, column)
 	b.Components["groups"] = nil
 	return b
@@ -656,6 +671,15 @@ func (b *Builder) GroupBy(column string) *Builder {
 //column operator value boolean
 func (b *Builder) Having(params ...interface{}) *Builder {
 	havingBoolean := BOOLEAN_AND
+	if e, ok := params[0].(Expression); ok {
+		having := Having{
+			HavingType: CONDITION_TYPE_RAW,
+			RawSql:     e,
+		}
+		b.Components["havings"] = nil
+		b.Havings = append(b.Havings, having)
+		return b
+	}
 	if len(params) > 3 {
 		if params[3] != BOOLEAN_AND {
 			havingBoolean = BOOLEAN_OR
@@ -693,14 +717,23 @@ func (b *Builder) HavingBetween(params ...interface{}) *Builder {
 	b.Havings = append(b.Havings, having)
 	return b
 }
-func (b *Builder) OrderBy(params ...string) *Builder {
+func (b *Builder) OrderBy(params ...interface{}) *Builder {
 	var order = ORDER_ASC
+	if r, ok := params[0].(Expression); ok {
+		b.Orders = append(b.Orders, Order{
+			RawSql:    r,
+			OrderType: CONDITION_TYPE_RAW,
+		})
+		b.Components["orders"] = nil
+
+		return b
+	}
 	if len(params) > 1 {
-		order = params[1]
+		order = params[1].(string)
 	}
 	b.Orders = append(b.Orders, Order{
 		Direction: order,
-		Column:    params[0],
+		Column:    params[0].(string),
 	})
 	b.Components["orders"] = nil
 

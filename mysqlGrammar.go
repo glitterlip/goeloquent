@@ -277,7 +277,7 @@ func (m *MysqlGrammar) compileWhere(w Where) (sql string) {
 		sqlBuilder.WriteString(" ")
 		sqlBuilder.WriteString(m.Wrap(w.SecondColumn))
 	case CONDITION_TYPE_RAW:
-		sqlBuilder.WriteString(w.RawSql)
+		sqlBuilder.WriteString(w.RawSql.(Expression).Value)
 	default:
 		panic("where type not Found")
 	}
@@ -310,7 +310,8 @@ func (m *MysqlGrammar) compileComponentHavings() {
 			m.GetBuilder().PreSql.WriteString(" ")
 			m.GetBuilder().PreSql.WriteString(m.parameter(having.HavingValue))
 		} else if having.HavingType == CONDITION_TYPE_RAW {
-			m.GetBuilder().PreSql.WriteString(having.RawSql)
+			m.GetBuilder().PreSql.WriteString(having.RawSql.(Expression).Value)
+			m.GetBuilder().PreSql.WriteString(" ")
 		} else if having.HavingType == CONDITION_TYPE_BETWEEN {
 			vs := having.HavingValue.([]interface{})
 			m.GetBuilder().PreSql.WriteString(m.Wrap(having.HavingColumn))
@@ -330,6 +331,11 @@ func (m *MysqlGrammar) compileComponentOrders() {
 	for i, order := range m.GetBuilder().Orders {
 		if i != 0 {
 			m.GetBuilder().PreSql.WriteString(" , ")
+		}
+		if order.OrderType == CONDITION_TYPE_RAW {
+			m.GetBuilder().PreSql.WriteString(order.RawSql.(Expression).Value)
+			m.GetBuilder().PreSql.WriteString(" ")
+			continue
 		}
 		m.GetBuilder().PreSql.WriteString(m.Wrap(order.Column))
 		m.GetBuilder().PreSql.WriteString(" ")
