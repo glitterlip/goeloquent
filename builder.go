@@ -756,10 +756,12 @@ func (b *Builder) Union(n int) *Builder {
 }
 func (b *Builder) LockForUpdate() *Builder {
 	b.Lock = " for update "
+	b.Components["lock"] = nil
 	return b
 }
 func (b *Builder) SharedLock() *Builder {
 	b.Lock = " lock in share mode "
+	b.Components["lock"] = nil
 	return b
 }
 func (b *Builder) WhereKey(keys interface{}) *Builder {
