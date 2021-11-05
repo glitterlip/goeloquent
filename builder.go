@@ -766,10 +766,16 @@ func (b *Builder) SharedLock() *Builder {
 }
 func (b *Builder) WhereKey(keys interface{}) *Builder {
 	pt := reflect.TypeOf(keys)
-	if pt.Kind() == reflect.Slice {
-		b.WhereIn(b.Model.PrimaryKey.ColumnName, keys)
+	var primaryKeyColumn string
+	if b.Model != nil {
+		primaryKeyColumn = b.Model.PrimaryKey.ColumnName
 	} else {
-		b.WhereIn(b.Model.PrimaryKey.ColumnName, []interface{}{keys})
+		primaryKeyColumn = "id"
+	}
+	if pt.Kind() == reflect.Slice {
+		b.WhereIn(primaryKeyColumn, keys)
+	} else {
+		b.WhereIn(primaryKeyColumn, []interface{}{keys})
 	}
 	return b
 }
