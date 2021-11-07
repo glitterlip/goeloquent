@@ -101,10 +101,16 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 	//cache
 	modelValue := reflect.New(modelType)
 	var tableName string
+	var connectionName string
 	if t, ok := modelValue.Interface().(TableName); ok {
 		tableName = t.TableName()
 	} else {
 		tableName = ToSnakeCase(modelType.Name())
+	}
+	if c, ok := modelValue.Interface().(ConnectionName); ok {
+		connectionName = c.ConnectionName()
+	} else {
+		connectionName = "default"
 	}
 	model = &Model{
 		Name:               modelType.Name(),
@@ -115,6 +121,7 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 		Relations:          make(map[string]reflect.Value),
 		PrimaryKey:         nil,
 		DispatchesEvents:   make(map[string]reflect.Value),
+		ConnectionName:     connectionName,
 		//DefaultAttributes:  make(map[string]interface{}),
 		//RelationTypes:      make(map[string]reflect.Type),
 	}
