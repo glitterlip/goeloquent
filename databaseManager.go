@@ -49,11 +49,17 @@ func (dm *DatabaseManager) Table(params ...string) *Builder {
 
 }
 func (dm *DatabaseManager) Model(model interface{}) *Builder {
-	defaultConn := dm.getDefaultConnection()
-	c := dm.Connection(defaultConn)
+	parsed := GetParsedModel(model)
+	var connectionName string
+	if len(parsed.ConnectionName) > 0 {
+		connectionName = parsed.ConnectionName
+	} else {
+		connectionName = dm.getDefaultConnection()
+	}
+	c := dm.Connection(connectionName)
 	builder := NewBuilder(*c)
 	builder.Grammar = &MysqlGrammar{}
-	builder.Grammar.SetTablePrefix(dm.Configs[defaultConn].Prefix)
+	builder.Grammar.SetTablePrefix(dm.Configs[connectionName].Prefix)
 	builder.Grammar.SetBuilder(builder)
 	builder.SetModel(model)
 	return builder
