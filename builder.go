@@ -853,6 +853,9 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 }
 func (b *Builder) RunSelect() (result sql.Result, err error) {
 	result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
+	if err != nil {
+		return
+	}
 	d := reflect.TypeOf(b.Dest).Elem()
 	if d.Kind() == reflect.Slice {
 		d = d.Elem()
@@ -916,6 +919,11 @@ func (b *Builder) Sum(dest interface{}, column ...string) (result sql.Result, er
 
 	return b.Aggregate(dest, "sum", column...)
 
+}
+func (b *Builder) ForPage(page, perPage int64) *Builder {
+
+	b.Offset(int((page - 1) * perPage)).Limit(int(perPage))
+	return b
 }
 func (b *Builder) Only(columns ...string) *Builder {
 	b.OnlyColumns = make(map[string]interface{}, len(columns))
@@ -1127,4 +1135,24 @@ func (b *Builder) When(boolean bool, cb func(builder *Builder)) {
 }
 func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
 	return b.Get(dest, column)
+}
+
+func (b *Builder) Paginate(p *Paginator, columns ...interface{}) (*Paginator, error) {
+	if len(b.Groups) > 0 || len(b.Havings) > 0 {
+		panic("having/group pagination not supported")
+	}
+	cb := CloneBuilder(b)
+	if len(b.Wheres) > 0 {
+		cb.Components["wheres"] = nil
+		copy(cb.Wheres, b.Wheres)
+	}
+	_, err := cb.Count(&p.Total)
+	if err != nil {
+		return nil, err
+	}
+	_, err = b.ForPage(p.CurrentPage, p.PerPage).Get(p.Items, columns...)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
