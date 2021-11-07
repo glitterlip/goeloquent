@@ -22,6 +22,7 @@ const (
 	EventUpdated   = "Updated"
 	EventDeleteing = "Deleting"
 	EventDeleted   = "Deleted"
+	EventALL       = "ALL"
 )
 
 type TableName interface {
@@ -403,6 +404,9 @@ func (m *EloquentModel) SyncOrigin() {
 func (m *EloquentModel) GetOrigin() map[string]interface{} {
 	return m.Origin
 }
+func (m *EloquentModel) GetChanges() map[string]interface{} {
+	return m.Changes
+}
 
 func (m *EloquentModel) GetDirty() map[string]interface{} {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
@@ -489,9 +493,18 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 func (m *EloquentModel) Create() (sql.Result, error) {
 	return m.Save()
 }
+func (m *EloquentModel) Delete() (res sql.Result, err error) {
+	if !m.FireModelEvent(EventDeleteing) {
+		return nil, errors.New("abort by EventDeleteing func")
+	}
+	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
+	res, err = Eloquent.Model(parsed.ModelType).Where(parsed.PrimaryKey.ColumnName, m.ModelPointer.Elem().Field(parsed.PrimaryKey.Index).Interface()).Delete()
+	m.FireModelEvent(EventDeleted)
+	return
+}
 func (m *EloquentModel) Mute(events ...string) *EloquentModel {
 	for i := 0; i < len(events); i++ {
-		if events[i] == "ALL" {
+		if events[i] == EventALL {
 			m.Muted = "Creating,Created,Updating,Updated,Saving,Saved,Deleting,Deleted"
 			break
 		}
