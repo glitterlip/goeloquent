@@ -1120,7 +1120,11 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 func (b *Builder) Pluck(dest interface{}, params string) (sql.Result, error) {
 	return b.Get(dest, params)
 }
-
+func (b *Builder) When(boolean bool, cb func(builder *Builder)) {
+	if boolean {
+		b.Where(cb)
+	}
+}
 func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
 	return b.Get(dest, column)
 }
