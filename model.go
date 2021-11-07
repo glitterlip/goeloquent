@@ -545,12 +545,23 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 	}
 	if modelType.UpdatedAt != "" {
 		//if user set it manually,we won't change it
-		if _, ok := attrs[modelType.UpdatedAt]; !ok {
+		//if !m.IsDirty(modelType.FieldsByDbName[modelType.UpdatedAt].Name) {
+		switch modelType.FieldsByDbName[modelType.UpdatedAt].FieldType.Name() {
+		case "NullTime":
+			attrs[modelType.UpdatedAt] = sql.NullTime{
+				Time:  time.Now(),
+				Valid: true,
+			}
+			m.Fill(map[string]interface{}{
+				modelType.UpdatedAt: attrs[modelType.UpdatedAt],
+			})
+		case "Time":
 			attrs[modelType.UpdatedAt] = time.Now()
 			m.Fill(map[string]interface{}{
 				modelType.UpdatedAt: time.Now(),
 			})
 		}
+		//}
 	}
 	return
 }
@@ -587,12 +598,23 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 	}
 	if modelType.CreatedAt != "" {
 		//if user set it manually,we won't change it
-		if _, ok := attrs[modelType.CreatedAt]; !ok {
+		//if _, ok := attrs[modelType.CreatedAt]; !ok {
+		switch modelType.FieldsByDbName[modelType.CreatedAt].FieldType.Name() {
+		case "NullTime":
+			attrs[modelType.CreatedAt] = sql.NullTime{
+				Time:  time.Now(),
+				Valid: true,
+			}
+			m.Fill(map[string]interface{}{
+				modelType.CreatedAt: attrs[modelType.CreatedAt],
+			})
+		case "Time":
 			attrs[modelType.CreatedAt] = time.Now()
 			m.Fill(map[string]interface{}{
 				modelType.CreatedAt: time.Now(),
 			})
 		}
+		//}
 	}
 	return
 
