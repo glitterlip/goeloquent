@@ -870,14 +870,7 @@ func (b *Builder) WithPivot(columns ...string) *Builder {
 	b.Pivots = append(b.Pivots, columns...)
 	return b
 }
-func (b *Builder) Paginate(n int) *Builder {
-	b.OffsetNum = n
-	return b
-}
-func (b *Builder) SimplePaginate(n int) *Builder {
-	b.OffsetNum = n
-	return b
-}
+
 func (b *Builder) Exists(n int) *Builder {
 	b.OffsetNum = n
 	return b
@@ -1128,10 +1121,11 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 func (b *Builder) Pluck(dest interface{}, params string) (sql.Result, error) {
 	return b.Get(dest, params)
 }
-func (b *Builder) When(boolean bool, cb func(builder *Builder)) {
+func (b *Builder) When(boolean bool, cb func(builder *Builder)) *Builder {
 	if boolean {
 		b.Where(cb)
 	}
+	return b
 }
 func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
 	return b.Get(dest, column)

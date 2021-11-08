@@ -72,7 +72,7 @@ func GetRegisteredModel(name string) reflect.Value {
 func GetParsed(name string) (interface{}, bool) {
 	return Eloquent.ParsedModelsMap.Load(name)
 }
-func Raw(connectionName ...string) *sql.DB {
+func (*DB) Raw(connectionName ...string) *sql.DB {
 
 	if len(connectionName) > 0 {
 		c := Eloquent.Connection(connectionName[0])
