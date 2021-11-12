@@ -63,6 +63,21 @@ func (r *MorphToRelation) AddEagerConstraints(models interface{}) {
 				groups[t] = []interface{}{id}
 			}
 		}
+	} else if ms, ok := models.(*reflect.Value); ok {
+		parsed := GetParsedModel(ms.Type().Elem())
+		typeColumnIndex := parsed.FieldsByDbName[r.ParentRelatedType].Index
+		idColumnIndex := parsed.FieldsByDbName[r.ParentRelatedKey].Index
+		for i := 0; i < ms.Len(); i++ {
+			model := ms.Index(i)
+			t := reflect.Indirect(model).Field(typeColumnIndex).Interface().(string)
+			id := reflect.Indirect(model).Field(idColumnIndex).Interface()
+			if keys, ok := groups[t]; ok {
+				keys = append(keys, id)
+				groups[t] = keys
+			} else {
+				groups[t] = []interface{}{id}
+			}
+		}
 	} else {
 		model := modelSlice
 		parsed := GetParsedModel(modelSlice.Type())
@@ -100,12 +115,13 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 	}
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
+	rv, ok := models.(*reflect.Value)
 
 	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
 	modelMorphIdFiledIndex := parent.FieldsByDbName[relation.ParentRelatedKey].Index
 	modelMorphTypeFiledIndex := parent.FieldsByDbName[relation.ParentRelatedType].Index
 
-	if targetSlice.Type().Kind() != reflect.Slice {
+	if targetSlice.Type().Kind() != reflect.Slice && !ok {
 		model := targetSlice
 		modelMorphType := model.Field(modelMorphTypeFiledIndex)
 		modelMorphId := model.Field(modelMorphIdFiledIndex)
@@ -127,6 +143,9 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 		}
 
 	} else {
+		if ok {
+			targetSlice = *rv
+		}
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
 			modelMorphType := model.Field(modelMorphTypeFiledIndex)

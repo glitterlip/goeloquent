@@ -33,6 +33,7 @@ func (r *RelationBuilder) EagerLoadRelations(models interface{}) {
 	//realDest := reflect.Indirect(value)
 
 	var model *Model
+	//with reflect.Value of makeslice
 	if t, ok := models.(*reflect.Value); ok {
 		sliceEleType := t.Type().Elem()
 		model = GetParsedModel(sliceEleType.PkgPath() + "." + sliceEleType.Name())
