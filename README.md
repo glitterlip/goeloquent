@@ -17,6 +17,6 @@ DB.Model(&models.User{}).With("Info","Videos","Posts.Comments").Paginate(p,6)
 ```
 More Details,visit [Docs](https://glitterlip.github.io/go-eloquent-docs/)
 # Credits
-[https://github.com/go-gorm/gorm](https://github.com/go-gorm/gorm)
-[https://github.com/jmoiron/sqlx](https://github.com/jmoiron/sqlx)
-[https://github.com/qclaogui/database](https://github.com/qclaogui/database)      
+[https://github.com/go-gorm/gorm](https://github.com/go-gorm/gorm)  
+[https://github.com/jmoiron/sqlx](https://github.com/jmoiron/sqlx)  
+[https://github.com/qclaogui/database](https://github.com/qclaogui/database)        
