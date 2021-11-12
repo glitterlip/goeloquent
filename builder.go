@@ -833,7 +833,6 @@ func (b *Builder) First(dest interface{}) (result sql.Result, err error) {
 	return b.Get(dest)
 }
 
-// SetModel
 //parameter model should either be a model pointer or a reflect.Type
 func (b *Builder) SetModel(model interface{}) *Builder {
 	if model != nil {
@@ -841,7 +840,16 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 		b.From(b.Model.Table)
 	}
 	if b.Connection == nil {
-		if c, ok := reflect.New(model.(reflect.Type)).Elem().Interface().(ConnectionName); ok {
+		var typ reflect.Type
+		if t, ok := model.(reflect.Type); ok {
+			typ = t
+		} else {
+			typ = reflect.TypeOf(model)
+			if typ.Kind() == reflect.Ptr {
+				typ = typ.Elem()
+			}
+		}
+		if c, ok := reflect.New(typ).Elem().Interface().(ConnectionName); ok {
 			b.Connection = *Eloquent.Connection(c.ConnectionName())
 		} else {
 			b.Connection = *Eloquent.Connection("default")
