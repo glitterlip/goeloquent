@@ -253,6 +253,11 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 func (m *Model) GetConnection() *IConnection {
 	return m.DB.Connection("default")
 }
+
+//reflect.Type of model
+//string pkgpath+name of model
+//pointer of model
+//pointer of slice of model
 func GetParsedModel(model interface{}) *Model {
 	var target reflect.Type
 
@@ -539,6 +544,7 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 			attrs[key] = model.Field(keyIndex).Interface()
 			continue
 		}
+		// TODO should insert all fields include zero value or just no-zero value?withzero/withoutzero?
 		if !model.Field(keyIndex).IsZero() && keyIndex != modelType.PrimaryKey.Index {
 			attrs[key] = model.Field(keyIndex).Interface()
 		}
@@ -592,6 +598,8 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 			attrs[key] = model.Field(keyIndex).Interface()
 			continue
 		}
+		//TODO: should update all fields or just dirty value?
+
 		if !model.Field(keyIndex).IsZero() {
 			attrs[key] = model.Field(keyIndex).Interface()
 		}
