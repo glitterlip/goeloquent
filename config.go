@@ -20,4 +20,5 @@ type DBConfig struct {
 	UnixSocket string
 	// pgsql
 	Sslmode string
+	TLS     string
 }
