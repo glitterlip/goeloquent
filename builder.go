@@ -424,7 +424,7 @@ func (b *Builder) WhereIn(params ...interface{}) *Builder {
 	b.Wheres = append(b.Wheres, Where{
 		Type:    CONDITION_TYPE_IN,
 		Column:  params[0].(string),
-		Values:  params[1].([]interface{}),
+		Values:  InterfaceToSlice(params[1]),
 		Boolean: boolean,
 		Not:     not,
 	})

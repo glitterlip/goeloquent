@@ -28,3 +28,18 @@ func ExtractStruct(target interface{}) map[string]interface{} {
 	}
 	return result
 }
+func InterfaceToSlice(param interface{}) []interface{} {
+	if p, ok := param.([]interface{}); ok {
+		return p
+	}
+	tv := reflect.Indirect(reflect.ValueOf(param))
+	var res []interface{}
+	if tv.Type().Kind() == reflect.Slice {
+		for i := 0; i < tv.Len(); i++ {
+			res = append(res, tv.Index(i).Interface())
+		}
+	} else {
+		panic("not slice")
+	}
+	return res
+}
