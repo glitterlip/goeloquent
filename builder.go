@@ -190,7 +190,9 @@ func (b *Builder) Distinct() *Builder {
 	b.IsDistinct = true
 	return b
 }
-
+func (b *Builder) Table(params ...string) *Builder {
+	return b.From(params...)
+}
 func (b *Builder) From(params ...string) *Builder {
 	b.Components["from"] = nil
 	if len(params) == 2 {
