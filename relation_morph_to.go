@@ -23,6 +23,9 @@ func (m *MorphToResult) GetMorph() {
 func (m *EloquentModel) MorphTo(self interface{}, parentRelatedKey, relatedKey, parentRelatedType string) *RelationBuilder {
 
 	builder := NewRelationBaseBuilder(nil)
+	if m.Tx != nil {
+		builder.Tx = m.Tx
+	}
 	relation := MorphToRelation{
 		Relation: Relation{
 			Parent:  self,

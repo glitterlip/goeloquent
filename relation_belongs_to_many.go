@@ -29,6 +29,9 @@ type BelongsToManyRelation struct {
 
 func (m *EloquentModel) BelongsToMany(parent interface{}, related interface{}, pivotTable, pivotParentKey, pivotRelatedKey, parentKey, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
+	if m.Tx != nil {
+		b.Tx = m.Tx
+	}
 	relation := BelongsToManyRelation{
 		Relation: Relation{
 			Parent:  parent,

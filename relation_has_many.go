@@ -1,56 +1,42 @@
 package goeloquent
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 )
 
-type MorphToManyRelation struct {
+// HasManyRelation for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
+//for example we have user,address table
+//for user model hasmanyaddress relation parentkey => user table id column,relatedkey => address table id column,relatedparentkey => address table user_id column
+type HasManyRelation struct {
 	Relation
-	PivotTable      string
-	PivotRelatedKey string
-	PivotParentKey  string
-	ParentKey       string
-	RelatedKey      string
-	Builder         *Builder
-	MorphType       string
+	ReleatedParentKey string
+	ParentKey         string
+	Builder           *Builder
 }
 
-func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivotRelatedKey, pivotParentKey, parentKey, relatedKey, morphType string) *RelationBuilder {
+func (m *EloquentModel) HasMany(self interface{}, related interface{}, releatedParentKey, parentKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-
-	relation := MorphToManyRelation{
-		Relation: Relation{
+	if m.Tx != nil {
+		b.Tx = m.Tx
+	}
+	relation := HasManyRelation{
+		Relation{
 			Parent:  self,
 			Related: related,
-			Type:    RelationMorphToMany,
-		},
-		PivotTable:      pivotTable,
-		PivotRelatedKey: pivotRelatedKey,
-		PivotParentKey:  pivotParentKey,
-		ParentKey:       parentKey,
-		RelatedKey:      relatedKey,
-		Builder:         b,
-		MorphType:       morphType,
+			Type:    RelationHasMany,
+		}, releatedParentKey, parentKey, b,
 	}
-	relatedModel := GetParsedModel(related)
-	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedKey, "=", relatedModel.Table+"."+relation.RelatedKey)
-	b.Select(relatedModel.Table + "." + "*")
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotParentKey, PivotAlias, relation.PivotParentKey))
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
-	modelMorphName := GetMorphMap(selfModel.Name)
-	b.Where(morphType, modelMorphName)
+	b.Where(releatedParentKey, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
+	b.WhereNotNull(releatedParentKey)
+
 	return &RelationBuilder{Builder: b, Relation: &relation}
-
 }
-
-func (relation *MorphToManyRelation) AddEagerConstraints(models interface{}) {
-	parentParsedModel := GetParsedModel(relation.Parent)
-	index := parentParsedModel.FieldsByDbName[relation.ParentKey].Index
+func (r *HasManyRelation) AddEagerConstraints(models interface{}) {
+	relatedParsedModel := GetParsedModel(r.Related)
+	index := relatedParsedModel.FieldsByDbName[r.ParentKey].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -69,19 +55,18 @@ func (relation *MorphToManyRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	relation.Builder.Wheres = nil
-	relation.Builder.WhereIn(relation.PivotTable+"."+relation.PivotParentKey, keys)
-	relation.Builder.Where(relation.MorphType, GetMorphMap(parentParsedModel.Name))
-
+	r.Builder.Wheres = nil
+	r.Builder.WhereNotNull(r.ReleatedParentKey)
+	r.Builder.WhereIn(r.ReleatedParentKey, keys)
 }
-func MatchMorphToMany(models interface{}, related interface{}, relation *MorphToManyRelation) {
-	relatedValue := related.(reflect.Value)
-	relatedResults := relatedValue
+func MatchHasMany(models interface{}, related interface{}, relation *HasManyRelation) {
+	relatedModelsValue := related.(reflect.Value)
+	relatedModels := relatedModelsValue
 	relatedModel := GetParsedModel(relation.Related)
 	parent := GetParsedModel(relation.Parent)
 	isPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Kind() == reflect.Ptr
-	var relatedType reflect.Type
 
+	var relatedType reflect.Type
 	if isPtr {
 		relatedType = reflect.ValueOf(relation.Relation.Related).Type()
 	} else {
@@ -90,21 +75,21 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotKey := PivotAlias + relation.PivotParentKey
-	if !relatedResults.IsValid() || relatedResults.IsNil() {
+
+	if !relatedModels.IsValid() || relatedModels.IsNil() {
 		return
 	}
-	for i := 0; i < relatedResults.Len(); i++ {
-		result := relatedResults.Index(i)
-		pivotMap := result.FieldByIndex(relatedModel.PivotFieldIndex).Interface().(map[string]sql.NullString)
-		groupKey := reflect.ValueOf(pivotMap[pivotKey].String)
+
+	for i := 0; i < relatedModels.Len(); i++ {
+		result := relatedModels.Index(i)
+		foreignKeyIndex := relatedModel.FieldsByDbName[relation.ReleatedParentKey].Index
+		groupKey := reflect.ValueOf(fmt.Sprint(result.FieldByIndex([]int{foreignKeyIndex})))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
 			existed = reflect.New(slice.Type()).Elem()
 		} else {
 			existed = existed.Interface().(reflect.Value)
 		}
-
 		ptr := reflect.New(slice.Type())
 		if isPtr {
 			v := reflect.Append(existed, result.Addr())
@@ -140,28 +125,21 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 		value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
-			if !model.Field(modelRelationFiledIndex).CanSet() {
-				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
-			}
+
 			model.Field(modelRelationFiledIndex).Set(value)
 		}
 	} else {
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
-			if model.Kind() == reflect.Ptr {
-				model = reflect.Indirect(model)
-			}
 			modelKey := model.Field(modelKeyFiledIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
-			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
+			modelSlice := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
+			value := modelSlice
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				if !model.Field(modelRelationFiledIndex).CanSet() {
-					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
-				}
 				model.Field(modelRelationFiledIndex).Set(value)
 			}
-
 		}
 	}
+
 }

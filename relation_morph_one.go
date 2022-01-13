@@ -5,29 +5,31 @@ import (
 	"reflect"
 )
 
-type MorphManyRelation struct {
+type MorphOneRelation struct {
 	Relation
-	RelatedIdColumn  string
-	ParentKey        string
-	Builder          *Builder
-	RelatedTpeColumn string
-	MorphType        string
+	RelatedIdColumn   string
+	ParentKey         string
+	Builder           *Builder
+	RelatedTypeColumn string
+	MorphType         string
 }
 
-func (m *EloquentModel) MorphMany(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, parentKey string) *RelationBuilder {
+func (m *EloquentModel) MorphOne(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, parentKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-	relation := MorphManyRelation{
+	if m.Tx != nil {
+		b.Tx = m.Tx
+	}
+	relation := MorphOneRelation{
 		Relation: Relation{
 			Parent:  self,
 			Related: related,
 			Type:    RelationMorphOne,
 		},
-		RelatedIdColumn: relatedIdColumn, ParentKey: parentKey, Builder: b, RelatedTpeColumn: relatedTypeColumn,
+		RelatedIdColumn: relatedIdColumn, ParentKey: parentKey, Builder: b, RelatedTypeColumn: relatedTypeColumn,
 	}
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
 	relation.MorphType = GetMorphMap(selfModel.Name)
-
 	b.Where(relatedIdColumn, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
 	b.WhereNotNull(relatedIdColumn)
 	b.Where(relatedTypeColumn, "=", relation.MorphType)
@@ -35,7 +37,7 @@ func (m *EloquentModel) MorphMany(self interface{}, related interface{}, related
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
 }
-func (r *MorphManyRelation) AddEagerConstraints(models interface{}) {
+func (r *MorphOneRelation) AddEagerConstraints(models interface{}) {
 	parentParsedModel := GetParsedModel(r.Parent)
 	index := parentParsedModel.FieldsByDbName[r.ParentKey].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
@@ -58,76 +60,73 @@ func (r *MorphManyRelation) AddEagerConstraints(models interface{}) {
 	}
 	r.Builder.Wheres = nil
 	r.Builder.WhereNotNull(r.RelatedIdColumn)
-	r.Builder.Where(r.RelatedTpeColumn, "=", r.MorphType)
+	r.Builder.Where(r.RelatedTypeColumn, r.MorphType)
 	r.Builder.WhereIn(r.RelatedIdColumn, keys)
 }
-func MatchMorphMany(models interface{}, related interface{}, relation *MorphManyRelation) {
+func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRelation) {
 	relatedModelsValue := related.(reflect.Value)
-	relatedModels := relatedModelsValue
+	relatedResults := relatedModelsValue
 	relatedModel := GetParsedModel(relation.Related)
 	relatedType := reflect.ValueOf(relation.Relation.Related).Elem().Type()
-
-	parent := GetParsedModel(relation.Parent)
-	relationFieldIsPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Kind() == reflect.Ptr
-	var sliceEleIsptr bool
-	if relationFieldIsPtr {
-		sliceEleIsptr = parent.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Elem().Kind() == reflect.Ptr
-	} else {
-		sliceEleIsptr = parent.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Kind() == reflect.Ptr
-	}
-	var slice reflect.Value
-	if sliceEleIsptr {
-		slice = reflect.MakeSlice(reflect.SliceOf(reflect.PtrTo(relatedType)), 0, 1)
-	} else {
-		slice = reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
-	}
+	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	if !relatedModels.IsValid() || relatedModels.IsNil() {
+	parent := GetParsedModel(relation.Parent)
+	isPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Kind() == reflect.Ptr
+	if !relatedResults.IsValid() || relatedResults.IsNil() {
 		return
 	}
-	for i := 0; i < relatedModels.Len(); i++ {
-		result := relatedModels.Index(i)
-		ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedIdColumn].Index
-		groupKey := reflect.ValueOf(fmt.Sprint(result.FieldByIndex([]int{ownerKeyIndex})))
-		existed := groupedResults.MapIndex(groupKey)
-		if !existed.IsValid() {
-			existed = reflect.New(slice.Type())
-		} else {
-			//after initilized and store in map and then get from the map,slice is a reflect.value(struct),we need to convert it
-			existed = existed.Interface().(reflect.Value)
-		}
-		ptr := reflect.New(slice.Type())
-		if sliceEleIsptr {
-			v := reflect.Append(existed.Elem(), result.Addr())
-			ptr.Elem().Set(v)
-		} else {
+	if isPtr {
+		for i := 0; i < relatedResults.Len(); i++ {
+			result := relatedResults.Index(i)
+			ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedIdColumn].Index
+			groupKeyS := fmt.Sprint(result.FieldByIndex([]int{ownerKeyIndex}))
+			groupKey := reflect.ValueOf(groupKeyS)
+			existed := groupedResults.MapIndex(groupKey)
+			if !existed.IsValid() {
+				existed = reflect.New(slice.Type())
+			} else {
+				existed = existed.Interface().(reflect.Value)
+			}
+			ptr := reflect.New(slice.Type())
 			ptr.Elem().Set(reflect.Append(existed.Elem(), result))
-
+			groupedResults.SetMapIndex(groupKey, reflect.ValueOf(ptr))
 		}
-		groupedResults.SetMapIndex(groupKey, reflect.ValueOf(ptr))
+	} else {
+		for i := 0; i < relatedResults.Len(); i++ {
+			result := relatedResults.Index(i)
+			ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedIdColumn].Index
+			groupKeyS := fmt.Sprint(result.FieldByIndex([]int{ownerKeyIndex}))
+			groupKey := reflect.ValueOf(groupKeyS)
+			existed := groupedResults.MapIndex(groupKey)
+			if !existed.IsValid() {
+				existed = reflect.New(slice.Type()).Elem()
+			} else {
+				existed = existed.Interface().(reflect.Value)
+			}
+			modelSlice := reflect.Append(existed, result)
+			groupedResults.SetMapIndex(groupKey, reflect.ValueOf(modelSlice))
+		}
 	}
-
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
 	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
 	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
-
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
-			e := rvP.Index(i)
-			modelKey := e.Field(modelKeyFiledIndex)
+			model := rvP.Index(i)
+			modelKey := model.Field(modelKeyFiledIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				if relationFieldIsPtr {
-					e.Field(modelRelationFiledIndex).Set(value)
+				if isPtr {
+					model.Field(modelRelationFiledIndex).Set(value.Elem().Index(0).Addr())
 				} else {
-					e.Field(modelRelationFiledIndex).Set(value.Elem())
+					model.Field(modelRelationFiledIndex).Set(value.Index(0))
+
 				}
 			}
-
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
@@ -140,10 +139,10 @@ func MatchMorphMany(models interface{}, related interface{}, relation *MorphMany
 			if !model.Field(modelRelationFiledIndex).CanSet() {
 				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 			}
-			if relationFieldIsPtr {
-				model.Field(modelRelationFiledIndex).Set(value)
+			if isPtr {
+				model.Field(modelRelationFiledIndex).Set(value.Elem().Index(0).Addr())
 			} else {
-				model.Field(modelRelationFiledIndex).Set(value.Elem())
+				model.Field(modelRelationFiledIndex).Set(value.Index(0))
 			}
 		}
 
@@ -159,10 +158,10 @@ func MatchMorphMany(models interface{}, related interface{}, relation *MorphMany
 				if !model.Field(modelRelationFiledIndex).CanSet() {
 					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 				}
-				if relationFieldIsPtr {
-					model.Field(modelRelationFiledIndex).Set(value)
+				if isPtr {
+					model.Field(modelRelationFiledIndex).Set(value.Elem().Index(0).Addr())
 				} else {
-					model.Field(modelRelationFiledIndex).Set(value.Elem())
+					model.Field(modelRelationFiledIndex).Set(value.Index(0))
 				}
 			}
 		}
