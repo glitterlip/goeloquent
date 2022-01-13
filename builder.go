@@ -31,30 +31,31 @@ var SelectComponents = []string{
 }
 
 type Builder struct {
-	Connection IConnection
+	Connection *Connection
+	Tx         *Transaction
 	Grammar    IGrammar
 	//Processor   processors.IProcessor
-	Sql              string
-	PreSql           strings.Builder
-	Bindings         []interface{}
-	FromTable        string
-	TablePrefix      string
-	TableAlias       string
-	Wheres           []Where
-	Aggregates       []Aggregate
-	Columns          []interface{} // The columns that should be returned.
-	IsDistinct       bool          // Indicates if the query returns distinct results.
-	Joins            []Join
-	Groups           []interface{}
-	Havings          []Having
-	Orders           []Order
-	LimitNum         int
-	OffsetNum        int
-	Unions           []Where
+	Sql         string
+	PreSql      strings.Builder
+	Bindings    []interface{}
+	FromTable   string
+	TablePrefix string
+	TableAlias  string
+	Wheres      []Where
+	Aggregates  []Aggregate
+	Columns     []interface{} // The columns that should be returned.
+	IsDistinct  bool          // Indicates if the query returns distinct results.
+	Joins       []Join
+	Groups      []interface{}
+	Havings     []Having
+	Orders      []Order
+	LimitNum    int
+	OffsetNum   int
+	//Unions           []Where
 	UnionLimit       int
 	UnionOffset      int
 	UnionOrders      int
-	Components       map[string]interface{}
+	Components       map[string]interface{} //SelectComponents
 	Lock             string
 	LoggingQueries   bool
 	QueryLog         []map[string]interface{}
@@ -157,12 +158,20 @@ type Where struct {
 	Not          bool //not in,not between,not null
 }
 
-func NewBuilder(c IConnection) *Builder {
+func NewBuilder(c *Connection) *Builder {
 	b := Builder{
 		Connection: c,
 		Components: make(map[string]interface{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		//Processor:  processors.MysqlProcessor{},
+	}
+	return &b
+}
+func NewTxBuilder(tx *Transaction) *Builder {
+	b := Builder{
+		Components: make(map[string]interface{}),
+		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+		Tx:         tx,
 	}
 	return &b
 }
@@ -172,6 +181,7 @@ func CloneBuilder(b *Builder) *Builder {
 		Components: make(map[string]interface{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		Grammar:    &MysqlGrammar{},
+		Tx:         b.Tx,
 	}
 	cb.Grammar.SetTablePrefix(b.TablePrefix)
 	cb.Grammar.SetBuilder(&cb)
@@ -810,16 +820,11 @@ func (b *Builder) addNestedWhereQuery(cloneBuilder *Builder, boolean string) *Bu
 	return b
 }
 
-func (b *Builder) BeginTransaction() *Builder {
-	b.Connection.BeginTransaction()
-	return b
-}
 func (b *Builder) Commit() error {
-	return b.Connection.Commit()
+	return b.Tx.Commit()
 }
-func (b *Builder) Rollback() {
-	b.Connection.RollBack()
-	return
+func (b *Builder) Rollback() error {
+	return b.Tx.RollBack()
 }
 func (b *Builder) Find(dest interface{}, params interface{}) (result sql.Result, err error) {
 	b.WhereKey(params)
@@ -852,9 +857,9 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 			}
 		}
 		if c, ok := reflect.New(typ).Elem().Interface().(ConnectionName); ok {
-			b.Connection = *Eloquent.Connection(c.ConnectionName())
+			b.Connection = Eloquent.Connection(c.ConnectionName())
 		} else {
-			b.Connection = *Eloquent.Connection("default")
+			b.Connection = Eloquent.Connection("default")
 
 		}
 	}
@@ -862,7 +867,11 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 
 }
 func (b *Builder) RunSelect() (result sql.Result, err error) {
-	result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
+	if b.Tx != nil {
+		result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
+	} else {
+		result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
+	}
 	if err != nil {
 		return
 	}
@@ -956,7 +965,7 @@ func (b *Builder) FileterColumn(column string) bool {
 	return true
 }
 
-func (b *Builder) Insert(values interface{}) (sql.Result, error) {
+func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	var start = time.Now()
 	rv := reflect.ValueOf(values)
 	var items []map[string]interface{}
@@ -993,7 +1002,12 @@ func (b *Builder) Insert(values interface{}) (sql.Result, error) {
 		items = append(items, ExtractStruct(rv.Interface()))
 	}
 	b.Grammar.CompileInsert(items)
-	result, err := b.Connection.Insert(b.PreparedSql, b.Bindings)
+
+	if b.Tx != nil {
+		result, err = b.Connection.Insert(b.PreparedSql, b.Bindings)
+	} else {
+		result, err = b.Connection.Insert(b.PreparedSql, b.Bindings)
+	}
 	if len(items) == 1 && rv.Kind() == reflect.Struct {
 		//set id for simple struct
 		mp := GetParsedModel(rv.Type())
@@ -1016,10 +1030,14 @@ func (b *Builder) InsertGetId(values interface{}) (int64, error) {
 	}
 	return result.LastInsertId()
 }
-func (b *Builder) Update(v map[string]interface{}) (sql.Result, error) {
+func (b *Builder) Update(v map[string]interface{}) (result sql.Result, err error) {
 	var start = time.Now()
 	b.Grammar.CompileUpdate(v)
-	result, err := b.Connection.Update(b.PreparedSql, b.Bindings)
+	if b.Tx != nil {
+		result, err = b.Tx.Update(b.PreparedSql, b.Bindings)
+	} else {
+		result, err = b.Connection.Update(b.PreparedSql, b.Bindings)
+	}
 	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	return result, err
 }
@@ -1035,10 +1053,14 @@ func (b *Builder) Decrement(n int) interface{} {
 
 	return 1
 }
-func (b *Builder) Delete() (sql.Result, error) {
+func (b *Builder) Delete() (result sql.Result, err error) {
 	var start = time.Now()
 	b.Grammar.CompileDelete()
-	result, err := b.Connection.Delete(b.PreparedSql, b.Bindings)
+	if b.Tx != nil {
+		result, err = b.Tx.Delete(b.PreparedSql, b.Bindings)
+	} else {
+		result, err = b.Connection.Delete(b.PreparedSql, b.Bindings)
+	}
 	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	return result, err
 }

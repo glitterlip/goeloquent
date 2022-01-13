@@ -7,21 +7,21 @@ const (
 type ConnectionFactory struct {
 }
 type Connector interface {
-	connect(config DBConfig) IConnection
+	connect(config *DBConfig) *Connection
 }
 
-func (f ConnectionFactory) Make(config DBConfig) IConnection {
+func (f ConnectionFactory) Make(config *DBConfig) *Connection {
 	return f.MakeConnection(config)
 }
-func (f ConnectionFactory) MakeConnection(config DBConfig) IConnection {
+func (f ConnectionFactory) MakeConnection(config *DBConfig) *Connection {
 	return f.CreateConnection(config)
 }
-func (f ConnectionFactory) CreateConnection(config DBConfig) IConnection {
+func (f ConnectionFactory) CreateConnection(config *DBConfig) *Connection {
 	switch config.Driver {
 	case DriverMysql:
 		connector := MysqlConnector{}
 		conn := connector.connect(config)
-		return &*conn
+		return conn
 	}
 	return nil
 }

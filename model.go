@@ -55,7 +55,6 @@ type Model struct {
 	//EagerLoad     []
 	//GlobalScopes map[string]interface{}
 	DispatchesEvents map[string]reflect.Value
-	DB               *DB
 }
 type Field struct {
 	Name       string
@@ -250,10 +249,6 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 	return modelField
 }
 
-func (m *Model) GetConnection() *IConnection {
-	return m.DB.Connection("default")
-}
-
 //reflect.Type of model
 //string pkgpath+name of model
 //pointer of model
@@ -343,6 +338,8 @@ type EloquentModel struct {
 	Muted         string                    `json:"-"` //mute events
 	OnlyColumns   map[string]interface{}    `json:"-"` //only update/save these columns
 	ExceptColumns map[string]interface{}    `json:"-"` //exclude update/save there columns
+	Tx            *Transaction              `json:"-"` //use same transaction
+
 }
 
 func NewModel(modelPointer interface{}) *EloquentModel {
@@ -688,13 +685,18 @@ func (m *EloquentModel) Except(columns ...string) *EloquentModel {
 	return m
 }
 func (m *EloquentModel) Load(relations ...interface{}) {
-	var connection IConnection
+	var connection *Connection
 	if c, ok := m.ModelPointer.Elem().Interface().(ConnectionName); ok {
-		connection = *Eloquent.Connection(c.ConnectionName())
+		connection = Eloquent.Connection(c.ConnectionName())
 	} else {
-		connection = *Eloquent.Connection("default")
+		connection = Eloquent.Connection("default")
 	}
-	b := NewBuilder(connection)
+	var b *Builder
+	if m.Tx != nil {
+		b = NewTxBuilder(m.Tx)
+	} else {
+		b = NewBuilder(connection)
+	}
 	b.SetModel(m.ModelPointer.Interface())
 	b.With(relations...)
 	b.Dest = m.ModelPointer.Interface()

@@ -10,7 +10,7 @@ import (
 type MysqlConnector struct {
 }
 
-func (c MysqlConnector) connect(config DBConfig) *MysqlConnection {
+func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	/**
 	[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...¶mN=valueN]
 	// user@unix(/path/to/socket)/dbname
@@ -56,8 +56,8 @@ func (c MysqlConnector) connect(config DBConfig) *MysqlConnection {
 	db.SetMaxIdleConns(config.MaxIdleConns)
 	db.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Second)
 	db.SetConnMaxIdleTime(time.Duration(config.ConnMaxIdleTime) * time.Second)
-	return &MysqlConnection{
-		Connection: db,
-		Config:     config,
+	return &Connection{
+		DB:     db,
+		Config: config,
 	}
 }

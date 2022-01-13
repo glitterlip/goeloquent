@@ -73,7 +73,7 @@ func NewRelationBaseBuilder(related interface{}) *Builder {
 	}
 	connection := Eloquent.Connection(connectionName)
 	baseBuilder := Builder{
-		Connection: *connection,
+		Connection: connection,
 		Components: make(map[string]interface{}),
 		Grammar:    &MysqlGrammar{},
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),

@@ -23,10 +23,14 @@ func (d *DB) SetLogger(f func(log Log)) *DB {
 	return d
 }
 func Open(config map[string]DBConfig) *DB {
+	var configP map[string]*DBConfig
+	for name, dbConfig := range config {
+		configP[name] = &dbConfig
+	}
 	db := DB{
 		DatabaseManager: DatabaseManager{
-			Configs:     config,
-			Connections: make(map[string]*IConnection),
+			Configs:     configP,
+			Connections: make(map[string]*Connection),
 		},
 	}
 	db.Connection("default")
