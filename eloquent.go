@@ -23,7 +23,7 @@ func (d *DB) SetLogger(f func(log Log)) *DB {
 	return d
 }
 func Open(config map[string]DBConfig) *DB {
-	var configP map[string]*DBConfig
+	var configP = make(map[string]*DBConfig)
 	for name, dbConfig := range config {
 		configP[name] = &dbConfig
 	}
