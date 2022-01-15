@@ -287,6 +287,16 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		})
 		b.Components["wheres"] = nil
 		return b
+	} else if m, ok := params[0].(map[string]interface{}); ok {
+		boolean = BOOLEAN_AND
+		if paramsLength > 1 {
+			boolean = params[1].(string)
+		}
+		cb := CloneBuilder(b)
+		for k, v := range m {
+			cb.Where(k, v)
+		}
+		return b.addNestedWhereQuery(cb, boolean)
 	}
 	switch paramsLength {
 	case 2:
