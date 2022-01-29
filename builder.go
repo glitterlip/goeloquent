@@ -3,6 +3,7 @@ package goeloquent
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ var SelectComponents = []string{
 	"unions",
 	"lock",
 }
+var Bindings = map[string]struct{}{"select": {}, "from": {}, "join": {}, "where": {}, "groupBy": {}, "having": {}, "order": {}, "union": {}, "unionOrder": {}}
 
 type Builder struct {
 	Connection *Connection
@@ -37,7 +39,7 @@ type Builder struct {
 	//Processor   processors.IProcessor
 	Sql         string
 	PreSql      strings.Builder
-	Bindings    []interface{}
+	Bindings    map[string][]interface{} //available options (select,from,join,where,groupBy,having,order,union,unionOrder)
 	FromTable   string
 	TablePrefix string
 	TableAlias  string
@@ -241,6 +243,16 @@ func (b *Builder) join(table, firstColumn, joinOperator, secondColumn, joinType 
 		JoinOperator:   "on",
 	})
 
+	return b
+}
+
+//AddBinding Add a binding to the query.
+
+func (b *Builder) AddBinding(value interface{}, bindingType string) *Builder {
+	if _, ok := Bindings[bindingType]; !ok {
+		log.Panicf("invalid binding type:%s\n", bindingType)
+	}
+	b.Bindings[bindingType] = append(b.Bindings[bindingType], value)
 	return b
 }
 
