@@ -1642,10 +1642,17 @@ func (b *Builder) Offset(n int) *Builder {
 	return b
 }
 
-func (b *Builder) Union(n int) *Builder {
-	b.OffsetNum = n
-	return b
-}
+/*
+Union Add a union statement to the query.
+*/
+//func (b *Builder) Union(n int) *Builder {
+//	b.OffsetNum = n
+//	return b
+//}
+
+/*
+LockForUpdate Lock the selected rows in the table for updating.
+*/
 func (b *Builder) LockForUpdate() *Builder {
 	b.Lock = " for update "
 	b.Components["lock"] = nil
@@ -1708,6 +1715,10 @@ func (b *Builder) Commit() error {
 func (b *Builder) Rollback() error {
 	return b.Tx.RollBack()
 }
+
+/*
+Find Execute a query for a single record by ID.
+*/
 func (b *Builder) Find(dest interface{}, params interface{}) (result sql.Result, err error) {
 	b.WhereKey(params)
 	d := reflect.Indirect(reflect.ValueOf(dest))
@@ -1717,6 +1728,10 @@ func (b *Builder) Find(dest interface{}, params interface{}) (result sql.Result,
 		return b.First(dest)
 	}
 }
+
+/*
+
+ */
 func (b *Builder) First(dest interface{}) (result sql.Result, err error) {
 	b.Limit(1)
 	return b.Get(dest)
@@ -1748,6 +1763,10 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 	return b
 
 }
+
+/*
+RunSelect Run the query as a "select" statement against the connection.
+*/
 func (b *Builder) RunSelect() (result sql.Result, err error) {
 	if b.Tx != nil {
 		result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
@@ -1814,19 +1833,35 @@ func (b *Builder) Aggregate(dest interface{}, fn string, column ...string) (resu
 	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	return
 }
+
+/*
+Count Retrieve the "count" result of the query.
+*/
 func (b *Builder) Count(dest interface{}, column ...string) (result sql.Result, err error) {
 	return b.Aggregate(dest, "count", column...)
 }
+
+/*
+Min Retrieve the minimum value of a given column.
+*/
 func (b *Builder) Min(dest interface{}, column ...string) (result sql.Result, err error) {
 
 	return b.Aggregate(dest, "min", column...)
 
 }
+
+/*
+Max Retrieve the maximum value of a given column.
+*/
 func (b *Builder) Max(dest interface{}, column ...string) (result sql.Result, err error) {
 
 	return b.Aggregate(dest, "max", column...)
 
 }
+
+/*
+Avg Alias for the "avg" method.
+*/
 func (b *Builder) Avg(dest interface{}, column ...string) (result sql.Result, err error) {
 
 	return b.Aggregate(dest, "avg", column...)
@@ -1870,6 +1905,9 @@ func (b *Builder) FileterColumn(column string) bool {
 	return true
 }
 
+/*
+Insert new records into the database.
+*/
 func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	var start = time.Now()
 	rv := reflect.ValueOf(values)
@@ -1927,6 +1965,10 @@ func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
 	return result, err
 }
+
+/*
+InsertGetId Insert new records into the database while ignoring errors.
+*/
 func (b *Builder) InsertGetId(values interface{}) (int64, error) {
 
 	result, err := b.Insert(values)
@@ -2033,6 +2075,10 @@ func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Du
 	}
 
 }
+
+/*
+Get Execute the query as a "select" statement.
+*/
 func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Result, err error) {
 	if len(columns) > 0 {
 		b.Select(columns...)
@@ -2055,6 +2101,10 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 	}
 	return
 }
+
+/*
+Pluck Get a collection instance containing the values of a given column.
+*/
 func (b *Builder) Pluck(dest interface{}, params string) (sql.Result, error) {
 	return b.Get(dest, params)
 }
@@ -2068,6 +2118,9 @@ func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
 	return b.Get(dest, column)
 }
 
+/*
+Paginate Paginate the given query into a simple paginator.
+*/
 func (b *Builder) Paginate(p *Paginator, columns ...interface{}) (*Paginator, error) {
 	if len(b.Groups) > 0 || len(b.Havings) > 0 {
 		panic("having/group pagination not supported")
