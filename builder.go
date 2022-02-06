@@ -1407,7 +1407,35 @@ func (b *Builder) AddWhereExistsQuery(builder *Builder, boolean string, not bool
 	return b
 }
 
-//column operator value boolean
+/*
+GroupBy Add a "group by" clause to the query.
+column operator value boolean
+*/
+func (b *Builder) GroupBy(columns ...interface{}) *Builder {
+	for _, column := range columns {
+		b.Groups = append(b.Groups, column)
+	}
+	b.Components[TYPE_GROUP_BY] = struct{}{}
+	return b
+}
+
+/*
+GroupByRaw Add a raw groupBy clause to the query.
+*/
+func (b *Builder) GroupByRaw(sql string, bindings ...[]interface{}) *Builder {
+	b.Groups = append(b.Groups, Expression(sql))
+	if len(bindings) > 0 {
+		b.AddBinding(bindings[0], TYPE_GROUP_BY)
+	}
+	b.Components[TYPE_GROUP_BY] = struct{}{}
+
+	return b
+}
+
+/*
+Having Add a "having" clause to the query.
+column operator value boolean
+*/
 func (b *Builder) Having(params ...interface{}) *Builder {
 	havingBoolean := BOOLEAN_AND
 	havingOperator := "="
