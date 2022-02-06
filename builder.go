@@ -213,9 +213,8 @@ func CloneBuilder(b *Builder) *Builder {
 		Tx:         b.Tx,
 		Bindings:   make(map[string][]interface{}),
 	}
-	cb.Grammar.SetTablePrefix(b.TablePrefix)
+	cb.Grammar.SetTablePrefix(b.Grammar.GetTablePrefix())
 	cb.Grammar.SetBuilder(&cb)
-	cb.From(b.FromTable)
 	return &cb
 }
 
