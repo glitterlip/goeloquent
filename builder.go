@@ -1655,12 +1655,12 @@ LockForUpdate Lock the selected rows in the table for updating.
 */
 func (b *Builder) LockForUpdate() *Builder {
 	b.Lock = " for update "
-	b.Components["lock"] = nil
+	b.Components[TYPE_LOCK] = struct{}{}
 	return b
 }
 func (b *Builder) SharedLock() *Builder {
 	b.Lock = " lock in share mode "
-	b.Components["lock"] = nil
+	b.Components[TYPE_LOCK] = struct{}{}
 	return b
 }
 func (b *Builder) WhereKey(keys interface{}) *Builder {
@@ -1704,7 +1704,8 @@ func (b *Builder) AddNestedWhereQuery(builder *Builder, boolean string) *Builder
 			Value:   cloneBuilder,
 			Boolean: boolean,
 		})
-		b.Components["wheres"] = nil
+		b.AddBinding(builder.GetRawBindings()[TYPE_WHERE], TYPE_WHERE)
+		b.Components[TYPE_WHERE] = struct{}{}
 	}
 	return b
 }
@@ -1828,9 +1829,9 @@ func (b *Builder) Aggregate(dest interface{}, fn string, column ...string) (resu
 		AggregateName:   fn,
 		AggregateColumn: column[0],
 	})
-	b.Components["aggregate"] = nil
+	b.Components[TYPE_AGGREGRATE] = struct{}{}
 	result, err = b.RunSelect()
-	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return
 }
 
@@ -1962,7 +1963,7 @@ func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 
 		}
 	}
-	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return result, err
 }
 
@@ -1985,7 +1986,7 @@ func (b *Builder) Update(v map[string]interface{}) (result sql.Result, err error
 	} else {
 		result, err = b.Connection.Update(b.PreparedSql, b.Bindings)
 	}
-	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return result, err
 }
 func (b *Builder) UpdateOrInsert(n int) interface{} {
@@ -2008,7 +2009,7 @@ func (b *Builder) Delete() (result sql.Result, err error) {
 	} else {
 		result, err = b.Connection.Delete(b.PreparedSql, b.Bindings)
 	}
-	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return result, err
 }
 func (b *Builder) Raw() *sql.DB {
@@ -2086,13 +2087,13 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 	var start = time.Now()
 	b.Dest = dest
 	b.DestReflectValue = reflect.ValueOf(dest)
-	if _, ok := b.Components["columns"]; !ok {
-		b.Components["columns"] = nil
+	if _, ok := b.Components[TYPE_COLUMN]; !ok || len(b.Columns) == 0 {
+		b.Components[TYPE_COLUMN] = struct{}{}
 		b.Columns = append(b.Columns, "*")
 	}
 
 	result, err = b.RunSelect()
-	b.logQuery(b.PreparedSql, b.Bindings, time.Since(start), result)
+	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	if len(b.EagerLoad) > 0 && result.(ScanResult).Count > 0 {
 		rb := RelationBuilder{
 			Builder: b,
@@ -2138,7 +2139,7 @@ func (b *Builder) Paginate(p *Paginator, columns ...interface{}) (*Paginator, er
 	}
 	cb := CloneBuilder(b)
 	if len(b.Wheres) > 0 {
-		cb.Components["wheres"] = nil
+		cb.Components[TYPE_WHERE] = struct{}{}
 		copy(cb.Wheres, b.Wheres)
 	}
 	_, err := cb.Count(&p.Total)
