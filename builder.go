@@ -2108,9 +2108,20 @@ Pluck Get a collection instance containing the values of a given column.
 func (b *Builder) Pluck(dest interface{}, params string) (sql.Result, error) {
 	return b.Get(dest, params)
 }
-func (b *Builder) When(boolean bool, cb func(builder *Builder)) *Builder {
+
+/*
+When Apply the callback if the given "value" is truthy.
+
+	1. When(true,func(builder *Builder))
+	2. When(true,func(builder *Builder),func(builder *Builder)) //with default callback
+
+*/
+func (b *Builder) When(boolean bool, cb ...func(builder *Builder)) *Builder {
 	if boolean {
-		b.Where(cb)
+		cb[0](b)
+	} else if len(cb) == 2 {
+		//if false and we have default callback
+		cb[1](b)
 	}
 	return b
 }
