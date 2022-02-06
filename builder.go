@@ -913,7 +913,11 @@ func (b *Builder) OrWhere(params ...interface{}) *Builder {
 	}
 	return b.Where(params...)
 }
-func (b *Builder) WhereColumn(first string, operator string, second ...string) *Builder {
+
+/*
+WhereColumn Add a "where" clause comparing two columns to the query.
+*/
+func (b *Builder) WhereColumn(first string, second ...string) *Builder {
 	length := len(second)
 	var firstColumn = first
 	var secondColumn, operator, boolean string
