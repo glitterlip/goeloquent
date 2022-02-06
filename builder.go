@@ -191,6 +191,7 @@ func NewBuilder(c *Connection) *Builder {
 		Components: make(map[string]struct{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		//Processor:  processors.MysqlProcessor{},
+		Bindings: make(map[string][]interface{}),
 	}
 	return &b
 }
@@ -199,6 +200,7 @@ func NewTxBuilder(tx *Transaction) *Builder {
 		Components: make(map[string]struct{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		Tx:         tx,
+		Bindings:   make(map[string][]interface{}),
 	}
 	return &b
 }
@@ -209,6 +211,7 @@ func CloneBuilder(b *Builder) *Builder {
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		Grammar:    &MysqlGrammar{},
 		Tx:         b.Tx,
+		Bindings:   make(map[string][]interface{}),
 	}
 	cb.Grammar.SetTablePrefix(b.TablePrefix)
 	cb.Grammar.SetBuilder(&cb)
@@ -377,16 +380,39 @@ func (b *Builder) join(table, firstColumn, joinOperator, secondColumn, joinType 
 }
 
 //AddBinding Add a binding to the query.
-
-func (b *Builder) AddBinding(value interface{}, bindingType string) *Builder {
+func (b *Builder) AddBinding(value []interface{}, bindingType string) *Builder {
 	if _, ok := Bindings[bindingType]; !ok {
 		log.Panicf("invalid binding type:%s\n", bindingType)
 	}
-	b.Bindings[bindingType] = append(b.Bindings[bindingType], value)
+	var tv []interface{}
+	for _, v := range value {
+		if _, ok := v.(Expression); !ok {
+			tv = append(tv, v)
+		}
+	}
+	b.Bindings[bindingType] = append(b.Bindings[bindingType], tv...)
 	return b
 }
 
-//column,operator,value,
+//GetBindings Get the current query value bindings in a flattened slice.
+func (b *Builder) GetBindings() (res []interface{}) {
+	for key, _ := range Bindings {
+		if bindings, ok := b.Bindings[key]; ok {
+			res = append(res, bindings...)
+		}
+	}
+	return
+}
+
+// GetRawBindings Get the raw map of array of bindings.
+func (b *Builder) GetRawBindings() map[string][]interface{} {
+	return b.Bindings
+}
+
+/*
+Where Add a basic where clause to the query.
+column,operator,value,
+*/
 func (b *Builder) Where(params ...interface{}) *Builder {
 
 	//map of where conditions
