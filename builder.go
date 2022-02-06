@@ -1561,6 +1561,10 @@ func (b *Builder) HavingBetween(column string, params ...interface{}) *Builder {
 	b.Havings = append(b.Havings, having)
 	return b
 }
+
+/*
+OrderBy Add an "order by" clause to the query.
+*/
 func (b *Builder) OrderBy(params ...interface{}) *Builder {
 	var order = ORDER_ASC
 	if r, ok := params[0].(Expression); ok {
@@ -1568,7 +1572,7 @@ func (b *Builder) OrderBy(params ...interface{}) *Builder {
 			RawSql:    r,
 			OrderType: CONDITION_TYPE_RAW,
 		})
-		b.Components["orders"] = nil
+		b.Components[TYPE_ORDER] = struct{}{}
 
 		return b
 	}
@@ -1579,8 +1583,40 @@ func (b *Builder) OrderBy(params ...interface{}) *Builder {
 		Direction: order,
 		Column:    params[0].(string),
 	})
-	b.Components["orders"] = nil
+	b.Components[TYPE_ORDER] = struct{}{}
 
+	return b
+}
+
+/*
+OrderByRaw Add a raw "order by" clause to the query.
+*/
+func (b *Builder) OrderByRaw(sql string, bindings []interface{}) *Builder {
+	b.Orders = append(b.Orders, Order{
+		OrderType: CONDITION_TYPE_RAW,
+		RawSql:    Raw(sql),
+	})
+	b.Components[TYPE_ORDER] = struct{}{}
+	b.AddBinding(bindings, TYPE_ORDER)
+	return b
+}
+func (b *Builder) OrderByDesc(column string) *Builder {
+	return b.OrderBy(column, ORDER_DESC)
+}
+
+/*
+ReOrder Remove all existing orders and optionally add a new order.
+*/
+func (b *Builder) ReOrder(params ...string) *Builder {
+	b.Orders = nil
+	b.Bindings["order"] = nil
+	delete(b.Components, TYPE_ORDER)
+	length := len(params)
+	if length == 1 {
+		b.OrderBy(InterfaceToSlice(params[0]))
+	} else if length == 2 {
+		b.OrderBy(InterfaceToSlice(params[0:2])...)
+	}
 	return b
 }
 func (b *Builder) Limit(n int) *Builder {
