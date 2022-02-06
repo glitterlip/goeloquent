@@ -46,11 +46,11 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	}
 	db, err := sql.Open(DriverMysql, fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=%s&collation=%s", config.Username, config.Password, config.Host, config.Port, config.Database, config.Charset, config.Collation))
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 	err = db.Ping()
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)

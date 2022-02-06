@@ -2,6 +2,7 @@ package goeloquent
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -32,7 +33,7 @@ func (dm *DatabaseManager) GetConfig(name string) *DBConfig {
 func (dm *DatabaseManager) MakeConnection(connectionName string) *Connection {
 	config, ok := dm.Configs[connectionName]
 	if !ok {
-		panic(fmt.Sprintf("Database connection %s not configured.", connectionName))
+		panic(errors.New(fmt.Sprintf("Database connection %s not configured.", connectionName)))
 	}
 
 	conn := dm.Factory.Make(config)

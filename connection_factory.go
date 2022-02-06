@@ -1,5 +1,10 @@
 package goeloquent
 
+import (
+	"errors"
+	"fmt"
+)
+
 const (
 	DriverMysql = "mysql"
 )
@@ -22,6 +27,8 @@ func (f ConnectionFactory) CreateConnection(config *DBConfig) *Connection {
 		connector := MysqlConnector{}
 		conn := connector.connect(config)
 		return conn
+	default:
+		panic(errors.New(fmt.Sprintf("unsupported driver:%s", config.Driver)))
 	}
 	return nil
 }

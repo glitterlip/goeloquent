@@ -24,8 +24,9 @@ func (d *DB) SetLogger(f func(log Log)) *DB {
 }
 func Open(config map[string]DBConfig) *DB {
 	var configP = make(map[string]*DBConfig)
-	for name, dbConfig := range config {
-		configP[name] = &dbConfig
+	for name := range config {
+		c := config[name]
+		configP[name] = &c
 	}
 	db := DB{
 		DatabaseManager: DatabaseManager{
