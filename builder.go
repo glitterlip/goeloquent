@@ -408,26 +408,326 @@ func (b *Builder) FromRaw(raw interface{}, bindings ...[]interface{}) *Builder {
 	return b
 }
 
-func (b *Builder) LeftJoin(table, firstColumn, joinOperator, secondColumn string) *Builder {
-	return b.join(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_LEFT)
+/*
+Join Add a join clause to the query.
+*/
+func (b *Builder) Join(table string, first interface{}, params ...interface{}) *Builder {
+	var operator, second, joinType string
+	var isWhere = false
+	length := len(params)
+	switch length {
+	case 0:
+		if function, ok := first.(func(builder *Builder)); ok {
+			clause := NewJoin(b, JOIN_TYPE_INNER, table)
+			function(clause)
+			b.Joins = append(b.Joins, clause)
+			b.Components[TYPE_JOIN] = struct{}{}
+			b.AddBinding(clause.GetBindings(), TYPE_JOIN)
+			return b
+		} else {
+			panic(errors.New("arguements num mismatch"))
+		}
+	case 1:
+		operator = "="
+		second = params[0].(string)
+		joinType = JOIN_TYPE_INNER
+	case 2:
+		operator = params[0].(string)
+		second = params[1].(string)
+		joinType = JOIN_TYPE_INNER
+	case 3:
+		operator = params[0].(string)
+		second = params[1].(string)
+		joinType = params[2].(string)
+	case 4:
+		operator = params[0].(string)
+		second = params[1].(string)
+		joinType = params[2].(string)
+		isWhere = params[3].(bool)
+	}
+	return b.join(table, first, operator, second, joinType, isWhere)
 }
 
-func (b *Builder) CrossJoin(table, firstColumn, joinOperator, secondColumn string) *Builder {
-	return b.join(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_CROSS)
+/*
+RightJoin Add a right join to the query.
+*/
+func (b *Builder) RightJoin(table string, firstColumn interface{}, params ...interface{}) *Builder {
+
+	var operator, second string
+	joinType := JOIN_TYPE_RIGHT
+	length := len(params)
+	switch length {
+	case 0:
+		if function, ok := firstColumn.(func(builder *Builder)); ok {
+			clause := NewJoin(b, joinType, table)
+			function(clause)
+			b.Components[TYPE_JOIN] = struct{}{}
+			b.Joins = append(b.Joins, clause)
+			b.AddBinding(clause.GetBindings(), TYPE_JOIN)
+			return b
+		} else {
+			panic(errors.New("arguements num mismatch"))
+		}
+	case 1:
+		operator = "="
+		second = params[0].(string)
+	case 2:
+		operator = params[0].(string)
+		second = params[1].(string)
+
+	}
+	return b.join(table, firstColumn, operator, second, joinType, false)
 }
 
-func (b *Builder) join(table, firstColumn, joinOperator, secondColumn, joinType string) *Builder {
-	b.Components["joins"] = nil
-	b.Joins = append(b.Joins, Join{
-		JoinType:       joinType,
-		JoinTable:      table,
-		FirstColumn:    firstColumn,
-		ColumnOperator: joinOperator,
-		SecondColumn:   secondColumn,
-		JoinOperator:   "on",
-	})
+/*
+LeftJoin Add a left join to the query.
+*/
+func (b *Builder) LeftJoin(table string, firstColumn interface{}, params ...interface{}) *Builder {
+	var operator, second string
+	joinType := JOIN_TYPE_LEFT
+	length := len(params)
+	switch length {
+	case 0:
+		if function, ok := firstColumn.(func(builder *Builder)); ok {
+			clause := NewJoin(b, joinType, table)
+			function(clause)
+			b.Components[TYPE_JOIN] = struct{}{}
+			b.Joins = append(b.Joins, clause)
+			b.AddBinding(clause.GetBindings(), TYPE_JOIN)
+			return b
+		} else {
+			panic(errors.New("arguements num mismatch"))
+		}
+	case 1:
+		operator = "="
+		second = params[0].(string)
+	case 2:
+		operator = params[0].(string)
+		second = params[1].(string)
+	}
+	return b.join(table, firstColumn, operator, second, joinType, false)
+}
+
+/*
+LeftJoinWhere Add a "join where" clause to the query.
+*/
+func (b *Builder) LeftJoinWhere(table, firstColumn, joinOperator, secondColumn string) *Builder {
+	return b.joinWhere(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_LEFT)
+}
+
+/*
+RightJoinWhere Add a "right join where" clause to the query.
+*/
+func (b *Builder) RightJoinWhere(table, firstColumn, joinOperator, secondColumn string) *Builder {
+	return b.joinWhere(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_RIGHT)
+}
+func NewJoin(builder *Builder, joinType string, table interface{}) *Builder {
+	cb := CloneBuilder(builder)
+	cb.JoinBuilder = true
+	cb.JoinType = joinType
+	cb.JoinTable = table
+
+	return cb
+}
+func (b *Builder) On(first interface{}, params ...interface{}) *Builder {
+	var second string
+	boolean := BOOLEAN_AND
+	operator := "="
+	switch len(params) {
+	case 0:
+		if function, ok := first.(func(builder *Builder)); ok {
+			b.WhereNested(function, boolean)
+			return b
+		}
+		panic(errors.New("arguements mismatch"))
+	case 1:
+		second = params[0].(string)
+	case 2:
+		operator = params[0].(string)
+		second = params[1].(string)
+	case 3:
+		operator = params[0].(string)
+		second = params[1].(string)
+		boolean = params[2].(string)
+	}
+
+	b.WhereColumn(first.(string), operator, second, boolean)
+	return b
+
+}
+func (b *Builder) OrOn(first interface{}, params ...interface{}) *Builder {
+	var second string
+	boolean := BOOLEAN_OR
+	operator := "="
+	switch len(params) {
+	case 0:
+		if function, ok := first.(func(builder *Builder)); ok {
+			b.WhereNested(function, boolean)
+			return b
+		}
+		panic(errors.New("arguements mismatch"))
+	case 1:
+		second = params[0].(string)
+		return b.On(first, operator, second, boolean)
+	case 2:
+		operator = params[0].(string)
+		second = params[1].(string)
+		return b.On(first, operator, second, boolean)
+	}
+	panic(errors.New("arguements mismatch"))
+}
+
+/*
+CrossJoin Add a "cross join" clause to the query.
+*/
+//func (b *Builder) CrossJoin(table string, firstColumn interface{}, params ...interface{}) *Builder {
+//	var operator, second string
+//	joinType := JOIN_TYPE_CROSS
+//	length := len(params)
+//	switch length {
+//	case 0:
+//		if function, ok := firstColumn.(func(builder *Builder)); ok {
+//			clause := NewJoinClause(b, joinType, table)
+//			function(clause.Builder)
+//			b.Joins = append(b.Joins, clause)
+//			b.AddBinding(clause.Builder.GetBindings(), BINDING_TYPE_JOIN)
+//			return b
+//		} else {
+//			panic(errors.New("arguements num mismatch"))
+//		}
+//	case 1:
+//		operator = "="
+//		second = params[0].(string)
+//	case 2:
+//		operator = params[0].(string)
+//		second = params[1].(string)
+//
+//	}
+//	return b.join(table, firstColumn, operator, second, joinType, false)
+//}
+
+/*
+join Add a join clause to the query.
+*/
+func (b *Builder) join(table, first, operator, second, joinType, isWhere interface{}) *Builder {
+	//$table, $first, $operator = null, $second = null, $type = 'inner', $where = false
+	b.Components[TYPE_JOIN] = struct{}{}
+
+	if function, ok := first.(func(builder *Builder)); ok {
+		clause := NewJoin(b, JOIN_TYPE_INNER, table)
+		clause.Grammar.SetTablePrefix(b.Grammar.GetTablePrefix())
+		function(clause)
+		b.Joins = append(b.Joins, clause)
+		b.AddBinding(clause.GetBindings(), TYPE_JOIN)
+		return b
+	}
+
+	clause := NewJoin(b, joinType.(string), table)
+
+	if isWhere.(bool) {
+		clause.Where(first, operator, second)
+	} else {
+		clause.On(first, operator, second, BOOLEAN_AND)
+	}
+	b.AddBinding(clause.GetBindings(), TYPE_JOIN)
+
+	clause.Grammar.SetTablePrefix(b.Grammar.GetTablePrefix())
+
+	b.Joins = append(b.Joins, clause)
 
 	return b
+}
+
+/*
+joinWhere Add a "join where" clause to the query.
+*/
+func (b *Builder) joinWhere(table, firstColumn, joinOperator, secondColumn, joinType string) *Builder {
+	return b.join(table, firstColumn, joinOperator, secondColumn, joinType, true)
+}
+
+/*
+JoinWhere Add a "join where" clause to the query.
+*/
+func (b *Builder) JoinWhere(table, firstColumn, joinOperator, secondColumn string) *Builder {
+	return b.joinWhere(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_INNER)
+}
+
+/*
+JoinSub Add a subquery join clause to the query.
+*/
+func (b *Builder) JoinSub(query interface{}, as string, first interface{}, params ...interface{}) *Builder {
+	queryStr, bindings := b.CreateSub(query)
+	expr := fmt.Sprintf("(%s) as %s", queryStr, b.Grammar.WrapTable(as))
+	var operator string
+	joinType := JOIN_TYPE_INNER
+	var isWhere = false
+	var second interface{}
+	switch len(params) {
+	case 1:
+		operator = "="
+		second = params[0]
+	case 2:
+		operator = params[0].(string)
+		second = params[1]
+	case 3:
+		operator = params[0].(string)
+		second = params[1]
+		joinType = params[2].(string)
+	case 4:
+		operator = params[0].(string)
+		second = params[1]
+		joinType = params[2].(string)
+		isWhere = params[3].(bool)
+	}
+	b.AddBinding(bindings, TYPE_JOIN)
+
+	return b.join(Raw(expr), first, operator, second, joinType, isWhere)
+}
+
+/*
+LeftJoinSub Add a subquery left join to the query.
+*/
+func (b *Builder) LeftJoinSub(query interface{}, as string, first interface{}, params ...interface{}) *Builder {
+	queryStr, bindings := b.CreateSub(query)
+	expr := fmt.Sprintf("(%s) as %s", queryStr, b.Grammar.WrapTable(as))
+	var operator string
+	joinType := JOIN_TYPE_LEFT
+	var second interface{}
+	switch len(params) {
+	case 1:
+		operator = "="
+		second = params[0]
+	case 2:
+		operator = params[0].(string)
+		second = params[1]
+
+	}
+	b.AddBinding(bindings, TYPE_JOIN)
+
+	return b.join(Raw(expr), first, operator, second, joinType, false)
+}
+
+/*
+RightJoinSub Add a subquery right join to the query.
+*/
+func (b *Builder) RightJoinSub(query interface{}, as string, first interface{}, params ...interface{}) *Builder {
+	queryStr, bindings := b.CreateSub(query)
+	expr := fmt.Sprintf("(%s) as %s", queryStr, b.Grammar.WrapTable(as))
+	var operator string
+	joinType := JOIN_TYPE_RIGHT
+	var second interface{}
+	switch len(params) {
+	case 1:
+		operator = "="
+		second = params[0]
+	case 2:
+		operator = params[0].(string)
+		second = params[1]
+
+	}
+	b.AddBinding(bindings, TYPE_JOIN)
+
+	return b.join(Raw(expr), first, operator, second, joinType, false)
 }
 
 //AddBinding Add a binding to the query.
