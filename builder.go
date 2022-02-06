@@ -1701,7 +1701,7 @@ func (b *Builder) AddNestedWhereQuery(builder *Builder, boolean string) *Builder
 	if len(builder.Wheres) > 0 {
 		b.Wheres = append(b.Wheres, Where{
 			Type:    CONDITION_TYPE_NESTED,
-			Value:   cloneBuilder,
+			Value:   builder,
 			Boolean: boolean,
 		})
 		b.AddBinding(builder.GetRawBindings()[TYPE_WHERE], TYPE_WHERE)
@@ -1770,9 +1770,9 @@ RunSelect Run the query as a "select" statement against the connection.
 */
 func (b *Builder) RunSelect() (result sql.Result, err error) {
 	if b.Tx != nil {
-		result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
+		result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
 	} else {
-		result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.Bindings, b.Dest)
+		result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
 	}
 	if err != nil {
 		return
@@ -1948,9 +1948,9 @@ func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	b.Grammar.CompileInsert(items)
 
 	if b.Tx != nil {
-		result, err = b.Connection.Insert(b.PreparedSql, b.Bindings)
+		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
 	} else {
-		result, err = b.Connection.Insert(b.PreparedSql, b.Bindings)
+		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
 	}
 	if len(items) == 1 && rv.Kind() == reflect.Struct {
 		//set id for simple struct
@@ -1982,9 +1982,9 @@ func (b *Builder) Update(v map[string]interface{}) (result sql.Result, err error
 	var start = time.Now()
 	b.Grammar.CompileUpdate(v)
 	if b.Tx != nil {
-		result, err = b.Tx.Update(b.PreparedSql, b.Bindings)
+		result, err = b.Tx.Update(b.PreparedSql, b.GetBindings())
 	} else {
-		result, err = b.Connection.Update(b.PreparedSql, b.Bindings)
+		result, err = b.Connection.Update(b.PreparedSql, b.GetBindings())
 	}
 	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return result, err
@@ -2005,9 +2005,9 @@ func (b *Builder) Delete() (result sql.Result, err error) {
 	var start = time.Now()
 	b.Grammar.CompileDelete()
 	if b.Tx != nil {
-		result, err = b.Tx.Delete(b.PreparedSql, b.Bindings)
+		result, err = b.Tx.Delete(b.PreparedSql, b.GetBindings())
 	} else {
-		result, err = b.Connection.Delete(b.PreparedSql, b.Bindings)
+		result, err = b.Connection.Delete(b.PreparedSql, b.GetBindings())
 	}
 	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return result, err
