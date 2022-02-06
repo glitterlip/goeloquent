@@ -1772,10 +1772,33 @@ func (b *Builder) WithPivot(columns ...string) *Builder {
 	return b
 }
 
-func (b *Builder) Exists(n int) *Builder {
-	b.OffsetNum = n
-	return b
+/*
+Exists Determine if any rows exist for the current query.
+*/
+func (b *Builder) Exists() bool {
+	var result []map[string]interface{}
+	_, err := b.Select().Get(&result)
+	if err != nil {
+		return false
+	}
+	if len(result) > 0 {
+		return true
+	} else {
+		return false
+	}
 }
+
+/*
+DoesntExist Determine if no rows exist for the current query.
+*/
+func (b *Builder) DoesntExist() bool {
+	return !b.Exists()
+}
+
+/*
+Aggregate Execute an aggregate function on the database.
+
+*/
 func (b *Builder) Aggregate(dest interface{}, fn string, column ...string) (result sql.Result, err error) {
 	var start = time.Now()
 	b.Dest = dest
