@@ -2,8 +2,10 @@ package goeloquent
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"math"
 	"reflect"
 	"strings"
 	"time"
