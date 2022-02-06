@@ -788,10 +788,14 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		//clousure
 		cb := CloneBuilder(b)
 		clousure(cb)
-		return b.addNestedWhereQuery(cb, boolean)
+		return b.AddNestedWhereQuery(cb, boolean)
 	} else if where, ok := params[0].(Where); ok {
 		b.Wheres = append(b.Wheres, where)
-		b.Components["wheres"] = nil
+		b.Components[TYPE_WHERE] = struct{}{}
+		return b
+	} else if wheres, ok := params[0].([]Where); ok {
+		b.Wheres = append(b.Wheres, wheres...)
+		b.Components[TYPE_WHERE] = struct{}{}
 		return b
 	} else if e, ok := params[0].(Expression); ok {
 		if paramsLength > 1 {
@@ -804,7 +808,7 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 			RawSql:  e,
 			Boolean: boolean,
 		})
-		b.Components["wheres"] = nil
+		b.Components[TYPE_WHERE] = struct{}{}
 		return b
 	} else if m, ok := params[0].(map[string]interface{}); ok {
 		boolean = BOOLEAN_AND
@@ -815,7 +819,7 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		for k, v := range m {
 			cb.Where(k, v)
 		}
-		return b.addNestedWhereQuery(cb, boolean)
+		return b.AddNestedWhereQuery(cb, boolean)
 	}
 	switch paramsLength {
 	case 2:
@@ -850,7 +854,9 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 			return b
 		}
 	}
-
+	if f, ok := value.(func(builder *Builder)); ok {
+		return b.WhereSub(column, operator, f, boolean)
+	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:     CONDITION_TYPE_BASIC,
 		Column:   column,
@@ -858,7 +864,8 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		Value:    value,
 		Boolean:  boolean,
 	})
-	b.Components["wheres"] = nil
+	b.AddBinding([]interface{}{value}, TYPE_WHERE)
+	b.Components[TYPE_WHERE] = struct{}{}
 	return b
 }
 func (b *Builder) WherePivot(params ...interface{}) *Builder {
@@ -890,6 +897,10 @@ func (b *Builder) WherePivot(params ...interface{}) *Builder {
 	})
 	return b
 }
+
+/*
+OrWhere Add an "or where" clause to the query.
+*/
 func (b *Builder) OrWhere(params ...interface{}) *Builder {
 	paramsLength := len(params)
 	if clousure, ok := params[0].(func(builder *Builder)); ok {
@@ -904,12 +915,23 @@ func (b *Builder) OrWhere(params ...interface{}) *Builder {
 }
 func (b *Builder) WhereColumn(first string, operator string, second ...string) *Builder {
 	length := len(second)
-	var boolean = BOOLEAN_AND
 	var firstColumn = first
-	var secondColumn string
-	secondColumn = second[0]
-	if length == 2 {
-		boolean = second[1]
+	var secondColumn, operator, boolean string
+	switch length {
+	case 1:
+		secondColumn = second[0]
+		operator = "="
+		boolean = BOOLEAN_AND
+	case 2:
+		operator = second[0]
+		secondColumn = second[1]
+		boolean = BOOLEAN_AND
+	case 3:
+		operator = second[0]
+		secondColumn = second[1]
+		boolean = second[2]
+	default:
+		panic("wrong arguements in where column")
 	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:         CONDITION_TYPE_COLUMN,
@@ -918,37 +940,70 @@ func (b *Builder) WhereColumn(first string, operator string, second ...string) *
 		SecondColumn: secondColumn,
 		Boolean:      boolean,
 	})
-	b.Components["wheres"] = nil
+	b.Components[TYPE_WHERE] = struct{}{}
 
 	return b
 }
-func (b *Builder) OrWhereColumn(first, operator, second string) *Builder {
-	return b.WhereColumn(first, operator, second, BOOLEAN_OR)
+
+/*
+OrWhereColumn Add an "or where" clause comparing two columns to the query.
+*/
+func (b *Builder) OrWhereColumn(first string, second ...string) *Builder {
+	var ts = make([]string, 3, 3)
+	switch len(second) {
+	case 1:
+		ts = []string{"=", second[0], BOOLEAN_OR}
+	case 2:
+		ts = []string{second[0], second[1], BOOLEAN_OR}
+	}
+	return b.WhereColumn(first, ts...)
 }
-func (b *Builder) WhereRaw(params ...string) *Builder {
+
+/*
+WhereRaw Add a raw where clause to the query.
+*/
+func (b *Builder) WhereRaw(rawSql string, params ...interface{}) *Builder {
 	paramsLength := len(params)
 	var boolean string
-	value := params[0]
-	if paramsLength == 1 {
+	var bindings []interface{}
+	switch paramsLength {
+	case 1:
+		bindings = params[0].([]interface{})
+		b.AddBinding(bindings, TYPE_WHERE)
 		boolean = BOOLEAN_AND
-	} else {
-		boolean = params[1]
+	case 2:
+		bindings = params[0].([]interface{})
+		b.AddBinding(bindings, TYPE_WHERE)
+		boolean = params[1].(string)
 	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:    CONDITION_TYPE_RAW,
-		RawSql:  value,
+		RawSql:  Raw(rawSql),
 		Boolean: boolean,
 	})
-	b.Components["wheres"] = nil
+	b.Components[TYPE_WHERE] = struct{}{}
 
 	return b
 
 }
-func (b *Builder) OrWhereRaw(rawSql string) *Builder {
-	return b.WhereRaw(rawSql, BOOLEAN_OR)
+
+/*
+OrWhereRaw Add a raw or where clause to the query.
+*/
+func (b *Builder) OrWhereRaw(rawSql string, bindings ...[]interface{}) *Builder {
+	switch len(bindings) {
+	case 0:
+		return b.WhereRaw(rawSql, []interface{}{}, BOOLEAN_OR)
+	case 1:
+		return b.WhereRaw(rawSql, bindings[0], BOOLEAN_OR)
+	}
+	panic(errors.New("arguements mismatch"))
 }
 
-//column values boolean not
+/*
+WhereIn Add a "where in" clause to the query.
+column values boolean not
+*/
 func (b *Builder) WhereIn(params ...interface{}) *Builder {
 	paramsLength := len(params)
 	var boolean string
@@ -962,18 +1017,30 @@ func (b *Builder) WhereIn(params ...interface{}) *Builder {
 		not = params[3].(bool)
 	}
 
+	var values []interface{}
+	if IsQueryable(params[1]) {
+		queryStr, bindings := b.CreateSub(params[1])
+		values = append(values, Raw(queryStr))
+		b.AddBinding(bindings, TYPE_WHERE)
+	} else {
+		values = InterfaceToSlice(params[1])
+	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:    CONDITION_TYPE_IN,
 		Column:  params[0].(string),
-		Values:  InterfaceToSlice(params[1]),
+		Values:  values,
 		Boolean: boolean,
 		Not:     not,
 	})
-	b.Components["wheres"] = nil
+	b.Components[TYPE_WHERE] = struct{}{}
+	b.AddBinding(values, TYPE_WHERE)
 	return b
 }
 
-//column values
+/*
+OrWhereIn Add an "or where in" clause to the query.
+column values
+*/
 func (b *Builder) OrWhereIn(params ...interface{}) *Builder {
 	params = append(params, BOOLEAN_OR, false)
 	return b.WhereIn(params...)
@@ -985,42 +1052,68 @@ func (b *Builder) WhereNotIn(params ...interface{}) *Builder {
 	return b.WhereIn(params...)
 }
 
-//column values
+/*
+OrWhereNotIn Add an "or where not in" clause to the query.
+column values
+*/
 func (b *Builder) OrWhereNotIn(params ...interface{}) *Builder {
 	params = append(params, BOOLEAN_OR, true)
 	return b.WhereIn(params...)
 }
 
 /*
+WhereNull Add a "where null" clause to the query.
    params takes in below order:
    1. column string
    2. boolean string in [2]string{"and","or"}
    3. type string "not"
 */
-func (b *Builder) WhereNull(column string, params ...interface{}) *Builder {
+func (b *Builder) WhereNull(column interface{}, params ...interface{}) *Builder {
 	paramsLength := len(params)
 	var boolean = BOOLEAN_AND
 	var not = false
-	if paramsLength > 0 {
-		if params[0] != BOOLEAN_AND {
-			boolean = BOOLEAN_OR
-		}
-	}
-	if paramsLength > 1 {
+	switch paramsLength {
+	case 1:
+		boolean = params[0].(string)
+	case 2:
+		boolean = params[0].(string)
 		not = params[1].(bool)
 	}
-	b.Components["wheres"] = nil
-	b.Wheres = append(b.Wheres, Where{
-		Type:    CONDITION_TYPE_NULL,
-		Column:  column,
-		Boolean: boolean,
-		Not:     not,
-	})
+	b.Components[TYPE_WHERE] = struct{}{}
+	if single, ok := column.(string); ok {
+		b.Wheres = append(b.Wheres, Where{
+			Type:    CONDITION_TYPE_NULL,
+			Column:  single,
+			Boolean: boolean,
+			Not:     not,
+		})
+	} else if slice, ok := column.([]interface{}); ok {
+		for _, i := range slice {
+			b.Wheres = append(b.Wheres, Where{
+				Type:    CONDITION_TYPE_NULL,
+				Column:  i.(string),
+				Boolean: boolean,
+				Not:     not,
+			})
+		}
+	} else if slice, ok := column.([]string); ok {
+		for _, i := range slice {
+			b.Wheres = append(b.Wheres, Where{
+				Type:    CONDITION_TYPE_NULL,
+				Column:  i,
+				Boolean: boolean,
+				Not:     not,
+			})
+		}
+	}
+
 	return b
 }
 
-//column,boolean
-func (b *Builder) WhereNotNull(column string, params ...interface{}) *Builder {
+/*
+WhereNotNull Add a "where not null" clause to the query.
+*/
+func (b *Builder) WhereNotNull(column interface{}, params ...interface{}) *Builder {
 	paramsLength := len(params)
 	if paramsLength == 0 {
 		params = append(params, BOOLEAN_AND, true)
@@ -1030,8 +1123,11 @@ func (b *Builder) WhereNotNull(column string, params ...interface{}) *Builder {
 	return b.WhereNull(column, params...)
 }
 
-//column not
-func (b *Builder) OrWhereNull(column string, params ...interface{}) *Builder {
+/*
+OrWhereNull Add an "or where null" clause to the query.
+column not
+*/
+func (b *Builder) OrWhereNull(column interface{}, params ...interface{}) *Builder {
 	paramsLength := len(params)
 	if paramsLength == 0 {
 		params = append(params, BOOLEAN_OR, false)
@@ -1040,17 +1136,23 @@ func (b *Builder) OrWhereNull(column string, params ...interface{}) *Builder {
 	}
 	return b.WhereNull(column, params...)
 }
-func (b *Builder) OrWhereNotNull(column string) *Builder {
+
+/*
+OrWhereNotNull Add an "or where not null" clause to the query.
+*/
+func (b *Builder) OrWhereNotNull(column interface{}) *Builder {
 	params := []interface{}{BOOLEAN_OR, true}
 	return b.WhereNull(column, params...)
 }
 
 /*
+WhereBetween Add a where between statement to the query.
+
    params takes in below order:
-   1. column string
-   2. values []string{"min","max"}
-   3. boolean string in [2]string{"and","or"}
-   4. not in [true,false]
+   1. WhereBetween(column string,values []interface{"min","max"})
+   2. WhereBetween(column string,values []interface{"min","max"},"and/or")
+   3. WhereBetween(column string,values []interface{"min","max","and/or",true/false})
+
 */
 func (b *Builder) WhereBetween(params ...interface{}) *Builder {
 	paramsLength := len(params)
@@ -1063,7 +1165,14 @@ func (b *Builder) WhereBetween(params ...interface{}) *Builder {
 	if paramsLength > 3 {
 		not = params[3].(bool)
 	}
-	b.Components["wheres"] = nil
+	b.Components[TYPE_WHERE] = struct{}{}
+	tvalues := params[1].([]interface{})[0:2]
+	for _, tvalue := range tvalues {
+		if _, ok := tvalue.(Expression); !ok {
+			b.AddBinding([]interface{}{tvalue}, TYPE_WHERE)
+		}
+	}
+
 	b.Wheres = append(b.Wheres, Where{
 		Type:    betweenType,
 		Column:  params[0].(string),
@@ -1079,25 +1188,33 @@ func (b *Builder) WhereNotBetween(params ...interface{}) *Builder {
 	}
 	return b.WhereBetween(params...)
 }
+
+/*
+OrWhereBetween Add an or where between statement to the query.
+*/
 func (b *Builder) OrWhereBetween(params ...interface{}) *Builder {
 	params = append(params, BOOLEAN_OR)
 	return b.WhereBetween(params...)
 }
+
+/*
+OrWhereNotBetween Add an or where not between statement to the query.
+*/
 func (b *Builder) OrWhereNotBetween(params ...interface{}) *Builder {
 	params = append(params, BOOLEAN_OR, true)
 
 	return b.WhereBetween(params...)
 }
 
-//timefuncion column operator value boolean
-//minum timefuncion column value
-
+//AddTimeBasedWhere Add a time based (year, month, day, time) statement to the query.
+//params order : timefuncionname column operator value boolean
+//minimum : timefuncionname column value
 func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 	paramsLength := len(params)
 	var timeType = params[0]
 	var boolean = BOOLEAN_AND
 	var operator string
-	var value string
+	var value interface{}
 	var tvalue interface{}
 	//timefunction column value
 	if paramsLength == 3 {
@@ -1117,6 +1234,8 @@ func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 	switch tvalue.(type) {
 	case string:
 		value = tvalue.(string)
+	case int:
+		value = tvalue.(int)
 	case time.Time:
 		switch timeType.(string) {
 		case CONDITION_TYPE_DATE:
@@ -1130,6 +1249,8 @@ func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 		case CONDITION_TYPE_DAY:
 			value = tvalue.(time.Time).Format("02")
 		}
+	case Expression:
+		value = tvalue.(Expression)
 	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:     timeType.(string),
@@ -1138,7 +1259,8 @@ func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 		Value:    value,
 		Operator: operator,
 	})
-	b.Components["wheres"] = nil
+	b.AddBinding([]interface{}{value}, TYPE_WHERE)
+	b.Components[TYPE_WHERE] = struct{}{}
 	return b
 }
 
@@ -1163,8 +1285,13 @@ func (b *Builder) WhereYear(params ...interface{}) *Builder {
 	p := append([]interface{}{CONDITION_TYPE_YEAR}, params...)
 	return b.AddTimeBasedWhere(p...)
 }
+
+/*
+WhereNested Add a nested where statement to the query.
+*/
 func (b *Builder) WhereNested(params ...interface{}) *Builder {
-	if len(params) == 1 {
+	paramsLength := len(params)
+	if paramsLength == 1 {
 		params = append(params, BOOLEAN_AND)
 	}
 	cb := CloneBuilder(b)
@@ -1178,34 +1305,105 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 		}
 	case []interface{}:
 		cb.Where(params[0].([]interface{}))
+	case func(builder *Builder):
+		var boolean string
+		if paramsLength > 1 {
+			boolean = params[1].(string)
+		} else {
+			boolean = BOOLEAN_AND
+		}
+		closure := params[0].(func(builder *Builder))
+		closure(cb)
+		return b.AddNestedWhereQuery(cb, boolean)
 	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:    CONDITION_TYPE_NESTED,
 		Boolean: params[1].(string),
 		Value:   cb,
 	})
-	b.Components["wheres"] = nil
+	b.Components[TYPE_WHERE] = struct{}{}
 	return b
 }
 func (b *Builder) WhereSub(column string, operator string, value func(builder *Builder), boolean string) *Builder {
+	cb := CloneBuilder(b)
+	value(cb)
 	b.Wheres = append(b.Wheres, Where{
 		Type:     CONDITION_TYPE_SUB,
 		Operator: operator,
-		Value:    value,
+		Value:    cb,
 		Column:   column,
 		Boolean:  boolean,
 	})
-	b.Components["wheres"] = nil
+	b.Components[TYPE_WHERE] = struct{}{}
+	b.AddBinding(cb.GetBindings(), TYPE_WHERE)
 	return b
 }
-func (b *Builder) WhereExists(params ...interface{}) *Builder {
-	return b.Where()
+
+//WhereExists Add an exists clause to the query.
+// 1. WhereExists(cb,"and",false)
+// 2. WhereExists(cb,"and")
+// 3. WhereExists(cb)
+func (b *Builder) WhereExists(cb func(builder *Builder), params ...interface{}) *Builder {
+	newBuilder := CloneBuilder(b)
+	cb(newBuilder)
+	boolean := BOOLEAN_AND
+	not := false
+	switch len(params) {
+	case 1:
+		boolean = params[0].(string)
+	case 2:
+		boolean = params[0].(string)
+		not = params[1].(bool)
+	}
+
+	return b.AddWhereExistsQuery(newBuilder, boolean, not)
 }
 
-//column operator value boolean
-func (b *Builder) GroupBy(column interface{}) *Builder {
-	b.Groups = append(b.Groups, column)
-	b.Components["groups"] = nil
+/*
+OrWhereExists Add an exists clause to the query.
+*/
+func (b *Builder) OrWhereExists(cb func(builder *Builder), params ...interface{}) *Builder {
+	not := false
+	if len(params) > 0 {
+		not = params[0].(bool)
+	}
+	return b.WhereExists(cb, BOOLEAN_OR, not)
+}
+
+/*
+WhereNotExists Add a where not exists clause to the query.
+*/
+func (b *Builder) WhereNotExists(cb func(builder *Builder), params ...interface{}) *Builder {
+	boolean := BOOLEAN_AND
+	if len(params) > 0 {
+		boolean = params[0].(string)
+	}
+	return b.WhereExists(cb, boolean, true)
+}
+
+/*
+OrWhereNotExists Add a where not exists clause to the query.
+*/
+func (b *Builder) OrWhereNotExists(cb func(builder *Builder), params ...interface{}) *Builder {
+	return b.OrWhereExists(cb, true)
+}
+
+// AddWhereExistsQuery  Add an exists clause to the query.
+func (b *Builder) AddWhereExistsQuery(builder *Builder, boolean string, not bool) *Builder {
+	var n bool
+	if not {
+		n = true
+	} else {
+		n = false
+	}
+	b.Wheres = append(b.Wheres, Where{
+		Type:    CONDITION_TYPE_EXIST,
+		Query:   builder,
+		Boolean: boolean,
+		Not:     n,
+	})
+	b.Components[TYPE_WHERE] = struct{}{}
+	b.AddBinding(builder.GetBindings(), TYPE_WHERE)
 	return b
 }
 
@@ -1413,9 +1611,11 @@ func (b *Builder) WhereModel(model interface{}) *Builder {
 	}
 	return b
 }
-func (b *Builder) addNestedWhereQuery(cloneBuilder *Builder, boolean string) *Builder {
 
-	if len(cloneBuilder.Wheres) > 0 {
+//AddNestedWhereQuery Add another query builder as a nested where to the query builder.
+func (b *Builder) AddNestedWhereQuery(builder *Builder, boolean string) *Builder {
+
+	if len(builder.Wheres) > 0 {
 		b.Wheres = append(b.Wheres, Where{
 			Type:    CONDITION_TYPE_NESTED,
 			Value:   cloneBuilder,
