@@ -183,6 +183,7 @@ type Where struct {
 	Values       []interface{}
 	Boolean      string
 	Not          bool //not in,not between,not null
+	Query        *Builder
 }
 
 func NewBuilder(c *Connection) *Builder {
