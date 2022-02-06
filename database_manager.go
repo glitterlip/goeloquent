@@ -47,7 +47,7 @@ func (dm *DatabaseManager) Table(params ...string) *Builder {
 	builder.Grammar = &MysqlGrammar{}
 	builder.Grammar.SetTablePrefix(dm.Configs[defaultConn].Prefix)
 	builder.Grammar.SetBuilder(builder)
-	builder.From(params...)
+	builder.Table(params...)
 	return builder
 
 }
