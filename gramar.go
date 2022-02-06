@@ -19,5 +19,12 @@ type IGrammar interface {
 
 	CompileExists() string
 
+	Wrap(string, ...bool) string
+
+	WrapTable(interface{}) string
+
+	CompileComponentWheres() string
+
+	CompileComponentJoins() string
 	//Wrap(value string, b *query.Builder) string
 }
