@@ -57,7 +57,7 @@ type HasManyThrough struct {
 func NewRelationBaseBuilder(related interface{}) *Builder {
 	if related == nil {
 		baseBuilder := Builder{
-			Components: make(map[string]interface{}),
+			Components: make(map[string]struct{}),
 			Grammar:    &MysqlGrammar{},
 			EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		}
@@ -74,7 +74,7 @@ func NewRelationBaseBuilder(related interface{}) *Builder {
 	connection := Eloquent.Connection(connectionName)
 	baseBuilder := Builder{
 		Connection: connection,
-		Components: make(map[string]interface{}),
+		Components: make(map[string]struct{}),
 		Grammar:    &MysqlGrammar{},
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 	}
