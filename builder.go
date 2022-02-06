@@ -1623,14 +1623,22 @@ func (b *Builder) ReOrder(params ...string) *Builder {
 	}
 	return b
 }
+
+/*
+Limit Set the "limit" value of the query.
+*/
 func (b *Builder) Limit(n int) *Builder {
-	b.Components["limit"] = nil
-	b.LimitNum = n
+	b.Components[TYPE_LIMIT] = struct{}{}
+	b.LimitNum = int(math.Max(0, float64(n)))
 	return b
 }
+
+/*
+Offset Set the "offset" value of the query.
+*/
 func (b *Builder) Offset(n int) *Builder {
-	b.OffsetNum = n
-	b.Components["offset"] = nil
+	b.OffsetNum = int(math.Max(0, float64(n)))
+	b.Components[TYPE_OFFSET] = struct{}{}
 	return b
 }
 
