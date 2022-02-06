@@ -212,16 +212,121 @@ func CloneBuilder(b *Builder) *Builder {
 	cb.From(b.FromTable)
 	return &cb
 }
+
+// Select set columns to be selected
+// 1. Select("column1","column2","column3")
+// 2. Select()
 func (b *Builder) Select(columns ...interface{}) *Builder {
-	if columns == nil {
-		columns = []interface{}{"*"}
+	b.Columns = []interface{}{}
+	b.Components[TYPE_COLUMN] = struct{}{}
+	if len(columns) == 0 {
+		b.Columns = append(b.Columns, "*")
 	}
-	b.Components["columns"] = nil
-	b.Columns = append(b.Columns, columns...)
+
+	for i := 0; i < len(columns); i++ {
+		if c, ok := columns[i].(string); ok {
+			b.Columns = append(b.Columns, c)
+		} else if mf, ok := columns[i].(map[string]func(builder *Builder)); ok {
+			for as, q := range mf {
+				b.SelectSub(q, as)
+			}
+		} else if mb, ok := columns[i].(map[string]*Builder); ok {
+			for as, q := range mb {
+				b.SelectSub(q, as)
+			}
+		} else if raw, ok := columns[i].(Expression); ok {
+			b.AddSelect(raw)
+		}
+	}
 	return b
 }
-func (b *Builder) Distinct() *Builder {
+
+//SelectSub Add a subselect expression to the query.
+func (b *Builder) SelectSub(query interface{}, as string) *Builder {
+	qStr, bindings := b.CreateSub(query)
+	queryStr := fmt.Sprintf("( %s ) as %s ", qStr, b.Grammar.Wrap(as))
+
+	return b.SelectRaw(queryStr, bindings)
+
+}
+
+// AddSelect Add a new select column to the query
+// 1. slice of string
+// 2. map[string]{"alias"}
+func (b *Builder) AddSelect(columns ...interface{}) *Builder {
+	b.Components[TYPE_COLUMN] = struct{}{}
+
+	for i := 0; i < len(columns); i++ {
+		if str, ok := columns[i].(string); ok {
+			b.Columns = append(b.Columns, str)
+		} else if m, ok := columns[i].(map[string]interface{}); ok {
+			for as, q := range m {
+				b.SelectSub(q, as)
+			}
+		} else if e, ok := columns[i].(Expression); ok {
+			b.Columns = append(b.Columns, e)
+		}
+	}
+	return b
+}
+
+// SelectRaw Add a new "raw" select expression to the query.
+func (b *Builder) SelectRaw(expression string, bindings ...[]interface{}) *Builder {
+	b.AddSelect(Expression(expression))
+	if len(bindings) > 0 {
+		b.AddBinding(bindings[0], TYPE_SELECT)
+	}
+	return b
+}
+
+//CreateSub Creates a subquery and parse it.
+func (b *Builder) CreateSub(query interface{}) (string, []interface{}) {
+	var builder *Builder
+	if bT, ok := query.(*Builder); ok {
+		builder = bT
+	} else if function, ok := query.(func(builder *Builder)); ok {
+		builder = CloneBuilder(b)
+		function(builder)
+	} else if str, ok := query.(string); ok {
+		return b.ParseSub(str)
+	} else {
+		panic("can not create sub")
+	}
+	return b.ParseSub(builder)
+}
+
+/*
+ParseSub Parse the subquery into SQL and bindings.
+*/
+func (b *Builder) ParseSub(query interface{}) (string, []interface{}) {
+	if s, ok := query.(string); ok {
+		return s, []interface{}{}
+	} else if builder, ok := query.(*Builder); ok {
+		return builder.ToSql(), builder.GetBindings()
+	}
+	panic("A subquery must be a query builder instance, a Closure, or a string.")
+}
+
+/*
+ToSql Get the SQL representation of the query.
+*/
+func (b *Builder) ToSql() string {
+
+	if len(b.PreparedSql) > 0 {
+		b.PreparedSql = ""
+		b.PreSql = strings.Builder{}
+	}
+	return b.Grammar.CompileSelect()
+}
+
+/*
+Distinct Force the query to only return distinct results.
+*/
+func (b *Builder) Distinct(distinct ...string) *Builder {
 	b.IsDistinct = true
+	if len(distinct) > 0 {
+		b.DistinctColumns = append(b.DistinctColumns, distinct...)
+	}
 	return b
 }
 func (b *Builder) Table(params ...string) *Builder {
