@@ -170,6 +170,7 @@ type Having struct {
 	HavingValue    interface{}
 	HavingBoolean  string
 	RawSql         interface{}
+	Not            bool
 }
 type Where struct {
 	Type         string
@@ -834,49 +835,126 @@ func (b *Builder) GroupBy(column interface{}) *Builder {
 //column operator value boolean
 func (b *Builder) Having(params ...interface{}) *Builder {
 	havingBoolean := BOOLEAN_AND
-	if e, ok := params[0].(Expression); ok {
-		having := Having{
-			HavingType: CONDITION_TYPE_RAW,
-			RawSql:     e,
-		}
-		b.Components["havings"] = nil
-		b.Havings = append(b.Havings, having)
-		return b
+	havingOperator := "="
+	var havingValue interface{}
+	var havingColumn string
+	length := len(params)
+	switch length {
+	case 2:
+		havingColumn = params[0].(string)
+		havingValue = params[1]
+	case 3:
+		havingColumn = params[0].(string)
+		havingOperator = params[1].(string)
+		havingValue = params[2]
+	case 4:
+		havingColumn = params[0].(string)
+		havingOperator = params[1].(string)
+		havingValue = params[2]
+		havingBoolean = params[3].(string)
 	}
-	if len(params) > 3 {
-		if params[3] != BOOLEAN_AND {
-			havingBoolean = BOOLEAN_OR
-		}
-	}
+
 	having := Having{
 		HavingType:     CONDITION_TYPE_BASIC,
-		HavingColumn:   params[0].(string),
-		HavingOperator: params[1].(string),
-		HavingValue:    params[2],
+		HavingColumn:   havingColumn,
+		HavingOperator: havingOperator,
+		HavingValue:    havingValue,
 		HavingBoolean:  havingBoolean,
 	}
-	b.Components["havings"] = nil
+	b.AddBinding([]interface{}{havingValue}, TYPE_HAVING)
+	b.Components[TYPE_HAVING] = struct{}{}
 	b.Havings = append(b.Havings, having)
 	return b
 }
-func (b *Builder) OrHaving(params ...interface{}) *Builder {
-	params = append(params, BOOLEAN_OR)
-	return b.Having(params...)
-}
-func (b *Builder) HavingBetween(params ...interface{}) *Builder {
+
+/*
+HavingRaw Add a raw having clause to the query.
+*/
+func (b *Builder) HavingRaw(params ...interface{}) *Builder {
+	length := len(params)
 	havingBoolean := BOOLEAN_AND
-	if len(params) > 2 {
-		if params[2] != BOOLEAN_AND {
-			havingBoolean = BOOLEAN_OR
+	var expression Expression
+	switch length {
+	case 1:
+		if expr, ok := params[0].(Expression); ok {
+			expression = expr
+		} else {
+			expression = Expression(params[0].(string))
 		}
+	case 2:
+		if expr, ok := params[0].(Expression); ok {
+			expression = expr
+		} else {
+			expression = Expression(params[0].(string))
+		}
+		b.AddBinding(params[1].([]interface{}), TYPE_HAVING)
+	case 3:
+		if expr, ok := params[0].(Expression); ok {
+			expression = expr
+		} else {
+			expression = Expression(params[0].(string))
+		}
+		b.AddBinding(params[1].([]interface{}), TYPE_HAVING)
+		havingBoolean = params[2].(string)
+	}
+	having := Having{
+		HavingType:    CONDITION_TYPE_RAW,
+		HavingValue:   expression,
+		HavingBoolean: havingBoolean,
+		RawSql:        expression,
+	}
+	b.Components[TYPE_HAVING] = struct{}{}
+	b.Havings = append(b.Havings, having)
+	return b
+}
+
+/*
+OrHavingRaw Add a raw having clause to the query.
+*/
+func (b *Builder) OrHavingRaw(params ...interface{}) *Builder {
+	bindings := []interface{}{}
+	if len(params) == 2 {
+		bindings = params[1].([]interface{})
+	}
+	return b.HavingRaw(params[0], bindings, BOOLEAN_OR)
+}
+
+/*
+OrHaving Add an "or having" clause to the query.
+*/
+func (b *Builder) OrHaving(params ...interface{}) *Builder {
+	return b.Having(params[0], "=", params[1], BOOLEAN_OR)
+}
+
+/*
+HavingBetween Add a "having between " clause to the query.
+*/
+func (b *Builder) HavingBetween(column string, params ...interface{}) *Builder {
+	var values []interface{}
+	boolean := BOOLEAN_AND
+	not := false
+	length := len(params)
+	switch length {
+	case 1:
+		values = params[0].([]interface{})[0:2]
+	case 2:
+		values = params[0].([]interface{})[0:2]
+		boolean = params[1].(string)
+	case 3:
+		values = params[0].([]interface{})[0:2]
+		boolean = params[1].(string)
+		not = params[2].(bool)
 	}
 	having := Having{
 		HavingType:    CONDITION_TYPE_BETWEEN,
-		HavingColumn:  params[0].(string),
-		HavingValue:   params[1],
-		HavingBoolean: havingBoolean,
+		HavingColumn:  column,
+		HavingValue:   values,
+		HavingBoolean: boolean,
+		Not:           not,
 	}
-	b.Components["havings"] = nil
+	b.Components[TYPE_HAVING] = struct{}{}
+	b.AddBinding(values, TYPE_HAVING)
+
 	b.Havings = append(b.Havings, having)
 	return b
 }
