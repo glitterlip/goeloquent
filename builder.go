@@ -336,25 +336,56 @@ func (b *Builder) Distinct(distinct ...string) *Builder {
 	return b
 }
 func (b *Builder) Table(params ...string) *Builder {
-	return b.From(params...)
-}
-func (b *Builder) From(params ...string) *Builder {
-	b.Components["from"] = nil
-	if len(params) == 2 {
-		b.TableAlias = params[1]
-		b.FromTable = fmt.Sprintf("%s as %s", params[0], params[1])
+	if len(params) == 1 {
+		return b.From(params[0])
 	} else {
-		b.FromTable = params[0]
+		return b.From(params[0], params[1])
+	}
+}
+
+/*
+From Set the table which the query is targeting.
+*/
+func (b *Builder) From(table interface{}, params ...string) *Builder {
+	if IsQueryable(table) {
+		return b.FromSub(table, params[0])
+	}
+	b.Components[TYPE_FROM] = struct{}{}
+	if len(params) == 1 {
+		b.TableAlias = params[0]
+		b.FromTable = fmt.Sprintf("%s as %s", table, params[0])
+	} else {
+		b.FromTable = table.(string)
 	}
 	return b
 }
 
-func (b *Builder) Join(table, firstColumn, joinOperator, secondColumn string) *Builder {
-	return b.join(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_INNER)
+/*
+FromSub Makes "from" fetch from a subquery.
+*/
+func (b *Builder) FromSub(table interface{}, as string) *Builder {
+	qStr, bindings := b.CreateSub(table)
+	queryStr := fmt.Sprintf("(%s) as %s", qStr, b.Grammar.WrapTable(as))
+
+	return b.FromRaw(queryStr, bindings)
 }
 
-func (b *Builder) RightJoin(table, firstColumn, joinOperator, secondColumn string) *Builder {
-	return b.join(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_RIGHT)
+/*
+FromRaw Add a raw from clause to the query.
+*/
+func (b *Builder) FromRaw(raw interface{}, bindings ...[]interface{}) *Builder {
+	var expression Expression
+	if str, ok := raw.(string); ok {
+		expression = Expression(str)
+	} else {
+		expression = raw.(Expression)
+	}
+	b.FromTable = expression
+	b.Components[TYPE_FROM] = struct{}{}
+	if len(bindings) > 0 {
+		b.AddBinding(bindings[0], TYPE_FROM)
+	}
+	return b
 }
 
 func (b *Builder) LeftJoin(table, firstColumn, joinOperator, secondColumn string) *Builder {
