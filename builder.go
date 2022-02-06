@@ -68,7 +68,7 @@ type Builder struct {
 	UnionLimit       int
 	UnionOffset      int
 	UnionOrders      int
-	Components       map[string]interface{} //SelectComponents
+	Components       map[string]struct{} //SelectComponents
 	Lock             string
 	LoggingQueries   bool
 	QueryLog         []map[string]interface{}
@@ -185,7 +185,7 @@ type Where struct {
 func NewBuilder(c *Connection) *Builder {
 	b := Builder{
 		Connection: c,
-		Components: make(map[string]interface{}),
+		Components: make(map[string]struct{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		//Processor:  processors.MysqlProcessor{},
 	}
@@ -193,7 +193,7 @@ func NewBuilder(c *Connection) *Builder {
 }
 func NewTxBuilder(tx *Transaction) *Builder {
 	b := Builder{
-		Components: make(map[string]interface{}),
+		Components: make(map[string]struct{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		Tx:         tx,
 	}
@@ -202,7 +202,7 @@ func NewTxBuilder(tx *Transaction) *Builder {
 func CloneBuilder(b *Builder) *Builder {
 	cb := Builder{
 		Connection: b.Connection,
-		Components: make(map[string]interface{}),
+		Components: make(map[string]struct{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		Grammar:    &MysqlGrammar{},
 		Tx:         b.Tx,
