@@ -1,5 +1,7 @@
 package goeloquent
 
-type Expression struct {
-	Value string
+type Expression string
+
+func Raw(expr string) Expression {
+	return Expression(expr)
 }
