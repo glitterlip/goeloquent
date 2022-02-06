@@ -47,22 +47,23 @@ type Builder struct {
 	Tx         *Transaction
 	Grammar    IGrammar
 	//Processor   processors.IProcessor
-	Sql         string
-	PreSql      strings.Builder
-	Bindings    map[string][]interface{} //available options (select,from,join,where,groupBy,having,order,union,unionOrder)
-	FromTable   string
-	TablePrefix string
-	TableAlias  string
-	Wheres      []Where
-	Aggregates  []Aggregate
-	Columns     []interface{} // The columns that should be returned.
-	IsDistinct  bool          // Indicates if the query returns distinct results.
-	Joins       []Join
-	Groups      []interface{}
-	Havings     []Having
-	Orders      []Order
-	LimitNum    int
-	OffsetNum   int
+	Sql       string
+	PreSql    strings.Builder
+	Bindings  map[string][]interface{} //available options (select,from,join,where,groupBy,having,order,union,unionOrder)
+	FromTable interface{}
+	//TablePrefix     string
+	TableAlias      string
+	Wheres          []Where
+	Aggregates      []Aggregate
+	Columns         []interface{} // The columns that should be returned.
+	IsDistinct      bool          // Indicates if the query returns distinct results.
+	DistinctColumns []string      // distinct columns.
+	Joins           []*Builder
+	Groups          []interface{}
+	Havings         []Having
+	Orders          []Order
+	LimitNum        int
+	OffsetNum       int
 	//Unions           []Where
 	UnionLimit       int
 	UnionOffset      int
@@ -82,6 +83,9 @@ type Builder struct {
 	PivotWheres      []Where
 	OnlyColumns      map[string]interface{}
 	ExceptColumns    map[string]interface{}
+	JoinBuilder      bool
+	JoinType         string
+	JoinTable        interface{}
 }
 
 type Log struct {
@@ -150,14 +154,7 @@ type Aggregate struct {
 	AggregateName   string
 	AggregateColumn string
 }
-type Join struct {
-	JoinType       string
-	JoinTable      string
-	FirstColumn    string
-	ColumnOperator string
-	SecondColumn   string
-	JoinOperator   string
-}
+
 type Order struct {
 	OrderType string
 	Direction string
