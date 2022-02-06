@@ -335,6 +335,26 @@ func (b *Builder) Distinct(distinct ...string) *Builder {
 	}
 	return b
 }
+
+/*
+IsQueryable Determine if the value is a query builder instance or a Closure.
+*/
+func IsQueryable(value interface{}) bool {
+	switch value.(type) {
+	case Builder, *Builder, RelationBuilder, *RelationBuilder:
+		return true
+	case BelongsToRelation, BelongsToManyRelation, HasManyRelation, HasManyThrough, HasOneRelation, HasOneThrough, MorphManyRelation, MorphByManyRelation, MorphOneRelation, MorphToManyRelation, MorphToRelation:
+		return true
+	case func(builder *Builder):
+		return true
+	default:
+		return false
+	}
+}
+
+/*
+Table Begin a fluent query against a database table.
+*/
 func (b *Builder) Table(params ...string) *Builder {
 	if len(params) == 1 {
 		return b.From(params[0])
