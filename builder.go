@@ -17,20 +17,30 @@ var Operators = []string{
 	"~", "~*", "!~", "!~*", "similar to",
 	"not similar to", "not ilike", "~~*", "!~~*"}
 var SelectComponents = []string{
-	"aggregate",
-	"columns",
-	"from",
-	"joins",
-	"wheres",
-	"groups",
-	"havings",
-	"orders",
-	"limit",
-	"offset",
-	"unions",
-	"lock",
+	TYPE_AGGREGRATE,
+	TYPE_COLUMN,
+	TYPE_FROM,
+	TYPE_JOIN,
+	TYPE_WHERE,
+	TYPE_GROUP_BY,
+	TYPE_HAVING,
+	TYPE_ORDER,
+	TYPE_LIMIT,
+	TYPE_OFFSET,
+	TYPE_UNION,
+	TYPE_LOCK,
 }
-var Bindings = map[string]struct{}{"select": {}, "from": {}, "join": {}, "where": {}, "groupBy": {}, "having": {}, "order": {}, "union": {}, "unionOrder": {}}
+var Bindings = map[string]struct{}{
+	TYPE_SELECT:      {},
+	TYPE_FROM:        {},
+	TYPE_JOIN:        {},
+	TYPE_WHERE:       {},
+	TYPE_GROUP_BY:    {},
+	TYPE_HAVING:      {},
+	TYPE_ORDER:       {},
+	TYPE_UNION:       {},
+	TYPE_UNION_ORDER: {},
+}
 
 type Builder struct {
 	Connection *Connection
@@ -105,10 +115,11 @@ const (
 	CONDITION_TYPE_DAY         = "day"
 	CONDITION_TYPE_MONTH       = "month"
 	CONDITION_TYPE_YEAR        = "year"
-	CONDITION_TYPE_CLOSURE     = "closure"   //todo
-	CONDITION_TYPE_NESTED      = "nested"    //todo
-	CONDITION_TYPE_SUB         = "subquery"  //todo
-	CONDITION_TYPE_EXIST       = "exist"     //todo
+	CONDITION_TYPE_CLOSURE     = "closure" //todo
+	CONDITION_TYPE_NESTED      = "nested"
+	CONDITION_TYPE_SUB         = "subquery" //todo
+	CONDITION_TYPE_EXIST       = "exist"
+	CONDITION_TYPE_NOT_EXIST   = "not exist"
 	CONDITION_TYPE_ROW_VALUES  = "rowValues" //todo
 	BOOLEAN_AND                = "and"
 	BOOLEAN_OR                 = "or"
@@ -119,6 +130,20 @@ const (
 	JOIN_TYPE_CROSS            = "cross"
 	ORDER_ASC                  = "asc"
 	ORDER_DESC                 = "desc"
+	TYPE_SELECT                = "select"
+	TYPE_FROM                  = "from"
+	TYPE_JOIN                  = "join"
+	TYPE_WHERE                 = "where"
+	TYPE_GROUP_BY              = "groupBy"
+	TYPE_HAVING                = "having"
+	TYPE_ORDER                 = "order"
+	TYPE_UNION                 = "union"
+	TYPE_UNION_ORDER           = "unionOrder"
+	TYPE_COLUMN                = "column"
+	TYPE_AGGREGRATE            = "aggregrate"
+	TYPE_OFFSET                = "offset"
+	TYPE_LIMIT                 = "limit"
+	TYPE_LOCK                  = "lock"
 )
 
 type Aggregate struct {
