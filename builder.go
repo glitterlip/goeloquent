@@ -36,12 +36,14 @@ var Bindings = map[string]struct{}{
 	TYPE_SELECT:      {},
 	TYPE_FROM:        {},
 	TYPE_JOIN:        {},
+	TYPE_UPDATE:      {},
 	TYPE_WHERE:       {},
 	TYPE_GROUP_BY:    {},
 	TYPE_HAVING:      {},
 	TYPE_ORDER:       {},
 	TYPE_UNION:       {},
 	TYPE_UNION_ORDER: {},
+	TYPE_INSERT:      {},
 }
 
 type Builder struct {
@@ -150,6 +152,8 @@ const (
 	TYPE_OFFSET                = "offset"
 	TYPE_LIMIT                 = "limit"
 	TYPE_LOCK                  = "lock"
+	TYPE_INSERT                = "insert"
+	TYPE_UPDATE                = "update"
 )
 
 type Aggregate struct {
