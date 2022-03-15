@@ -51,7 +51,6 @@ type Builder struct {
 	Tx         *Transaction
 	Grammar    IGrammar
 	//Processor   processors.IProcessor
-	Sql       string
 	PreSql    strings.Builder
 	Bindings  map[string][]interface{} //available options (select,from,join,where,groupBy,having,order,union,unionOrder)
 	FromTable interface{}
@@ -81,7 +80,6 @@ type Builder struct {
 	Model            *Model
 	Dest             interface{}
 	DestReflectValue reflect.Value
-	Values           []map[string]interface{}
 	EagerLoad        map[string]func(*RelationBuilder) *RelationBuilder //TODO map[string]callback to dynamicly add constraints
 	Pivots           []string
 	PivotWheres      []Where
