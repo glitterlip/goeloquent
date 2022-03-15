@@ -2000,7 +2000,7 @@ func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	b.Grammar.CompileInsert(items)
 
 	if b.Tx != nil {
-		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+		result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
 	} else {
 		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
 	}
