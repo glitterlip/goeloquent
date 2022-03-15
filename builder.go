@@ -88,6 +88,7 @@ type Builder struct {
 	JoinBuilder      bool
 	JoinType         string
 	JoinTable        interface{}
+	UseWrite         bool //TODO:
 }
 
 type Log struct {
