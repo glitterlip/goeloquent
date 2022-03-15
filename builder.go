@@ -67,9 +67,9 @@ type Builder struct {
 	LimitNum        int
 	OffsetNum       int
 	//Unions           []Where
-	UnionLimit       int
-	UnionOffset      int
-	UnionOrders      int
+	//UnionLimit       int
+	//UnionOffset      int
+	//UnionOrders      int
 	Components       map[string]struct{} //SelectComponents
 	Lock             string
 	LoggingQueries   bool
