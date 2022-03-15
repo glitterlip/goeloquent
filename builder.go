@@ -218,6 +218,54 @@ func CloneBuilder(b *Builder) *Builder {
 	cb.Grammar.SetBuilder(&cb)
 	return &cb
 }
+func Clone(original *Builder) *Builder {
+	newBuilder := Builder{
+		Connection:       original.Connection,
+		Tx:               original.Tx,
+		PreSql:           strings.Builder{},
+		Bindings:         original.Bindings,
+		FromTable:        original.FromTable,
+		TableAlias:       original.TableAlias,
+		Wheres:           original.Wheres,
+		Aggregates:       original.Aggregates,
+		Columns:          original.Columns,
+		IsDistinct:       original.IsDistinct,
+		DistinctColumns:  original.DistinctColumns,
+		Joins:            original.Joins,
+		Groups:           original.Groups,
+		Havings:          original.Havings,
+		Orders:           original.Orders,
+		LimitNum:         original.LimitNum,
+		OffsetNum:        original.OffsetNum,
+		Components:       original.Components,
+		Lock:             original.Lock,
+		LoggingQueries:   original.LoggingQueries,
+		QueryLog:         nil,
+		Pretending:       original.Pretending,
+		PreparedSql:      "",
+		Model:            original.Model,
+		Dest:             nil,
+		DestReflectValue: original.DestReflectValue,
+		EagerLoad:        original.EagerLoad,
+		Pivots:           original.Pivots,
+		PivotWheres:      original.PivotWheres,
+		OnlyColumns:      original.OnlyColumns,
+		ExceptColumns:    original.ExceptColumns,
+		JoinBuilder:      original.JoinBuilder,
+		JoinType:         original.JoinType,
+		JoinTable:        original.JoinTable,
+	}
+	newBuilder.Grammar = &MysqlGrammar{
+		Prefix:  original.Grammar.GetTablePrefix(),
+		Builder: &newBuilder,
+	}
+	return &newBuilder
+}
+func CloneWithout(original *Builder, without ...string) *Builder {
+	b := Clone(original)
+	b.Reset(without...)
+	return b
+}
 
 // Select set columns to be selected
 // 1. Select("column1","column2","column3")
