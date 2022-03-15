@@ -58,7 +58,7 @@ func (r *MorphOneRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Wheres = nil
+	r.Builder.Reset(TYPE_WHERE)
 	r.Builder.WhereNotNull(r.RelatedIdColumn)
 	r.Builder.Where(r.RelatedTypeColumn, r.MorphType)
 	r.Builder.WhereIn(r.RelatedIdColumn, keys)

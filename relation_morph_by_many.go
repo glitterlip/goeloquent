@@ -68,7 +68,7 @@ func (r *MorphByManyRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Wheres = nil
+	r.Builder.Reset(TYPE_WHERE)
 	r.Builder.WhereIn(r.PivotTable+"."+r.PivotParentKey, keys)
 	r.Builder.Where(r.PivotTypeColumn, GetMorphMap(parentParsedModel.Name))
 }

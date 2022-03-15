@@ -56,7 +56,7 @@ func (r *HasOneRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Wheres = nil
+	r.Builder.Reset(TYPE_WHERE)
 	r.Builder.WhereNotNull(r.RelatedParentKey)
 	r.Builder.WhereIn(r.RelatedParentKey, keys)
 }

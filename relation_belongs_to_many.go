@@ -95,7 +95,7 @@ func (relation *BelongsToManyRelation) AddEagerConstraints(parentModels interfac
 		modelKey := model.Field(index).Interface()
 		parentKeys = append(parentKeys, modelKey)
 	}
-	relation.Builder.Wheres = nil
+	relation.Builder.Reset(TYPE_WHERE)
 	relation.Builder.WhereIn(relation.PivotTable+"."+relation.PivotParentKey, parentKeys)
 }
 func MatchBelongsToMany(models interface{}, related interface{}, relation *BelongsToManyRelation) {

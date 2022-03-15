@@ -59,7 +59,7 @@ func (r *MorphManyRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Wheres = nil
+	r.Builder.Reset(TYPE_WHERE)
 	r.Builder.WhereNotNull(r.RelatedIdColumn)
 	r.Builder.Where(r.RelatedTpeColumn, "=", r.MorphType)
 	r.Builder.WhereIn(r.RelatedIdColumn, keys)

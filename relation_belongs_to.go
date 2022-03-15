@@ -59,7 +59,7 @@ func (r *BelongsToRelation) AddEagerConstraints(parentModels interface{}) {
 		modelKey := model.Field(parentRelatedKeyIndex).Interface()
 		parentModelRelatedKeys = append(parentModelRelatedKeys, modelKey)
 	}
-	r.Builder.Wheres = nil
+	r.Builder.Reset(TYPE_WHERE)
 	//select * from users(related table) where users.id(relatedkey) in phones user_ids(parentModelRelatedKeys)
 	r.Builder.WhereIn(r.RelatedKey, parentModelRelatedKeys)
 }
