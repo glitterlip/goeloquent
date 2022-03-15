@@ -60,6 +60,7 @@ func NewRelationBaseBuilder(related interface{}) *Builder {
 			Components: make(map[string]struct{}),
 			Grammar:    &MysqlGrammar{},
 			EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+			Bindings:   make(map[string][]interface{}),
 		}
 		p := &baseBuilder
 		baseBuilder.Grammar.SetBuilder(p)
@@ -77,6 +78,7 @@ func NewRelationBaseBuilder(related interface{}) *Builder {
 		Components: make(map[string]struct{}),
 		Grammar:    &MysqlGrammar{},
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+		Bindings:   make(map[string][]interface{}),
 	}
 	p := &baseBuilder
 	baseBuilder.SetModel(related)
