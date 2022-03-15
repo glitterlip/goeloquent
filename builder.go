@@ -2130,6 +2130,33 @@ func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
 	return b.Get(dest, column)
 }
 
+/*Reset
+reset bindings and components
+*/
+func (b *Builder) Reset(targets ...string) *Builder {
+	for _, componentName := range targets {
+		switch componentName {
+		case TYPE_ORDER:
+			delete(b.Components, TYPE_ORDER)
+			delete(b.Bindings, TYPE_ORDER)
+			b.Orders = nil
+		case TYPE_LIMIT:
+			delete(b.Bindings, TYPE_LIMIT)
+			delete(b.Components, TYPE_LIMIT)
+			b.LimitNum = 0
+		case TYPE_OFFSET:
+			delete(b.Bindings, TYPE_OFFSET)
+			delete(b.Components, TYPE_OFFSET)
+			b.OffsetNum = 0
+		case TYPE_WHERE:
+			delete(b.Bindings, TYPE_WHERE)
+			delete(b.Components, TYPE_WHERE)
+			b.Wheres = nil
+		}
+	}
+	return b
+}
+
 /*
 Paginate Paginate the given query into a simple paginator.
 */
