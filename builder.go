@@ -2044,13 +2044,41 @@ func (b *Builder) UpdateOrInsert(n int) interface{} {
 
 	return 1
 }
-func (b *Builder) Increment(n int) interface{} {
 
-	return 1
+/*
+Decrement Decrement a column's value by a given amount.
+*/
+func (b *Builder) Decrement(column string, amount int, extra ...map[string]interface{}) (result sql.Result, err error) {
+
+	var update map[string]interface{}
+	wrapped := b.Grammar.Wrap(column)
+
+	if len(extra) == 0 {
+		update = make(map[string]interface{})
+	} else {
+		update = extra[0]
+	}
+	update[column] = Expression(fmt.Sprintf("%s - %d", wrapped, amount))
+
+	return b.Update(update)
 }
-func (b *Builder) Decrement(n int) interface{} {
 
-	return 1
+/*
+Increment Increment a column's value by a given amount.
+*/
+func (b *Builder) Increment(column string, amount int, extra ...map[string]interface{}) (result sql.Result, err error) {
+
+	var update map[string]interface{}
+	wrapped := b.Grammar.Wrap(column)
+
+	if len(extra) == 0 {
+		update = make(map[string]interface{})
+	} else {
+		update = extra[0]
+	}
+	update[column] = Expression(fmt.Sprintf("%s + %d", wrapped, amount))
+
+	return b.Update(update)
 }
 func (b *Builder) Delete() (result sql.Result, err error) {
 	var start = time.Now()
