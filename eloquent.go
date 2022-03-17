@@ -38,6 +38,13 @@ func Open(config map[string]DBConfig) *DB {
 	Eloquent = &db
 	return Eloquent
 }
+func (d *DB) AddConfig(name string, config *DBConfig) *DB {
+	Eloquent.Configs[name] = config
+	return d
+}
+func (d *DB) GetConfigs() map[string]*DBConfig {
+	return Eloquent.Configs
+}
 func RegistMorphMap(morphMap map[string]interface{}) {
 	for DbName, pointer := range morphMap {
 		if reflect.TypeOf(pointer).Kind() != reflect.Ptr {

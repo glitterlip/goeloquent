@@ -119,3 +119,6 @@ func (c *Connection) Query() *Builder {
 	builder.Grammar.SetTablePrefix(c.Config.Prefix)
 	return builder
 }
+func (c *Connection) GetConfig() *DBConfig {
+	return c.Config
+}
