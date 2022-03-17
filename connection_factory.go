@@ -27,6 +27,8 @@ func (f ConnectionFactory) CreateConnection(config *DBConfig) *Connection {
 		connector := MysqlConnector{}
 		conn := connector.connect(config)
 		return conn
+	case "":
+		panic(errors.New("a driver must be specified"))
 	default:
 		panic(errors.New(fmt.Sprintf("unsupported driver:%s", config.Driver)))
 	}
