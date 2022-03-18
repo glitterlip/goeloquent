@@ -19,7 +19,7 @@ type IGrammar interface {
 
 	CompileExists() string
 
-	Wrap(string, ...bool) string
+	Wrap(interface{}, ...bool) string
 
 	WrapTable(interface{}) string
 

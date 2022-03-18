@@ -437,15 +437,19 @@ func (m *MysqlGrammar) columnize(columns []interface{}) string {
 /*
 Wrap a value in keyword identifiers.
 */
-func (m *MysqlGrammar) Wrap(value string, prefixAlias ...bool) string {
+func (m *MysqlGrammar) Wrap(value interface{}, prefixAlias ...bool) string {
 	prefix := false
-	if strings.Contains(value, " as ") {
+	if expr, ok := value.(Expression); ok {
+		return string(expr)
+	}
+	str := value.(string)
+	if strings.Contains(str, " as ") {
 		if len(prefixAlias) > 0 && prefixAlias[0] {
 			prefix = true
 		}
-		return m.WrapAliasedValue(value, prefix)
+		return m.WrapAliasedValue(str, prefix)
 	}
-	return m.WrapSegments(strings.Split(value, "."))
+	return m.WrapSegments(strings.Split(str, "."))
 }
 
 func (m *MysqlGrammar) WrapAliasedValue(value string, prefixAlias ...bool) string {
