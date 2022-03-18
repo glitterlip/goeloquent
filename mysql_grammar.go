@@ -272,14 +272,23 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 		sqlBuilder.WriteString(" and ")
 		sqlBuilder.WriteString(m.parameter(w.Values[1]))
 	case CONDITION_TYPE_IN:
-		sqlBuilder.WriteString(m.Wrap(w.Column))
-		if w.Not {
-			sqlBuilder.WriteString(" not in (")
+		if len(w.Values) == 0 {
+			if w.Not {
+				sqlBuilder.WriteString("1 = 1")
+			} else {
+				sqlBuilder.WriteString("0 = 1")
+			}
 		} else {
-			sqlBuilder.WriteString(" in (")
+			sqlBuilder.WriteString(m.Wrap(w.Column))
+			if w.Not {
+				sqlBuilder.WriteString(" not in (")
+			} else {
+				sqlBuilder.WriteString(" in (")
+			}
+			sqlBuilder.WriteString(m.parameter(w.Values...))
+			sqlBuilder.WriteString(")")
 		}
-		sqlBuilder.WriteString(m.parameter(w.Values...))
-		sqlBuilder.WriteString(")")
+
 	case CONDITION_TYPE_DATE, CONDITION_TYPE_TIME, CONDITION_TYPE_DAY, CONDITION_TYPE_MONTH, CONDITION_TYPE_YEAR:
 		sqlBuilder.WriteString(w.Type)
 		sqlBuilder.WriteString("(")

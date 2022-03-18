@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+//test DatabaseQueryBuilderTest
+
 func GetBuilder() *goeloquent.Builder {
 	c := DB().Connection("default")
 	builder := goeloquent.NewBuilder(c)
@@ -782,8 +784,25 @@ func TestFroms(t *testing.T) {
 	ShouldEqual(t, "select * from (select max(last_seen_at) as last_seen_at from `user_sessions`) as `sessions`) where `last_seen_at` > ?", b3)
 	ElementsShouldMatch(t, []interface{}{1520652582}, b3.GetBindings())
 
-	//testInsertMethod
 }
+
+func TestEmptyWhereIns(t *testing.T) {
+	//testEmptyWhereIns
+	b := GetBuilder().Select().From("users").WhereIn("id", []interface{}{})
+	ShouldEqual(t, "select * from `users` where 0 = 1", b)
+	b1 := GetBuilder().Select().From("users").Where("id", "=", 1).OrWhereIn("id", []interface{}{})
+	ShouldEqual(t, "select * from `users` where `id` = ? or 0 = 1", b1)
+
+}
+
+func TestEmptyWhereNotIns(t *testing.T) {
+	//testEmptyWhereNotIns
+	b := GetBuilder().Select().From("users").WhereNotIn("id", []interface{}{})
+	ShouldEqual(t, "select * from `users` where 1 = 1", b)
+	b1 := GetBuilder().Select().From("users").Where("id", "=", 1).OrWhereNotIn("id", []interface{}{})
+	ShouldEqual(t, "select * from `users` where `id` = ? or 1 = 1", b1)
+}
+
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 }

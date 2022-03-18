@@ -11,6 +11,7 @@ import (
 
 var db *goeloquent.DB
 
+//DatabaseConnectionFactoryTest
 func setup() {
 	fmt.Println("test setup")
 	defaultConfig := map[string]goeloquent.DBConfig{
@@ -45,6 +46,9 @@ func teardown() {
 	fmt.Println("test teardown")
 }
 func DB() *goeloquent.DB {
+	if db == nil {
+		setup()
+	}
 	return db
 }
 
