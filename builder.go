@@ -108,51 +108,52 @@ func (b *Builder) WithOutGlobalScopes(...interface{}) *Builder {
 }
 
 const (
-	CONDITION_TYPE_BASIC       = "basic"
-	CONDITION_TYPE_COLUMN      = "column"
-	CONDITION_TYPE_RAW         = "raw"
-	CONDITION_TYPE_IN          = "in"
-	CONDITION_TYPE_NOT_IN      = "not in"
-	CONDITION_TYPE_NULL        = "null"
-	CONDITION_TYPE_BETWEEN     = "between"
-	CONDITION_TYPE_NOT_BETWEEN = "not between"
-	CONDITION_TYPE_DATE        = "date"
-	CONDITION_TYPE_TIME        = "time"
-	CONDITION_TYPE_DATETIME    = "datetime"
-	CONDITION_TYPE_DAY         = "day"
-	CONDITION_TYPE_MONTH       = "month"
-	CONDITION_TYPE_YEAR        = "year"
-	CONDITION_TYPE_CLOSURE     = "closure" //todo
-	CONDITION_TYPE_NESTED      = "nested"
-	CONDITION_TYPE_SUB         = "subquery" //todo
-	CONDITION_TYPE_EXIST       = "exist"
-	CONDITION_TYPE_NOT_EXIST   = "not exist"
-	CONDITION_TYPE_ROW_VALUES  = "rowValues" //todo
-	BOOLEAN_AND                = "and"
-	BOOLEAN_OR                 = "or"
-	CONDITION_JOIN_NOT         = "not" //todo
-	JOIN_TYPE_LEFT             = "left"
-	JOIN_TYPE_RIGHT            = "right"
-	JOIN_TYPE_INNER            = "inner"
-	JOIN_TYPE_CROSS            = "cross"
-	ORDER_ASC                  = "asc"
-	ORDER_DESC                 = "desc"
-	TYPE_SELECT                = "select"
-	TYPE_FROM                  = "from"
-	TYPE_JOIN                  = "join"
-	TYPE_WHERE                 = "where"
-	TYPE_GROUP_BY              = "groupBy"
-	TYPE_HAVING                = "having"
-	TYPE_ORDER                 = "order"
-	TYPE_UNION                 = "union"
-	TYPE_UNION_ORDER           = "unionOrder"
-	TYPE_COLUMN                = "column"
-	TYPE_AGGREGRATE            = "aggregrate"
-	TYPE_OFFSET                = "offset"
-	TYPE_LIMIT                 = "limit"
-	TYPE_LOCK                  = "lock"
-	TYPE_INSERT                = "insert"
-	TYPE_UPDATE                = "update"
+	CONDITION_TYPE_BASIC          = "basic"
+	CONDITION_TYPE_COLUMN         = "column"
+	CONDITION_TYPE_RAW            = "raw"
+	CONDITION_TYPE_IN             = "in"
+	CONDITION_TYPE_NOT_IN         = "not in"
+	CONDITION_TYPE_NULL           = "null"
+	CONDITION_TYPE_BETWEEN        = "between"
+	CONDITION_TYPE_BETWEEN_COLUMN = "between column"
+	CONDITION_TYPE_NOT_BETWEEN    = "not between"
+	CONDITION_TYPE_DATE           = "date"
+	CONDITION_TYPE_TIME           = "time"
+	CONDITION_TYPE_DATETIME       = "datetime"
+	CONDITION_TYPE_DAY            = "day"
+	CONDITION_TYPE_MONTH          = "month"
+	CONDITION_TYPE_YEAR           = "year"
+	CONDITION_TYPE_CLOSURE        = "closure" //todo
+	CONDITION_TYPE_NESTED         = "nested"
+	CONDITION_TYPE_SUB            = "subquery" //todo
+	CONDITION_TYPE_EXIST          = "exist"
+	CONDITION_TYPE_NOT_EXIST      = "not exist"
+	CONDITION_TYPE_ROW_VALUES     = "rowValues" //todo
+	BOOLEAN_AND                   = "and"
+	BOOLEAN_OR                    = "or"
+	CONDITION_JOIN_NOT            = "not" //todo
+	JOIN_TYPE_LEFT                = "left"
+	JOIN_TYPE_RIGHT               = "right"
+	JOIN_TYPE_INNER               = "inner"
+	JOIN_TYPE_CROSS               = "cross"
+	ORDER_ASC                     = "asc"
+	ORDER_DESC                    = "desc"
+	TYPE_SELECT                   = "select"
+	TYPE_FROM                     = "from"
+	TYPE_JOIN                     = "join"
+	TYPE_WHERE                    = "where"
+	TYPE_GROUP_BY                 = "groupBy"
+	TYPE_HAVING                   = "having"
+	TYPE_ORDER                    = "order"
+	TYPE_UNION                    = "union"
+	TYPE_UNION_ORDER              = "unionOrder"
+	TYPE_COLUMN                   = "column"
+	TYPE_AGGREGRATE               = "aggregrate"
+	TYPE_OFFSET                   = "offset"
+	TYPE_LIMIT                    = "limit"
+	TYPE_LOCK                     = "lock"
+	TYPE_INSERT                   = "insert"
+	TYPE_UPDATE                   = "update"
 )
 
 type Aggregate struct {
@@ -1259,6 +1260,33 @@ func (b *Builder) OrWhereNotBetween(params ...interface{}) *Builder {
 	params = append(params, BOOLEAN_OR, true)
 
 	return b.WhereBetween(params...)
+}
+
+/*
+WhereBetweenColumns Add a where between statement using columns to the query.
+*/
+func (b *Builder) WhereBetweenColumns(column string, values []interface{}, params ...interface{}) *Builder {
+	paramsLength := len(params)
+	var boolean = BOOLEAN_AND
+	var betweenType = CONDITION_TYPE_BETWEEN_COLUMN
+	not := false
+	if paramsLength > 0 {
+		boolean = params[0].(string)
+	}
+	if paramsLength > 1 {
+		not = params[1].(bool)
+	}
+
+	b.Components[TYPE_WHERE] = struct{}{}
+
+	b.Wheres = append(b.Wheres, Where{
+		Type:    betweenType,
+		Column:  column,
+		Boolean: boolean,
+		Values:  values,
+		Not:     not,
+	})
+	return b
 }
 
 //AddTimeBasedWhere Add a time based (year, month, day, time) statement to the query.

@@ -803,6 +803,20 @@ func TestEmptyWhereNotIns(t *testing.T) {
 	ShouldEqual(t, "select * from `users` where `id` = ? or 1 = 1", b1)
 }
 
+func TestWhereBetweenColumns(t *testing.T) {
+	//testWhereBetweenColumns
+	b := GetBuilder().Select().From("users").WhereBetweenColumns("id", []interface{}{"users.created_at", "users.updated_at"})
+	ShouldEqual(t, "select * from `users` where `id` between `users`.`created_at` and `users`.`updated_at`", b)
+	assert.Empty(t, b.GetBindings())
+
+	b1 := GetBuilder().Select().From("users").WhereBetweenColumns("id", []interface{}{"created_at", "updated_at"})
+	ShouldEqual(t, "select * from `users` where `id` between `created_at` and `updated_at`", b1)
+	assert.Empty(t, b1.GetBindings())
+
+	b2 := GetBuilder().Select().From("users").WhereBetweenColumns("id", []interface{}{goeloquent.Raw("1"), goeloquent.Raw("2")})
+	ShouldEqual(t, "select * from `users` where `id` between 1 and 2", b2)
+	assert.Empty(t, b2.GetBindings())
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 }

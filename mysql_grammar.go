@@ -271,6 +271,16 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 		sqlBuilder.WriteString(m.parameter(w.Values[0]))
 		sqlBuilder.WriteString(" and ")
 		sqlBuilder.WriteString(m.parameter(w.Values[1]))
+	case CONDITION_TYPE_BETWEEN_COLUMN:
+		sqlBuilder.WriteString(m.Wrap(w.Column))
+		if w.Not {
+			sqlBuilder.WriteString(" not between ")
+		} else {
+			sqlBuilder.WriteString(" between ")
+		}
+		sqlBuilder.WriteString(m.Wrap(w.Values[0]))
+		sqlBuilder.WriteString(" and ")
+		sqlBuilder.WriteString(m.Wrap(w.Values[1]))
 	case CONDITION_TYPE_IN:
 		if len(w.Values) == 0 {
 			if w.Not {
