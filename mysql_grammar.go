@@ -144,6 +144,7 @@ func (m *MysqlGrammar) compileComponent(componentName string) string {
 	case TYPE_LOCK:
 		return m.CompileLock()
 	}
+	return ""
 }
 func (m *MysqlGrammar) CompileComponentAggregate() string {
 	builder := strings.Builder{}
@@ -195,8 +196,12 @@ func (m *MysqlGrammar) CompileComponentJoins() string {
 			tableAndNestedJoins = m.WrapTable(join.JoinTable)
 		}
 		onStr := join.Grammar.CompileComponentWheres()
-
-		s := fmt.Sprintf(" %s join %s %s", join.JoinType, tableAndNestedJoins, strings.TrimSpace(onStr))
+		s := ""
+		if len(onStr) > 0 {
+			s = fmt.Sprintf(" %s join %s %s", join.JoinType, tableAndNestedJoins, strings.TrimSpace(onStr))
+		} else {
+			s = fmt.Sprintf(" %s join %s", join.JoinType, tableAndNestedJoins)
+		}
 		builder.WriteString(s)
 	}
 	return builder.String()

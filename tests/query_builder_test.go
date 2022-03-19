@@ -870,6 +870,15 @@ func TestCloneWithoutBindings(t *testing.T) {
 	ShouldEqual(t, "select * from `users` order by `email` asc", cb)
 	ElementsShouldMatch(t, []interface{}{}, cb.GetBindings())
 }
+func TestCrossJoins(t *testing.T) {
+	//testCrossJoins
+	b := GetBuilder().Select().From("sizes").CrossJoin("colors")
+	ShouldEqual(t, "select * from `sizes` cross join `colors`", b)
+	b1 := GetBuilder().Select("*").From("tableB").Join("tableA", "tableA.column1", "=", "tableB.column2", goeloquent.JOIN_TYPE_CROSS)
+	ShouldEqual(t, "select * from `tableB` cross join `tableA` on `tableA`.`column1` = `tableB`.`column2`", b1)
+	b2 := GetBuilder().Select().From("tableB").CrossJoin("tableA", "tableA.column1", "=", "tableB.column2")
+	ShouldEqual(t, "select * from `tableB` cross join `tableA` on `tableA`.`column1` = `tableB`.`column2`", b2)
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 }

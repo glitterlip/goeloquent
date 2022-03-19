@@ -684,31 +684,41 @@ func (b *Builder) OrOn(first interface{}, params ...interface{}) *Builder {
 /*
 CrossJoin Add a "cross join" clause to the query.
 */
-//func (b *Builder) CrossJoin(table string, firstColumn interface{}, params ...interface{}) *Builder {
-//	var operator, second string
-//	joinType := JOIN_TYPE_CROSS
-//	length := len(params)
-//	switch length {
-//	case 0:
-//		if function, ok := firstColumn.(func(builder *Builder)); ok {
-//			clause := NewJoinClause(b, joinType, table)
-//			function(clause.Builder)
-//			b.Joins = append(b.Joins, clause)
-//			b.AddBinding(clause.Builder.GetBindings(), BINDING_TYPE_JOIN)
-//			return b
-//		} else {
-//			panic(errors.New("arguements num mismatch"))
-//		}
-//	case 1:
-//		operator = "="
-//		second = params[0].(string)
-//	case 2:
-//		operator = params[0].(string)
-//		second = params[1].(string)
-//
-//	}
-//	return b.join(table, firstColumn, operator, second, joinType, false)
-//}
+func (b *Builder) CrossJoin(table string, params ...interface{}) *Builder {
+	var operator, first, second string
+	joinType := JOIN_TYPE_CROSS
+	length := len(params)
+	switch length {
+	case 0:
+		clause := NewJoin(b, joinType, table)
+		b.Joins = append(b.Joins, clause)
+		b.Components[TYPE_JOIN] = struct{}{}
+
+		return b
+	case 1:
+		if function, ok := params[0].(func(builder *Builder)); ok {
+			clause := NewJoin(b, joinType, table)
+			function(clause)
+			b.Joins = append(b.Joins, clause)
+			b.AddBinding(clause.GetBindings(), TYPE_JOIN)
+			b.Components[TYPE_JOIN] = struct{}{}
+
+			return b
+		} else {
+			panic(errors.New("cross join arguements mismatch"))
+		}
+	case 2:
+		first = params[0].(string)
+		operator = "="
+		second = params[1].(string)
+	case 3:
+		first = params[0].(string)
+		operator = params[1].(string)
+		second = params[2].(string)
+
+	}
+	return b.join(table, first, operator, second, joinType, false)
+}
 
 /*
 join Add a join clause to the query.
