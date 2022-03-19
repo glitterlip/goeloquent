@@ -879,6 +879,11 @@ func TestCrossJoins(t *testing.T) {
 	b2 := GetBuilder().Select().From("tableB").CrossJoin("tableA", "tableA.column1", "=", "tableB.column2")
 	ShouldEqual(t, "select * from `tableB` cross join `tableA` on `tableA`.`column1` = `tableB`.`column2`", b2)
 }
+func TestCrossJoinSubs(t *testing.T) {
+	//testCrossJoinSubs
+	b := GetBuilder().SelectRaw("(sale / overall.sales) * 100 AS percent_of_total").From("sales").CrossJoinSub(GetBuilder().SelectRaw("SUM(sale) AS sales").From("sales"), "overall")
+	ShouldEqual(t, "select (sale / overall.sales) * 100 AS percent_of_total from `sales` cross join (select SUM(sale) AS sales from `sales`) as `overall`", b)
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 }

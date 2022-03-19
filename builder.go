@@ -721,6 +721,20 @@ func (b *Builder) CrossJoin(table string, params ...interface{}) *Builder {
 }
 
 /*
+CrossJoinSub Add a subquery cross join to the query.
+*/
+func (b *Builder) CrossJoinSub(query interface{}, as string) *Builder {
+	queryStr, bindings := b.CreateSub(query)
+	expr := fmt.Sprintf("(%s) as %s", queryStr, b.Grammar.WrapTable(as))
+	b.AddBinding(bindings, TYPE_JOIN)
+	clause := NewJoin(b, JOIN_TYPE_CROSS, Raw(expr))
+	b.Joins = append(b.Joins, clause)
+	b.Components[TYPE_JOIN] = struct{}{}
+
+	return b
+}
+
+/*
 join Add a join clause to the query.
 */
 func (b *Builder) join(table, first, operator, second, joinType, isWhere interface{}) *Builder {
