@@ -1674,6 +1674,9 @@ func (b *Builder) OrderBy(params ...interface{}) *Builder {
 	if len(params) > 1 {
 		order = params[1].(string)
 	}
+	if order != ORDER_ASC && order != ORDER_DESC {
+		panic(errors.New("wrong order direction: " + order))
+	}
 	b.Orders = append(b.Orders, Order{
 		Direction: order,
 		Column:    params[0].(string),

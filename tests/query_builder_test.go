@@ -828,6 +828,13 @@ func TestWhereColumnArray(t *testing.T) {
 	ShouldEqual(t, "select * from `users` where (`first_name` = `last_name` and `updated_at` > `created_at`)", b)
 	assert.Empty(t, b.GetBindings())
 }
+func TestOrderByInvalidDirectionParam(t *testing.T) {
+	//testOrderByInvalidDirectionParam
+	assert.PanicsWithErrorf(t, "wrong order direction: asec", func() {
+		GetBuilder().Select().From("users").OrderBy("age", "asec")
+	}, "wrong order should panic with msg:[wrong order direction: asec]")
+
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 }
