@@ -222,26 +222,30 @@ func CloneBuilder(b *Builder) *Builder {
 	cb.Grammar.SetBuilder(&cb)
 	return &cb
 }
+
+/*
+Clone Clone the query.
+*/
 func Clone(original *Builder) *Builder {
 	newBuilder := Builder{
 		Connection:       original.Connection,
 		Tx:               original.Tx,
 		PreSql:           strings.Builder{},
-		Bindings:         original.Bindings,
+		Bindings:         make(map[string][]interface{}, len(original.Bindings)),
 		FromTable:        original.FromTable,
 		TableAlias:       original.TableAlias,
-		Wheres:           original.Wheres,
-		Aggregates:       original.Aggregates,
-		Columns:          original.Columns,
+		Wheres:           make([]Where, len(original.Wheres)),
+		Aggregates:       make([]Aggregate, len(original.Aggregates)),
+		Columns:          make([]interface{}, len(original.Columns)),
 		IsDistinct:       original.IsDistinct,
-		DistinctColumns:  original.DistinctColumns,
-		Joins:            original.Joins,
-		Groups:           original.Groups,
-		Havings:          original.Havings,
-		Orders:           original.Orders,
+		DistinctColumns:  make([]string, len(original.DistinctColumns)),
+		Joins:            make([]*Builder, len(original.Joins)),
+		Groups:           make([]interface{}, len(original.Groups)),
+		Havings:          make([]Having, len(original.Havings)),
+		Orders:           make([]Order, len(original.Orders)),
 		LimitNum:         original.LimitNum,
 		OffsetNum:        original.OffsetNum,
-		Components:       original.Components,
+		Components:       make(map[string]struct{}, len(original.Components)),
 		Lock:             original.Lock,
 		LoggingQueries:   original.LoggingQueries,
 		QueryLog:         nil,
@@ -251,13 +255,37 @@ func Clone(original *Builder) *Builder {
 		Dest:             nil,
 		DestReflectValue: original.DestReflectValue,
 		EagerLoad:        original.EagerLoad,
-		Pivots:           original.Pivots,
-		PivotWheres:      original.PivotWheres,
-		OnlyColumns:      original.OnlyColumns,
-		ExceptColumns:    original.ExceptColumns,
+		Pivots:           make([]string, len(original.Pivots)),
+		PivotWheres:      make([]Where, len(original.Wheres)),
+		OnlyColumns:      make(map[string]interface{}, len(original.OnlyColumns)),
+		ExceptColumns:    make(map[string]interface{}, len(original.ExceptColumns)),
 		JoinBuilder:      original.JoinBuilder,
 		JoinType:         original.JoinType,
 		JoinTable:        original.JoinTable,
+	}
+	for key, _ := range original.Bindings {
+		copy(newBuilder.Bindings[key], newBuilder.Bindings[key])
+	}
+	copy(newBuilder.Wheres, original.Wheres)
+	copy(newBuilder.Aggregates, original.Aggregates)
+	copy(newBuilder.Columns, original.Columns)
+	copy(newBuilder.DistinctColumns, original.DistinctColumns)
+	copy(newBuilder.Groups, original.Groups)
+	copy(newBuilder.Havings, original.Havings)
+	copy(newBuilder.Orders, original.Orders)
+	copy(newBuilder.Pivots, original.Pivots)
+	copy(newBuilder.PivotWheres, original.PivotWheres)
+	for key, _ := range original.Components {
+		newBuilder.Components[key] = original.Components[key]
+	}
+	for key, _ := range original.OnlyColumns {
+		newBuilder.OnlyColumns[key] = original.OnlyColumns[key]
+	}
+	for key, _ := range original.ExceptColumns {
+		newBuilder.ExceptColumns[key] = original.ExceptColumns[key]
+	}
+	for _, join := range original.Joins {
+		newBuilder.Joins = append(newBuilder.Joins, join.Clone()) //TODO: add tests
 	}
 	newBuilder.Grammar = &MysqlGrammar{
 		Prefix:  original.Grammar.GetTablePrefix(),
@@ -265,10 +293,34 @@ func Clone(original *Builder) *Builder {
 	}
 	return &newBuilder
 }
+func (b *Builder) Clone() *Builder {
+	return Clone(b)
+}
+
+/*CloneWithout
+CloneWithoutClone the query without the given properties.
+*/
 func CloneWithout(original *Builder, without ...string) *Builder {
 	b := Clone(original)
 	b.Reset(without...)
 	return b
+}
+func (b *Builder) CloneWithout(without ...string) *Builder {
+	return CloneWithout(b, without...)
+}
+
+/*
+CloneWithoutBindings Clone the query without the given bindings.
+*/
+func CloneWithoutBindings(original *Builder, bindings ...string) *Builder {
+	b := Clone(original)
+	for _, binding := range bindings {
+		b.Bindings[binding] = nil
+	}
+	return b
+}
+func (b *Builder) CloneWithoutBindings(bindings ...string) *Builder {
+	return CloneWithoutBindings(b, bindings...)
 }
 
 // Select set columns to be selected

@@ -835,6 +835,41 @@ func TestOrderByInvalidDirectionParam(t *testing.T) {
 	}, "wrong order should panic with msg:[wrong order direction: asec]")
 
 }
+func TestNestedWhereBindings(t *testing.T) {
+	//testNestedWhereBindings
+	b := GetBuilder().Where("email", "=", "foo").Where(func(builder *goeloquent.Builder) {
+		builder.SelectRaw("?", []interface{}{goeloquent.Expression("ignore")}).Where("name", "=", "bar")
+	})
+	ElementsShouldMatch(t, []interface{}{"foo", "bar"}, b.GetBindings())
+}
+func TestClone(t *testing.T) {
+	//testClone
+	b := GetBuilder().Select().From("users")
+	cb := goeloquent.Clone(b)
+	cb.Where("email", "foo")
+	ShouldEqual(t, "select * from `users`", b)
+	ShouldEqual(t, "select * from `users` where `email` = ?", cb)
+	assert.NotEqual(t, b, cb)
+}
+
+func TestCloneWithout(t *testing.T) {
+	//testCloneWithout
+	b := GetBuilder().Select().From("users").Where("email", "foo").OrderBy("email")
+	cb := goeloquent.CloneWithout(b, goeloquent.TYPE_ORDER)
+	ShouldEqual(t, "select * from `users` where `email` = ? order by `email` asc", b)
+	ShouldEqual(t, "select * from `users` where `email` = ?", cb)
+
+}
+func TestCloneWithoutBindings(t *testing.T) {
+	//testCloneWithoutBindings
+	b := GetBuilder().Select().From("users").Where("email", "foo").OrderBy("email")
+	cb := b.Clone().CloneWithout(goeloquent.TYPE_WHERE).CloneWithoutBindings(goeloquent.TYPE_WHERE)
+	ShouldEqual(t, "select * from `users` where `email` = ? order by `email` asc", b)
+	ElementsShouldMatch(t, []interface{}{"foo"}, b.GetBindings())
+
+	ShouldEqual(t, "select * from `users` order by `email` asc", cb)
+	ElementsShouldMatch(t, []interface{}{}, cb.GetBindings())
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 }
