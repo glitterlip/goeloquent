@@ -817,6 +817,17 @@ func TestWhereBetweenColumns(t *testing.T) {
 	ShouldEqual(t, "select * from `users` where `id` between 1 and 2", b2)
 	assert.Empty(t, b2.GetBindings())
 }
+
+func TestWhereColumnArray(t *testing.T) {
+	//testArrayWhereColumn
+	conditions := [][]interface{}{
+		{"first_name", "last_name"},
+		{"updated_at", ">", "created_at"},
+	}
+	b := GetBuilder().Select().From("users").WhereColumn(conditions)
+	ShouldEqual(t, "select * from `users` where (`first_name` = `last_name` and `updated_at` > `created_at`)", b)
+	assert.Empty(t, b.GetBindings())
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 }

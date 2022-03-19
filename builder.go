@@ -969,10 +969,22 @@ func (b *Builder) OrWhere(params ...interface{}) *Builder {
 /*
 WhereColumn Add a "where" clause comparing two columns to the query.
 */
-func (b *Builder) WhereColumn(first string, second ...string) *Builder {
+func (b *Builder) WhereColumn(first interface{}, second ...string) *Builder {
 	length := len(second)
 	var firstColumn = first
 	var secondColumn, operator, boolean string
+	if arr, ok := first.([][]interface{}); ok {
+		return b.WhereNested(func(builder *Builder) {
+			for _, term := range arr {
+				var strs []string
+				for i := 1; i < len(term); i++ {
+					strs = append(strs, term[i].(string))
+				}
+				builder.WhereColumn(term[0], strs...)
+			}
+		})
+
+	}
 	switch length {
 	case 1:
 		secondColumn = second[0]
@@ -991,7 +1003,7 @@ func (b *Builder) WhereColumn(first string, second ...string) *Builder {
 	}
 	b.Wheres = append(b.Wheres, Where{
 		Type:         CONDITION_TYPE_COLUMN,
-		FirstColumn:  firstColumn,
+		FirstColumn:  firstColumn.(string),
 		Operator:     operator,
 		SecondColumn: secondColumn,
 		Boolean:      boolean,
