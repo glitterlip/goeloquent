@@ -2379,11 +2379,8 @@ func (b *Builder) Paginate(p *Paginator, columns ...interface{}) (*Paginator, er
 	if len(b.Groups) > 0 || len(b.Havings) > 0 {
 		panic("having/group pagination not supported")
 	}
-	cb := CloneBuilder(b)
-	if len(b.Wheres) > 0 {
-		cb.Components[TYPE_WHERE] = struct{}{}
-		copy(cb.Wheres, b.Wheres)
-	}
+	cb := CloneWithout(b, TYPE_COLUMN, TYPE_ORDER, TYPE_OFFSET, TYPE_LIMIT)
+	cb.Bindings = b.GetRawBindings()
 	_, err := cb.Count(&p.Total)
 	if err != nil {
 		return nil, err
