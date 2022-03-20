@@ -3,7 +3,9 @@ package tests
 import (
 	goeloquent "github.com/glitterlip/go-eloquent"
 	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
+	"time"
 )
 
 //test DatabaseQueryBuilderTest
@@ -16,7 +18,14 @@ func GetBuilder() *goeloquent.Builder {
 	builder.Grammar.SetBuilder(builder)
 	return builder
 }
-
+func Connect() {
+	defaultConfig := map[string]goeloquent.DBConfig{
+		"default": getDefaultConfig(),
+	}
+	db = goeloquent.Open(defaultConfig)
+	chatConfig := getChatConfig()
+	db.AddConfig("chat", &chatConfig)
+}
 func TestBasicSelect(t *testing.T) {
 	//testBasicSelect
 	b := GetBuilder()
@@ -883,6 +892,53 @@ func TestCrossJoinSubs(t *testing.T) {
 	//testCrossJoinSubs
 	b := GetBuilder().SelectRaw("(sale / overall.sales) * 100 AS percent_of_total").From("sales").CrossJoinSub(GetBuilder().SelectRaw("SUM(sale) AS sales").From("sales"), "overall")
 	ShouldEqual(t, "select (sale / overall.sales) * 100 AS percent_of_total from `sales` cross join (select SUM(sale) AS sales from `sales`) as `overall`", b)
+}
+func TestInsertMethod(t *testing.T) {
+	//testInsertMethod
+	create := `
+CREATE TABLE "users" (
+  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
+  "name" varchar(255) NOT NULL,
+  "age" tinyint(10) unsigned NOT NULL DEFAULT '0',
+  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  "deleted_at" datetime DEFAULT NULL,
+  PRIMARY KEY ("id")
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
+`
+	Connect()
+	DB().Raw("default").Exec(strings.ReplaceAll(create, `"`, "`"))
+	b := DB().Table("users")
+	now := time.Now()
+	insert, err := b.Insert(map[string]interface{}{
+		"name":       "go-eloquent",
+		"age":        18,
+		"created_at": now,
+	})
+	assert.Nil(t, err)
+	c, err := insert.RowsAffected()
+	assert.Nil(t, err)
+	assert.Equal(t, c, int64(1))
+	ElementsShouldMatch(t, []interface{}{"go-eloquent", 18, now}, b.GetBindings())
+	assert.Equal(t, "insert into `users` (`name`, `age`, `created_at`) values (?, ?, ?)", b.PreparedSql)
+	DB().Raw("default").Exec("DROP TABLE IF EXISTS users")
+
+	//testMySqlInsertOrIgnoreMethod
+	DB().Raw("default").Exec(strings.ReplaceAll(create, `"`, "`"))
+	b = DB().Table("users")
+	insert, err = b.InsertOrIgnore(map[string]interface{}{
+		"name":       "go-eloquent",
+		"age":        18,
+		"created_at": now,
+	})
+	assert.Nil(t, err)
+	c, err = insert.RowsAffected()
+	assert.Nil(t, err)
+	assert.Equal(t, c, int64(1))
+	ElementsShouldMatch(t, []interface{}{"go-eloquent", 18, now}, b.GetBindings())
+	assert.Equal(t, "insert ignore into `users` (`name`, `age`, `created_at`) values (?, ?, ?)", b.PreparedSql)
+	DB().Raw("default").Exec("DROP TABLE IF EXISTS users")
+
 }
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions

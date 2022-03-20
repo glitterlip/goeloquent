@@ -66,7 +66,8 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 }
 
 func (m *MysqlGrammar) CompileInsertOrIgnore(values []map[string]interface{}) string {
-	return strings.Replace(m.CompileInsert(values), "insert", "insert ignore", 1)
+	m.GetBuilder().PreparedSql = strings.Replace(m.CompileInsert(values), "insert", "insert ignore", 1)
+	return m.GetBuilder().PreparedSql
 }
 func (m *MysqlGrammar) CompileDelete() string {
 	b := m.GetBuilder()
