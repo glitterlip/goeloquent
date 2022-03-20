@@ -31,7 +31,7 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 	b := m.GetBuilder()
 	b.PreSql.WriteString("insert into ")
 	b.PreSql.WriteString(m.CompileComponentTable())
-	b.PreSql.WriteString(" ( ")
+	b.PreSql.WriteString(" (")
 	first := values[0]
 	length := len(values)
 	var columns []string
@@ -44,21 +44,21 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 	}
 	columnLength := len(columns)
 	b.PreSql.WriteString(m.columnize(columnizeVars))
-	b.PreSql.WriteString(" ) values ")
+	b.PreSql.WriteString(") values")
 
 	for k, v := range values {
-		b.PreSql.WriteString(" ( ")
+		b.PreSql.WriteString(" (")
 		for i, key := range columns {
 			b.PreSql.WriteString(m.parameter(v[key]))
 			b.AddBinding([]interface{}{v[key]}, TYPE_INSERT)
 			if i != columnLength-1 {
-				b.PreSql.WriteString(" , ")
+				b.PreSql.WriteString(", ")
 			} else {
-				b.PreSql.WriteString(" ) ")
+				b.PreSql.WriteString(")")
 			}
 		}
 		if k != length-1 {
-			b.PreSql.WriteString(" , ")
+			b.PreSql.WriteString(", ")
 		}
 	}
 	b.PreparedSql = b.PreSql.String()
