@@ -74,7 +74,6 @@ type Builder struct {
 	Components       map[string]struct{} //SelectComponents
 	Lock             string
 	LoggingQueries   bool
-	QueryLog         []map[string]interface{}
 	Pretending       bool
 	PreparedSql      string
 	Model            *Model
@@ -248,7 +247,6 @@ func Clone(original *Builder) *Builder {
 		Components:       make(map[string]struct{}, len(original.Components)),
 		Lock:             original.Lock,
 		LoggingQueries:   original.LoggingQueries,
-		QueryLog:         nil,
 		Pretending:       original.Pretending,
 		PreparedSql:      "",
 		Model:            original.Model,
@@ -2279,7 +2277,7 @@ func (b *Builder) addNestedWiths(name string, results map[string]func(builder *R
 	return results
 }
 func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Duration, result sql.Result) {
-	if Eloquent.LogFunc != nil {
+	if b.LoggingQueries && Eloquent.LogFunc != nil {
 		Eloquent.LogFunc(Log{
 			SQL:      query,
 			Bindings: bindings,
@@ -2367,6 +2365,10 @@ func (b *Builder) Reset(targets ...string) *Builder {
 			b.Wheres = nil
 		}
 	}
+	return b
+}
+func (b *Builder) EnableLogQuery() *Builder {
+	b.LoggingQueries = true
 	return b
 }
 
