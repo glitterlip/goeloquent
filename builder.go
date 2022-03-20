@@ -88,6 +88,7 @@ type Builder struct {
 	JoinType         string
 	JoinTable        interface{}
 	UseWrite         bool //TODO:
+	QueryCallBacks   []func(builder *Builder)
 }
 
 type Log struct {
@@ -2370,6 +2371,25 @@ func (b *Builder) Reset(targets ...string) *Builder {
 func (b *Builder) EnableLogQuery() *Builder {
 	b.LoggingQueries = true
 	return b
+}
+
+/*BeforeQuery
+Register a closure to be invoked before the query is executed.
+*/
+func (b *Builder) BeforeQuery(func(builder *Builder)) *Builder {
+
+	return b
+}
+
+/*ApplyQueryCallbacks
+Invoke the "before query" modification callbacks.
+
+*/
+func (b *Builder) ApplyQueryCallbacks() {
+	for _, callBack := range b.QueryCallBacks {
+		callBack(b)
+	}
+	b.QueryCallBacks = nil
 }
 
 /*
