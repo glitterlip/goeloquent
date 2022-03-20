@@ -11,6 +11,8 @@ type IGrammar interface {
 
 	CompileInsert([]map[string]interface{}) string
 
+	CompileInsertOrIgnore([]map[string]interface{}) string
+
 	CompileDelete() string
 
 	CompileUpdate(map[string]interface{}) string

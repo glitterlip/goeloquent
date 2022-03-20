@@ -2076,11 +2076,7 @@ func (b *Builder) FileterColumn(column string) bool {
 	return true
 }
 
-/*
-Insert new records into the database.
-*/
-func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
-	var start = time.Now()
+func PrepareInsertValues(values interface{}) []map[string]interface{} {
 	rv := reflect.ValueOf(values)
 	var items []map[string]interface{}
 	if rv.Kind() == reflect.Ptr {
@@ -2115,6 +2111,15 @@ func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	} else if rv.Kind() == reflect.Struct {
 		items = append(items, ExtractStruct(rv.Interface()))
 	}
+	return items
+}
+
+/*
+Insert new records into the database.
+*/
+func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
+	var start = time.Now()
+	items := PrepareInsertValues(values)
 	b.Grammar.CompileInsert(items)
 
 	if b.Tx != nil {
@@ -2122,31 +2127,41 @@ func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	} else {
 		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
 	}
-	if len(items) == 1 && rv.Kind() == reflect.Struct {
-		//set id for simple struct
-		mp := GetParsedModel(rv.Type())
-		if !mp.IsEloquent {
-			if mp.PrimaryKey.Name != "" && mp.PrimaryKey.FieldType.Kind() == reflect.Int64 {
-				id, _ := result.LastInsertId()
-				rv.Field(mp.PrimaryKey.Index).Set(reflect.ValueOf(id))
-			}
 
-		}
-	}
 	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return result, err
 }
 
 /*
-InsertGetId Insert new records into the database while ignoring errors.
+InsertGetId Insert a new record and get the value of the primary key.
 */
 func (b *Builder) InsertGetId(values interface{}) (int64, error) {
 
-	result, err := b.Insert(values)
+	insert, err := b.Insert(values)
 	if err != nil {
 		return 0, err
 	}
-	return result.LastInsertId()
+	id, _ := insert.LastInsertId()
+	return id, nil
+}
+
+/*
+InsertOrIgnore Insert a new record and get the value of the primary key.
+*/
+func (b *Builder) InsertOrIgnore(values interface{}) (result sql.Result, err error) {
+
+	var start = time.Now()
+	items := PrepareInsertValues(values)
+	b.Grammar.CompileInsertOrIgnore(items)
+
+	if b.Tx != nil {
+		result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
+	} else {
+		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+	}
+
+	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
+	return result, err
 }
 func (b *Builder) Update(v map[string]interface{}) (result sql.Result, err error) {
 	var start = time.Now()
