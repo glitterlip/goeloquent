@@ -125,7 +125,9 @@ func (m *MysqlGrammar) CompileSelect() string {
 }
 
 func (m *MysqlGrammar) CompileExists() string {
-	panic("implement me")
+	sql := m.CompileSelect()
+	m.GetBuilder().PreparedSql = fmt.Sprintf("select exists(%s) as %s", sql, m.Wrap("exists"))
+	return m.GetBuilder().PreparedSql
 }
 
 func (m *MysqlGrammar) compileComponent(componentName string) string {

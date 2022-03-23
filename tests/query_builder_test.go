@@ -1094,4 +1094,30 @@ func TestInsertEmpty(t *testing.T) {
 }
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
+	b := DB.Query()
+	c := 0
+	b.From("users").Count(&c)
+	assert.Equal(t, "select count(*) as aggregate from `users`", b.ToSql())
+
+	b1 := DB.Query()
+	b1.From("users").Select().Exists()
+	assert.Equal(t, "select exists(select * from `users`) as `exists`", b1.ToSql())
+
+	b2 := DB.Query()
+	b2.From("users").Select().Exists()
+	assert.Equal(t, "select exists(select * from `users`) as `exists`", b2.ToSql())
+
+	var m = 0
+	b3 := DB.Query()
+	b3.From("users").Max(&m, "id")
+	assert.Equal(t, "select max(`id`) as aggregate from `users`", b3.ToSql())
+
+	var m1 = 0
+	b4 := DB.Query()
+	b4.From("users").Min(&m1, "id")
+	assert.Equal(t, "select min(`id`) as aggregate from `users`", b4.ToSql())
+
+	b5 := DB.Query()
+	b5.From("users").Sum(&m1, "age")
+	assert.Equal(t, "select sum(`age`) as aggregate from `users`", b5.ToSql())
 }

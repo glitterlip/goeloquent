@@ -1979,17 +1979,9 @@ func (b *Builder) WithPivot(columns ...string) *Builder {
 /*
 Exists Determine if any rows exist for the current query.
 */
-func (b *Builder) Exists() bool {
-	var result []map[string]interface{}
-	_, err := b.Select().Get(&result)
-	if err != nil {
-		return false
-	}
-	if len(result) > 0 {
-		return true
-	} else {
-		return false
-	}
+func (b *Builder) Exists() (exists bool) {
+	b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists)
+	return exists
 }
 
 /*
