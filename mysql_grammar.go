@@ -74,6 +74,12 @@ func (m *MysqlGrammar) CompileDelete() string {
 	b.PreSql.WriteString("delete from ")
 	b.PreSql.WriteString(m.CompileComponentTable())
 	b.PreSql.WriteString(m.CompileComponentWheres())
+	if len(b.Orders) > 0 {
+		b.PreSql.WriteString(m.CompileComponentOrders())
+	}
+	if b.LimitNum > 0 {
+		b.PreSql.WriteString(m.CompileComponentLimitNum())
+	}
 	m.GetBuilder().PreparedSql = m.GetBuilder().PreSql.String()
 
 	return m.GetBuilder().PreparedSql

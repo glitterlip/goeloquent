@@ -1046,6 +1046,13 @@ func TestDeleteMethod(t *testing.T) {
 		assert.Equal(t, []interface{}{10}, b1.GetBindings())
 		assert.Equal(t, int64(1), deleted)
 
+		b2 := DB.Table("users")
+		result, err = b2.Where("age", 8).OrderBy("id").Limit(1).Delete()
+		assert.Nil(t, err)
+		deleted, err = result.RowsAffected()
+		assert.Equal(t, int64(1), deleted)
+		assert.Equal(t, "delete from `users` where `age` = ? order by `id` asc limit 1", b2.PreparedSql)
+
 	})
 }
 func TestInsertEmpty(t *testing.T) {
