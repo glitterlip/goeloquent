@@ -891,6 +891,18 @@ func (b *Builder) GetRawBindings() map[string][]interface{} {
 }
 
 /*
+MergeBindings Merge an array of bindings into our bindings.
+*/
+//func (b *Builder) MergeBindings(builder *Builder) *Builder {
+//	res := make(map[string][]interface{})
+//
+//	for i, i2 := range collection {
+//
+//	}
+//	return b
+//}
+
+/*
 Where Add a basic where clause to the query.
 column,operator,value,
 */
@@ -2216,6 +2228,14 @@ func (b *Builder) Increment(column string, amount int, extra ...map[string]inter
 
 	return b.Update(update)
 }
+func (b *Builder) InRandomOrder() {
+
+}
+
+/*
+Delete Delete records from the database.
+//TODO: Delete(1) Delete(1,2,3) Delete([]interface{}{1,2,3})
+*/
 func (b *Builder) Delete() (result sql.Result, err error) {
 	var start = time.Now()
 	b.Grammar.CompileDelete()
@@ -2413,4 +2433,30 @@ func (b *Builder) Paginate(p *Paginator, columns ...interface{}) (*Paginator, er
 		return nil, err
 	}
 	return p, nil
+}
+
+/*
+SetAggregate Set the aggregate property without running the query.
+*/
+func (b *Builder) SetAggregate(function string, column ...string) *Builder {
+	if len(column) == 0 {
+		column = append(column, "*")
+	}
+	b.Aggregates = append(b.Aggregates, Aggregate{
+		AggregateName:   function,
+		AggregateColumn: column[0],
+	})
+	b.Components[TYPE_AGGREGRATE] = struct{}{}
+	if len(b.Groups) == 0 {
+		b.Reset(TYPE_ORDER)
+	}
+	return b
+}
+
+/*
+GetCountForPagination Get the count of the total records for the paginator.
+*/
+func (b *Builder) GetCountForPagination() (total int) {
+
+	return
 }

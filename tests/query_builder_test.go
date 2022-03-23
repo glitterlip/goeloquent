@@ -965,6 +965,89 @@ func TestInsertMethod(t *testing.T) {
 		assert.Equal(t, "insert into `users` (`name`, `age`, `created_at`) values (CONCAT (UPPER('foo'),LOWER('BAR')), ?, ?)", b.PreparedSql)
 	})
 }
+func TestUpdateMethod(t *testing.T) {
+	//testUpdateMethod
+	createUsers, dropUsers := UserTableSql()
+	now := time.Now()
+	u1 := map[string]interface{}{
+		"name":       "go-eloquent",
+		"age":        8,
+		"created_at": now,
+	}
+	RunWithDB(createUsers, dropUsers, func() {
+		b := DB.Table("users")
+		insert, err := b.Insert(u1)
+		assert.Nil(t, err)
+		id, err := insert.LastInsertId()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(14), id)
+		b1 := DB.Table("users")
+		result, err := b1.Where("id", id).Update(map[string]interface{}{
+			"name":       "newname",
+			"age":        18,
+			"updated_at": now.Add(time.Hour * 1),
+		})
+		assert.Nil(t, err)
+		ElementsShouldMatch(t, []interface{}{id, "newname", 18, now.Add(time.Hour * 1)}, b1.GetBindings())
+		updated, err := result.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), updated)
+		res := map[string]interface{}{}
+		_, err = DB.Table("users").Find(&res, id)
+		assert.Equal(t, res["name"].([]byte), []byte("newname"))
+		assert.Equal(t, res["age"].(int64), int64(18))
+		assert.InDelta(t, res["updated_at"].(time.Time).Unix(), now.Add(time.Hour*1).Unix(), 1)
+
+	})
+}
+func TestDeleteMethod(t *testing.T) {
+	//testDeleteMethod
+	createUsers, dropUsers := UserTableSql()
+	now := time.Now()
+	u1 := map[string]interface{}{
+		"name":       "go-eloquent",
+		"age":        8,
+		"created_at": now,
+	}
+	RunWithDB(createUsers, dropUsers, func() {
+		insert, err := DB.Table("users").Insert(u1)
+		id, err := insert.LastInsertId()
+		assert.Nil(t, err)
+		b := DB.Table("users")
+		result, err := b.Where("id", id).Delete()
+		deleted, _ := result.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), deleted)
+		assert.Equal(t, "delete from `users` where `id` = ?", b.PreparedSql)
+		assert.Equal(t, []interface{}{id}, b.GetBindings())
+		result, err = DB.Table("users").Insert([]map[string]interface{}{
+			{
+				"name":       "child",
+				"age":        8,
+				"created_at": now,
+			},
+			{
+				"name":       "teen",
+				"age":        18,
+				"created_at": now,
+			},
+		})
+		assert.Nil(t, err)
+		created, _ := result.RowsAffected()
+		assert.Equal(t, int64(2), created)
+		var c int
+		_, err = DB.Table("users").Select().Count(&c)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, c)
+		b1 := DB.Table("users")
+		result, err = b1.Where("age", ">", 10).Delete()
+		deleted, err = result.RowsAffected()
+		assert.Equal(t, "delete from `users` where `age` > ?", b1.PreparedSql)
+		assert.Equal(t, []interface{}{10}, b1.GetBindings())
+		assert.Equal(t, int64(1), deleted)
+
+	})
+}
 func TestInsertEmpty(t *testing.T) {
 	// testInsertGetIdMethod
 

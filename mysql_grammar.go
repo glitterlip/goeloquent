@@ -71,7 +71,7 @@ func (m *MysqlGrammar) CompileInsertOrIgnore(values []map[string]interface{}) st
 }
 func (m *MysqlGrammar) CompileDelete() string {
 	b := m.GetBuilder()
-	b.PreSql.WriteString(" delete from ")
+	b.PreSql.WriteString("delete from ")
 	b.PreSql.WriteString(m.CompileComponentTable())
 	b.PreSql.WriteString(m.CompileComponentWheres())
 	m.GetBuilder().PreparedSql = m.GetBuilder().PreSql.String()
@@ -91,7 +91,7 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 		if (b.OnlyColumns == nil && b.ExceptColumns == nil) || b.FileterColumn(k) {
 			b.PreSql.WriteString(m.Wrap(k))
 			b.PreSql.WriteString(" = ")
-			b.AddBinding([]interface{}{k}, TYPE_UPDATE)
+			b.AddBinding([]interface{}{v}, TYPE_UPDATE)
 			if e, ok := v.(Expression); ok {
 				b.PreSql.WriteString(string(e))
 			} else {
@@ -169,14 +169,18 @@ func (m *MysqlGrammar) CompileComponentAggregate() string {
 // Convert []string column names into a delimited string.
 // Compile the "select *" portion of the query.
 func (m *MysqlGrammar) CompileComponentColumns() string {
-	builder := strings.Builder{}
-	if m.GetBuilder().IsDistinct {
-		builder.WriteString("select distinct ")
-	} else {
-		builder.WriteString("select ")
+	if len(m.GetBuilder().Aggregates) == 0 {
+		builder := strings.Builder{}
+		if m.GetBuilder().IsDistinct {
+			builder.WriteString("select distinct ")
+		} else {
+			builder.WriteString("select ")
+		}
+		builder.WriteString(m.columnize(m.GetBuilder().Columns))
+		return builder.String()
 	}
-	builder.WriteString(m.columnize(m.GetBuilder().Columns))
-	return builder.String()
+
+	return ""
 
 }
 
