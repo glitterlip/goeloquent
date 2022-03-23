@@ -13,6 +13,27 @@ type Connection struct {
 	ConnectionName string
 }
 
+type IConnection interface {
+	Insert(query string, bindings []interface{}) (result sql.Result, err error)
+	Select(query string, bindings []interface{}, dest interface{}) (result sql.Result, err error)
+	Update(query string, bindings []interface{}) (result sql.Result, err error)
+	Delete(query string, bindings []interface{}) (result sql.Result, err error)
+	AffectingStatement(query string, bindings []interface{}) (result sql.Result, err error)
+	Statement(query string, bindings []interface{}) (sql.Result, error)
+	Table(tableName string) *Builder
+}
+
+type Preparer interface {
+	Prepare(query string) (*sql.Stmt, error)
+}
+type Execer interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+type ITransaction interface {
+	BeginTransaction() (*Transaction, error)
+	Transaction(closure TxClosure) (interface{}, error)
+}
+
 func (c *Connection) Select(query string, bindings []interface{}, dest interface{}) (result sql.Result, err error) {
 	var stmt *sql.Stmt
 	var rows *sql.Rows

@@ -3,7 +3,6 @@ package tests
 import (
 	goeloquent "github.com/glitterlip/go-eloquent"
 	"github.com/stretchr/testify/assert"
-	"strings"
 	"testing"
 	"time"
 )
@@ -11,20 +10,28 @@ import (
 //test DatabaseQueryBuilderTest
 
 func GetBuilder() *goeloquent.Builder {
-	c := DB().Connection("default")
+	c := DB.Connection("default")
 	builder := goeloquent.NewBuilder(c)
 	builder.Grammar = &goeloquent.MysqlGrammar{}
 	builder.Grammar.SetTablePrefix(c.Config.Prefix)
 	builder.Grammar.SetBuilder(builder)
 	return builder
 }
-func Connect() {
-	defaultConfig := map[string]goeloquent.DBConfig{
-		"default": getDefaultConfig(),
-	}
-	db = goeloquent.Open(defaultConfig)
-	chatConfig := getChatConfig()
-	db.AddConfig("chat", &chatConfig)
+
+func UserTableSql() (create, drop string) {
+	create = `
+CREATE TABLE "users" (
+  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
+  "name" varchar(255) NOT NULL,
+  "age" tinyint(10) unsigned NOT NULL DEFAULT '0',
+  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  "deleted_at" datetime DEFAULT NULL,
+  PRIMARY KEY ("id")
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
+`
+	drop = `DROP TABLE IF EXISTS users`
+	return
 }
 func TestBasicSelect(t *testing.T) {
 	//testBasicSelect
@@ -218,6 +225,7 @@ func TestDateBasedWheres(t *testing.T) {
 	assert.Equal(t, "select * from `users` where year(`created_at`) = ? and month(`created_at`) = ? or date(`created_at`) = ?", b3.ToSql())
 	assert.Equal(t, []interface{}{2022, 7, "21"}, b3.GetBindings())
 
+	//testWhereTimeOperatorOptionalMySql
 	b4 := GetBuilder()
 	b4.Select().From("users").WhereTime("created_at", "22:00").WhereMonth("created_at", 7).WhereDate("created_at", "=", "21", goeloquent.BOOLEAN_OR)
 	assert.Equal(t, "select * from `users` where time(`created_at`) = ? and month(`created_at`) = ? or date(`created_at`) = ?", b4.ToSql())
@@ -895,49 +903,70 @@ func TestCrossJoinSubs(t *testing.T) {
 }
 func TestInsertMethod(t *testing.T) {
 	//testInsertMethod
-	create := `
-CREATE TABLE "users" (
-  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "name" varchar(255) NOT NULL,
-  "age" tinyint(10) unsigned NOT NULL DEFAULT '0',
-  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  "deleted_at" datetime DEFAULT NULL,
-  PRIMARY KEY ("id")
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
-`
-	Connect()
-	DB().Raw("default").Exec(strings.ReplaceAll(create, `"`, "`"))
-	b := DB().Table("users")
+	createUsers, dropUsers := UserTableSql()
 	now := time.Now()
-	insert, err := b.Insert(map[string]interface{}{
+	u1 := map[string]interface{}{
 		"name":       "go-eloquent",
 		"age":        18,
 		"created_at": now,
-	})
-	assert.Nil(t, err)
-	c, err := insert.RowsAffected()
-	assert.Nil(t, err)
-	assert.Equal(t, c, int64(1))
-	ElementsShouldMatch(t, []interface{}{"go-eloquent", 18, now}, b.GetBindings())
-	assert.Equal(t, "insert into `users` (`name`, `age`, `created_at`) values (?, ?, ?)", b.PreparedSql)
-	DB().Raw("default").Exec("DROP TABLE IF EXISTS users")
+	}
+	RunWithDB(createUsers, dropUsers, func() {
+		b := DB.Table("users")
+		insert, err := b.Insert(u1)
+		assert.Nil(t, err)
+		c, err := insert.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, c, int64(1))
+		ElementsShouldMatch(t, []interface{}{"go-eloquent", 18, now}, b.GetBindings())
+		assert.Equal(t, "insert into `users` (`name`, `age`, `created_at`) values (?, ?, ?)", b.PreparedSql)
 
-	//testMySqlInsertOrIgnoreMethod
-	DB().Raw("default").Exec(strings.ReplaceAll(create, `"`, "`"))
-	b = DB().Table("users")
-	insert, err = b.InsertOrIgnore(map[string]interface{}{
-		"name":       "go-eloquent",
-		"age":        18,
-		"created_at": now,
 	})
-	assert.Nil(t, err)
-	c, err = insert.RowsAffected()
-	assert.Nil(t, err)
-	assert.Equal(t, c, int64(1))
-	ElementsShouldMatch(t, []interface{}{"go-eloquent", 18, now}, b.GetBindings())
-	assert.Equal(t, "insert ignore into `users` (`name`, `age`, `created_at`) values (?, ?, ?)", b.PreparedSql)
-	DB().Raw("default").Exec("DROP TABLE IF EXISTS users")
+	//testMySqlInsertOrIgnoreMethod
+	RunWithDB(createUsers, dropUsers, func() {
+		b := DB.Table("users")
+		insert, err := b.InsertOrIgnore(u1)
+		assert.Nil(t, err)
+		c, err := insert.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, c, int64(1))
+		ElementsShouldMatch(t, []interface{}{"go-eloquent", 18, now}, b.GetBindings())
+		assert.Equal(t, "insert ignore into `users` (`name`, `age`, `created_at`) values (?, ?, ?)", b.PreparedSql)
+	})
+
+	//testInsertMethodRespectsRawBindings
+	RunWithDB(createUsers, dropUsers, func() {
+		b := DB.Table("users")
+		insert, err := b.Insert(map[string]interface{}{
+			"name":       "go-eloquent",
+			"age":        18,
+			"created_at": now,
+			"deleted_at": goeloquent.Raw("CURRENT_TIMESTAMP"),
+		})
+		assert.Nil(t, err)
+		c, err := insert.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, c, int64(1))
+		ElementsShouldMatch(t, []interface{}{"go-eloquent", 18, now}, b.GetBindings())
+		assert.Equal(t, "insert into `users` (`name`, `age`, `created_at`, `deleted_at`) values (?, ?, ?, CURRENT_TIMESTAMP)", b.PreparedSql)
+	})
+	//testMultipleInsertsWithExpressionValues
+	RunWithDB(createUsers, dropUsers, func() {
+		b := DB.Table("users")
+		insert, err := b.Insert(map[string]interface{}{
+			"name":       goeloquent.Raw("CONCAT (UPPER('foo'),LOWER('BAR'))"),
+			"age":        18,
+			"created_at": now,
+		})
+		assert.Nil(t, err)
+		c, err := insert.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, c, int64(1))
+		ElementsShouldMatch(t, []interface{}{18, now}, b.GetBindings())
+		assert.Equal(t, "insert into `users` (`name`, `age`, `created_at`) values (CONCAT (UPPER('foo'),LOWER('BAR')), ?, ?)", b.PreparedSql)
+	})
+}
+func TestInsertEmpty(t *testing.T) {
+	// testInsertGetIdMethod
 
 }
 func TestAggregate(t *testing.T) {
