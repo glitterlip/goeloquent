@@ -19,6 +19,7 @@ type DBConfig struct {
 	Collation  string
 	UnixSocket string
 	// pgsql
-	Sslmode string
-	TLS     string
+	Sslmode   string
+	TLS       string
+	EnableLog bool
 }

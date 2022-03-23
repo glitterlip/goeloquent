@@ -196,27 +196,30 @@ func NewBuilder(c *Connection) *Builder {
 		Components: make(map[string]struct{}),
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		//Processor:  processors.MysqlProcessor{},
-		Bindings: make(map[string][]interface{}),
+		Bindings:       make(map[string][]interface{}),
+		LoggingQueries: c.Config.EnableLog,
 	}
 	return &b
 }
 func NewTxBuilder(tx *Transaction) *Builder {
 	b := Builder{
-		Components: make(map[string]struct{}),
-		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
-		Tx:         tx,
-		Bindings:   make(map[string][]interface{}),
+		Components:     make(map[string]struct{}),
+		EagerLoad:      make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+		Tx:             tx,
+		Bindings:       make(map[string][]interface{}),
+		LoggingQueries: tx.Config.EnableLog,
 	}
 	return &b
 }
 func CloneBuilder(b *Builder) *Builder {
 	cb := Builder{
-		Connection: b.Connection,
-		Components: make(map[string]struct{}),
-		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
-		Grammar:    &MysqlGrammar{},
-		Tx:         b.Tx,
-		Bindings:   make(map[string][]interface{}),
+		Connection:     b.Connection,
+		Components:     make(map[string]struct{}),
+		EagerLoad:      make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+		Grammar:        &MysqlGrammar{},
+		Tx:             b.Tx,
+		Bindings:       make(map[string][]interface{}),
+		LoggingQueries: b.LoggingQueries,
 	}
 	cb.Grammar.SetTablePrefix(b.Grammar.GetTablePrefix())
 	cb.Grammar.SetBuilder(&cb)
