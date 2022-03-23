@@ -1,56 +1,12 @@
 package tests
 
 import (
-	"fmt"
 	goeloquent "github.com/glitterlip/go-eloquent"
-	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"testing"
 )
 
-var db *goeloquent.DB
-
 //DatabaseConnectionFactoryTest
-func setup() {
-	fmt.Println("test setup")
-	defaultConfig := map[string]goeloquent.DBConfig{
-		"default": getDefaultConfig(),
-	}
-	db = goeloquent.Open(defaultConfig)
-	chatConfig := getChatConfig()
-	db.AddConfig("chat", &chatConfig)
-
-}
-func getDefaultConfig() goeloquent.DBConfig {
-	return goeloquent.DBConfig{
-		Host:     os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_HOST"),
-		Port:     os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PORT"),
-		Database: os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_DATABASE"),
-		Username: os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_USERNAME"),
-		Password: os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PASSWORD"),
-		Driver:   "mysql",
-	}
-}
-func getChatConfig() goeloquent.DBConfig {
-	return goeloquent.DBConfig{
-		Host:     os.Getenv("GOELOQUENT_TEST_SECOND_DB_HOST"),
-		Port:     os.Getenv("GOELOQUENT_TEST_SECOND_DB_PORT"),
-		Database: os.Getenv("GOELOQUENT_TEST_SECOND_DB_DATABASE"),
-		Username: os.Getenv("GOELOQUENT_TEST_SECOND_DB_USERNAME"),
-		Password: os.Getenv("GOELOQUENT_TEST_SECOND_DB_PASSWORD"),
-		Driver:   "mysql",
-	}
-}
-func teardown() {
-	fmt.Println("test teardown")
-}
-func DB() *goeloquent.DB {
-	if db == nil {
-		setup()
-	}
-	return db
-}
 
 func TestOpenFailed(t *testing.T) {
 
@@ -105,60 +61,94 @@ func TestOpenFailed(t *testing.T) {
 }
 
 func TestOpenSuccess(t *testing.T) {
-	setup()
-	for name, dbConfig := range db.GetConfigs() {
+	Setup()
+	for name, dbConfig := range DB.GetConfigs() {
 		var dbName string
-		if name == "default" {
-			db.Connection(name).GetDB().QueryRow("SELECT DATABASE()").Scan(&dbName)
-			assert.Equal(t, dbConfig.Database, dbName)
-		} else {
-			mysqlErr := func() (e error) {
-				defer func() {
-					err := recover()
-					if err != nil {
-						e = err.(error)
-					}
-				}()
-				db.Connection(name).GetDB().QueryRow("SELECT DATABASE()").Scan(&dbName)
-				return
-			}
-			e := mysqlErr()
-			assert.IsType(t, &mysql.MySQLError{
-				Number:  0,
-				Message: "",
-			}, e)
-		}
-
+		DB.Connection(name).GetDB().QueryRow("SELECT DATABASE()").Scan(&dbName)
+		assert.Equal(t, dbConfig.Database, dbName)
 	}
 }
 
 func TestConnectionCanBeCreated(t *testing.T) {
 	//testConnectionCanBeCreated
-	setup()
+	Setup()
 	conn := goeloquent.Connection{}
-	assert.IsType(t, DB().Conn("default"), conn)
-	assert.IsType(t, DB().Connection("chat"), &conn)
+	assert.IsType(t, DB.Conn("default"), conn)
+	assert.IsType(t, DB.Connection("chat"), &conn)
 }
 func TestConnectionHasProperConfig(t *testing.T) {
 	//testConnectionFromUrlHasProperConfig
-	setup()
+	Setup()
 	configs := map[string]goeloquent.DBConfig{
-		"default": getDefaultConfig(),
-		"chat":    getChatConfig(),
+		"default": GetDefaultConfig(),
+		"chat":    GetChatConfig(),
 	}
 	for name, config := range configs {
-		assert.Equal(t, config.Host, (*db.GetConfig(name)).Host)
-		assert.Equal(t, config.Port, (*db.GetConfig(name)).Port)
-		assert.Equal(t, config.Database, (*db.GetConfig(name)).Database)
-		assert.Equal(t, config.Username, (*db.GetConfig(name)).Username)
-		assert.Equal(t, config.Password, (*db.GetConfig(name)).Password)
+		assert.Equal(t, config.Host, (*DB.GetConfig(name)).Host)
+		assert.Equal(t, config.Port, (*DB.GetConfig(name)).Port)
+		assert.Equal(t, config.Database, (*DB.GetConfig(name)).Database)
+		assert.Equal(t, config.Username, (*DB.GetConfig(name)).Username)
+		assert.Equal(t, config.Password, (*DB.GetConfig(name)).Password)
 	}
 }
 
 func TestSingleConnectionNotCreatedUntilNeeded(t *testing.T) {
 	//testSingleConnectionNotCreatedUntilNeeded
-	setup()
-	assert.Equal(t, 1, len(db.Connections))
-	_, ok := db.Connections["chat"]
+	Setup()
+	assert.Equal(t, 1, len(DB.Connections))
+	_, ok := DB.Connections["chat"]
 	assert.False(t, ok)
 }
+
+//TODO: testCustomConnectorsCanBeResolvedViaContainer
+//TODO: testSqliteForeignKeyConstraints
+//TODO: testReadWriteConnectionsNotCreatedUntilNeeded
+
+//DatabaseConnectionTest
+//TODO: testSettingDefaultCallsGetDefaultGrammar
+//TODO: testSettingDefaultCallsGetDefaultPostProcessor
+//TODO: testSelectOneCallsSelectAndReturnsSingleResult
+//TODO: testSelectProperlyCallsPDO
+//TODO: testInsertCallsTheStatementMethod
+//TODO: testUpdateCallsTheAffectingStatementMethod
+//TODO: testDeleteCallsTheAffectingStatementMethod
+//TODO: testStatementProperlyCallsPDO
+//TODO: testAffectingStatementProperlyCallsPDO
+//TODO: testTransactionLevelNotIncrementedOnTransactionException
+//TODO: testBeginTransactionMethodRetriesOnFailure
+//TODO: testBeginTransactionMethodReconnectsMissingConnection
+//TODO: testBeginTransactionMethodNeverRetriesIfWithinTransaction
+//TODO: testSwapPDOWithOpenTransactionResetsTransactionLevel
+//TODO: testBeganTransactionFiresEventsIfSet
+//TODO: testCommittedFiresEventsIfSet
+//TODO: testRollBackedFiresEventsIfSet
+//TODO: testRedundantRollBackFiresNoEvent
+//TODO: testTransactionMethodRunsSuccessfully
+//TODO: testTransactionRetriesOnSerializationFailure
+//TODO: testTransactionMethodRetriesOnDeadlock
+//TODO: testTransactionMethodRollsbackAndThrows
+//TODO: testOnLostConnectionPDOIsNotSwappedWithinATransaction
+//TODO: testOnLostConnectionPDOIsSwappedOutsideTransaction
+//TODO: testRunMethodRetriesOnFailure
+//TODO: testRunMethodNeverRetriesIfWithinTransaction
+//TODO: testFromCreatesNewQueryBuilder
+//TODO: testPrepareBindings
+//TODO: testLogQueryFiresEventsIfSet
+//TODO: testBeforeExecutingHooksCanBeRegistered
+//TODO: testPretendOnlyLogsQueries
+//TODO: testSchemaBuilderCanBeCreated
+
+//DatabaseConnectorTest
+//TODO: testOptionResolution
+//TODO: testMySqlConnectCallsCreateConnectionWithProperArguments
+//TODO: testMySqlConnectCallsCreateConnectionWithIsolationLevel
+//TODO: testPostgresConnectCallsCreateConnectionWithProperArguments
+//TODO: testPostgresSearchPathIsSet
+//TODO: testPostgresSearchPathArraySupported
+//TODO: testPostgresApplicationNameIsSet
+//TODO: testPostgresConnectorReadsIsolationLevelFromConfig
+//TODO: testSQLiteMemoryDatabasesMayBeConnectedTo
+//TODO: testSQLiteFileDatabasesMayBeConnectedTo
+//TODO: testSqlServerConnectCallsCreateConnectionWithProperArguments
+//TODO: testSqlServerConnectCallsCreateConnectionWithOptionalArguments
+//TODO: testSqlServerConnectCallsCreateConnectionWithPreferredODBC
