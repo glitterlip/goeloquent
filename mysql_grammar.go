@@ -444,8 +444,18 @@ func (m *MysqlGrammar) CompileComponentOffsetNum() string {
 	return ""
 }
 func (m *MysqlGrammar) CompileLock() string {
-	if len(m.GetBuilder().Lock) > 0 {
-		return m.GetBuilder().Lock
+	switch m.GetBuilder().LockMode.(type) {
+	case string:
+		return " " + m.GetBuilder().LockMode.(string)
+	case bool:
+		boolean := m.GetBuilder().LockMode.(bool)
+		if boolean {
+			return " for update"
+		} else {
+			return " lock in share mode"
+		}
+	case nil:
+		return " for update"
 	}
 	return ""
 }

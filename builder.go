@@ -72,7 +72,7 @@ type Builder struct {
 	//UnionOffset      int
 	//UnionOrders      int
 	Components       map[string]struct{} //SelectComponents
-	Lock             string
+	LockMode         interface{}
 	LoggingQueries   bool
 	Pretending       bool
 	PreparedSql      string
@@ -249,7 +249,7 @@ func Clone(original *Builder) *Builder {
 		LimitNum:         original.LimitNum,
 		OffsetNum:        original.OffsetNum,
 		Components:       make(map[string]struct{}, len(original.Components)),
-		Lock:             original.Lock,
+		LockMode:         original.LockMode,
 		LoggingQueries:   original.LoggingQueries,
 		Pretending:       original.Pretending,
 		PreparedSql:      "",
@@ -1835,18 +1835,18 @@ Union Add a union statement to the query.
 //}
 
 /*
-LockForUpdate Lock the selected rows in the table for updating.
+Lock Lock the selected rows in the table for updating.
 */
-func (b *Builder) LockForUpdate() *Builder {
-	b.Lock = " for update "
+func (b *Builder) Lock(lock ...interface{}) *Builder {
+	if len(lock) == 0 {
+		b.LockMode = true
+	} else {
+		b.LockMode = lock[0]
+	}
 	b.Components[TYPE_LOCK] = struct{}{}
 	return b
 }
-func (b *Builder) SharedLock() *Builder {
-	b.Lock = " lock in share mode "
-	b.Components[TYPE_LOCK] = struct{}{}
-	return b
-}
+
 func (b *Builder) WhereKey(keys interface{}) *Builder {
 	pt := reflect.TypeOf(keys)
 	var primaryKeyColumn string

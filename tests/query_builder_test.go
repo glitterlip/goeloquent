@@ -1055,6 +1055,24 @@ func TestDeleteMethod(t *testing.T) {
 
 	})
 }
+func TestMysqlLock(t *testing.T) {
+	//testMySqlLock
+	b := DB.Query()
+	b.Select().From("foo").Where("bar", "baz").Lock()
+	ElementsShouldMatch(t, []interface{}{"baz"}, b.GetBindings())
+	assert.Equal(t, "select * from `foo` where `bar` = ? for update", b.ToSql())
+
+	b1 := DB.Query()
+	b1.Select().From("foo").Where("bar", "baz").Lock(false)
+	ElementsShouldMatch(t, []interface{}{"baz"}, b1.GetBindings())
+	assert.Equal(t, "select * from `foo` where `bar` = ? lock in share mode", b1.ToSql())
+
+	b2 := DB.Query()
+	b2.Select().From("foo").Where("bar", "baz").Lock("lock in share mode")
+	ElementsShouldMatch(t, []interface{}{"baz"}, b2.GetBindings())
+	assert.Equal(t, "select * from `foo` where `bar` = ? lock in share mode", b2.ToSql())
+
+}
 func TestInsertEmpty(t *testing.T) {
 	// testInsertGetIdMethod
 
