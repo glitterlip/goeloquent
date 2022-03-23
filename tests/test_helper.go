@@ -26,18 +26,22 @@ func init() {
 		"default": GetDefaultConfig(),
 	}
 	DB = goeloquent.Open(defaultConfig)
+	DB.SetLogger(func(l goeloquent.Log) {
+		fmt.Println(l)
+	})
 	chatConfig := GetChatConfig()
 	DB.AddConfig("chat", &chatConfig)
 }
 
 func GetDefaultConfig() goeloquent.DBConfig {
 	return goeloquent.DBConfig{
-		Host:     os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_HOST"),
-		Port:     os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PORT"),
-		Database: os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_DATABASE"),
-		Username: os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_USERNAME"),
-		Password: os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PASSWORD"),
-		Driver:   "mysql",
+		Host:      os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_HOST"),
+		Port:      os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PORT"),
+		Database:  os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_DATABASE"),
+		Username:  os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_USERNAME"),
+		Password:  os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PASSWORD"),
+		Driver:    "mysql",
+		EnableLog: true,
 	}
 }
 func GetChatConfig() goeloquent.DBConfig {
