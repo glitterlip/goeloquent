@@ -356,7 +356,7 @@ func (b *Builder) Select(columns ...interface{}) *Builder {
 //SelectSub Add a subselect expression to the query.
 func (b *Builder) SelectSub(query interface{}, as string) *Builder {
 	qStr, bindings := b.CreateSub(query)
-	queryStr := fmt.Sprintf("( %s ) as %s ", qStr, b.Grammar.Wrap(as))
+	queryStr := fmt.Sprintf("( %s ) as %s", qStr, b.Grammar.Wrap(as))
 
 	return b.SelectRaw(queryStr, bindings)
 
@@ -425,8 +425,7 @@ ToSql Get the SQL representation of the query.
 func (b *Builder) ToSql() string {
 
 	if len(b.PreparedSql) > 0 {
-		b.PreparedSql = ""
-		b.PreSql = strings.Builder{}
+		return b.PreparedSql
 	}
 	return b.Grammar.CompileSelect()
 }
