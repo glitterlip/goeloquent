@@ -1073,6 +1073,21 @@ func TestMysqlLock(t *testing.T) {
 	assert.Equal(t, "select * from `foo` where `bar` = ? lock in share mode", b2.ToSql())
 
 }
+func TestSubSelect(t *testing.T) {
+	//testSubSelect
+	b := DB.Table("one").Select("foo", "bar").Where("key", "val")
+	b.SelectSub(func(builder *goeloquent.Builder) {
+		builder.From("two").Select("baz").Where("subkey", "subval")
+	}, "sub")
+	assert.Equal(t, "select `foo`, `bar`, ( select `baz` from `two` where `subkey` = ? ) as `sub` from `one` where `key` = ?", b.ToSql())
+	ElementsShouldMatch(t, []interface{}{"subval", "val"}, b.GetBindings())
+
+	b1 := DB.Table("one").Select("foo", "bar").Where("key", "val")
+	b2 := DB.Query().From("two").Select("baz").Where("subkey", "subval")
+	b1.SelectSub(b2, "sub")
+	assert.Equal(t, "select `foo`, `bar`, ( select `baz` from `two` where `subkey` = ? ) as `sub` from `one` where `key` = ?", b1.ToSql())
+	ElementsShouldMatch(t, []interface{}{"subval", "val"}, b1.GetBindings())
+}
 func TestInsertEmpty(t *testing.T) {
 	// testInsertGetIdMethod
 
