@@ -159,6 +159,9 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 		if name, ok := funcs[ptrReciver.Method(i).Name]; ok {
 			model.DispatchesEvents[name] = modelValue.Method(i)
 		}
+		if ptrReciver.Method(i).Name == "GetDefaultAttributes" {
+
+		}
 	}
 	if model.PrimaryKey == nil {
 		model.PrimaryKey = model.FieldsByDbName["id"]
