@@ -37,6 +37,7 @@ func (dm *DatabaseManager) MakeConnection(connectionName string) *Connection {
 	}
 
 	conn := dm.Factory.Make(config)
+	conn.ConnectionName = connectionName
 	dm.Connections[connectionName] = conn
 	return conn
 }
