@@ -1857,7 +1857,7 @@ func (b *Builder) WhereKey(keys interface{}) *Builder {
 	if pt.Kind() == reflect.Slice {
 		b.WhereIn(primaryKeyColumn, keys)
 	} else {
-		b.WhereIn(primaryKeyColumn, []interface{}{keys})
+		b.Where(primaryKeyColumn, keys)
 	}
 	return b
 }
