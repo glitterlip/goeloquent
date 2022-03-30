@@ -17,6 +17,10 @@ type User struct {
 	UpdatedAt sql.NullTime   `goelo:"column:updated_at,timestatmp:update"`
 }
 
+func (user *User) TableName() string {
+	return "users"
+}
+
 type UserTable struct {
 	goeloquent.EloquentModel
 	Id        int64          `goelo:"column:User_Sid;primaryKey"`
@@ -43,6 +47,9 @@ func (user *UserConnection) ConnectionName() string {
 	return "chat"
 }
 func TestParseModel(t *testing.T) {
+	type U struct {
+		goeloquent.EloquentModel
+	}
 	var user User
 	var userT UserTable
 	var userC UserConnection
@@ -55,14 +62,17 @@ func TestParseModel(t *testing.T) {
 	b4 := DB.Model()
 	b5 := DB.Model()
 	b6 := DB.Model(&user)
+	b7 := DB.Model(&U{})
 	b4.First(&userC)
 	b5.Get(&userPS)
 	//parse table
 	assert.Equal(t, "user_Table", b.FromTable)
+	assert.Equal(t, "user_Table", b.FromTable)
 	assert.Equal(t, "user_connection", b1.FromTable)
 	assert.Equal(t, "user_Table", b3.FromTable)
 	assert.Equal(t, "user_Table", b5.FromTable)
-	assert.Equal(t, "user", b6.FromTable)
+	assert.Equal(t, "users", b6.FromTable)
+	assert.Equal(t, "u", b7.FromTable)
 	//pase connection
 	assert.Equal(t, "default", b.Connection.ConnectionName)
 	assert.Equal(t, "chat", b1.Connection.ConnectionName)
@@ -88,14 +98,14 @@ func TestFindMethod(t *testing.T) {
 		DB.Table("users").Insert(u1)
 		b := DB.Model()
 		b.Find(&user, 14)
-		assert.Equal(t, "select * from `user` where `id` = ? limit 1", b.ToSql())
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b.ToSql())
 		assert.Equal(t, b.GetBindings(), []interface{}{14})
 
 		//testFindManyMethod
 		var users []User
 		b1 := DB.Model()
 		b1.Find(&users, []interface{}{1, 14})
-		assert.Equal(t, "select * from `user` where `id` in (?,?)", b1.ToSql())
+		assert.Equal(t, "select * from `users` where `id` in (?,?)", b1.ToSql())
 		assert.Equal(t, []interface{}{1, 14}, b1.GetBindings())
 	})
 
