@@ -110,3 +110,28 @@ func TestFindMethod(t *testing.T) {
 	})
 
 }
+
+func TestFindOrNew(t *testing.T) {
+	//testFindOrNew
+	//testFindOrFail
+}
+func TestFirst(t *testing.T) {
+	//testFirstMethod
+	createUsers, dropUsers := UserTableSql()
+	now := time.Now()
+	u1 := map[string]interface{}{
+		"name":       "go-eloquent",
+		"age":        18,
+		"created_at": now,
+	}
+	RunWithDB(createUsers, dropUsers, func() {
+		DB.Table("users").Insert(u1)
+		var user User
+		b := DB.Model()
+		b1 := DB.Model()
+		b.First(&user)
+		b1.First(&user, "id", "name")
+		assert.Equal(t, "select * from `users` limit 1", b.ToSql())
+		assert.Equal(t, "select `id`, `name` from `users` limit 1", b1.ToSql())
+	})
+}

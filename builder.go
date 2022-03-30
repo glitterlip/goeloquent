@@ -1914,11 +1914,11 @@ func (b *Builder) Find(dest interface{}, params interface{}) (result sql.Result,
 }
 
 /*
-
- */
-func (b *Builder) First(dest interface{}) (result sql.Result, err error) {
+First Execute the query and get the first result.
+*/
+func (b *Builder) First(dest interface{}, columns ...interface{}) (result sql.Result, err error) {
 	b.Limit(1)
-	return b.Get(dest)
+	return b.Get(dest, columns...)
 }
 
 //parameter model should either be a model pointer or a reflect.Type
