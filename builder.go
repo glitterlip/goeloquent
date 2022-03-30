@@ -2307,6 +2307,13 @@ func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Du
 Get Execute the query as a "select" statement.
 */
 func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Result, err error) {
+	if b.FromTable == nil {
+		b.Model = GetParsedModel(dest)
+		b.From(b.Model.Table)
+		b.Connection = Eloquent.Connection(b.Model.ConnectionName)
+		b.Grammar.SetTablePrefix(Eloquent.Configs[b.Model.ConnectionName].Prefix)
+
+	}
 	if len(columns) > 0 {
 		b.Select(columns...)
 	}

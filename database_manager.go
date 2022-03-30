@@ -52,21 +52,30 @@ func (dm *DatabaseManager) Table(params ...string) *Builder {
 	return builder
 
 }
-func (dm *DatabaseManager) Model(model interface{}) *Builder {
-	parsed := GetParsedModel(model)
-	var connectionName string
-	if len(parsed.ConnectionName) > 0 {
-		connectionName = parsed.ConnectionName
+func (dm *DatabaseManager) Model(model ...interface{}) *Builder {
+	if len(model) > 0 {
+		parsed := GetParsedModel(model[0])
+		var connectionName string
+		if len(parsed.ConnectionName) > 0 {
+			connectionName = parsed.ConnectionName
+		} else {
+			connectionName = dm.getDefaultConnection()
+		}
+		c := dm.Connection(connectionName)
+		builder := NewBuilder(c)
+		builder.Grammar = &MysqlGrammar{}
+		builder.Grammar.SetTablePrefix(dm.Configs[connectionName].Prefix)
+		builder.Grammar.SetBuilder(builder)
+		builder.SetModel(model[0])
+		return builder
 	} else {
-		connectionName = dm.getDefaultConnection()
+		c := dm.Connection("default")
+		builder := NewBuilder(c)
+		builder.Grammar = &MysqlGrammar{}
+		builder.Grammar.SetBuilder(builder)
+		return builder
 	}
-	c := dm.Connection(connectionName)
-	builder := NewBuilder(c)
-	builder.Grammar = &MysqlGrammar{}
-	builder.Grammar.SetTablePrefix(dm.Configs[connectionName].Prefix)
-	builder.Grammar.SetBuilder(builder)
-	builder.SetModel(model)
-	return builder
+
 }
 func (dm *DatabaseManager) Select(query string, bindings []interface{}, dest interface{}) (sql.Result, error) {
 	ic := dm.Connections["default"]
