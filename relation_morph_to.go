@@ -120,27 +120,27 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 	rv, ok := models.(*reflect.Value)
 
-	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelMorphIdFiledIndex := parent.FieldsByDbName[relation.ParentRelatedKey].Index
-	modelMorphTypeFiledIndex := parent.FieldsByDbName[relation.ParentRelatedType].Index
+	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
+	modelMorphIdFieldIndex := parent.FieldsByDbName[relation.ParentRelatedKey].Index
+	modelMorphTypeFieldIndex := parent.FieldsByDbName[relation.ParentRelatedType].Index
 
 	if targetSlice.Type().Kind() != reflect.Slice && !ok {
 		model := targetSlice
-		modelMorphType := model.Field(modelMorphTypeFiledIndex)
-		modelMorphId := model.Field(modelMorphIdFiledIndex)
+		modelMorphType := model.Field(modelMorphTypeFieldIndex)
+		modelMorphId := model.Field(modelMorphIdFieldIndex)
 		modelKeyStr := fmt.Sprint(modelMorphId)
 		groupKeyStr := fmt.Sprint(modelMorphType)
 		groupedResults, ok := morphMapResults[groupKeyStr]
 		if ok {
 			morphedModel, ok := groupedResults[modelKeyStr]
 			if ok {
-				if !model.Field(modelRelationFiledIndex).CanSet() {
+				if !model.Field(modelRelationFieldIndex).CanSet() {
 					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 				}
 				if isPtr {
-					model.Field(modelRelationFiledIndex).Set(morphedModel.Addr())
+					model.Field(modelRelationFieldIndex).Set(morphedModel.Addr())
 				} else {
-					model.Field(modelRelationFiledIndex).Set(morphedModel)
+					model.Field(modelRelationFieldIndex).Set(morphedModel)
 				}
 			}
 		}
@@ -151,21 +151,21 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 		}
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
-			modelMorphType := model.Field(modelMorphTypeFiledIndex)
-			modelMorphId := model.Field(modelMorphIdFiledIndex)
+			modelMorphType := model.Field(modelMorphTypeFieldIndex)
+			modelMorphId := model.Field(modelMorphIdFieldIndex)
 			modelKeyStr := fmt.Sprint(modelMorphId)
 			groupKeyStr := fmt.Sprint(modelMorphType)
 			morphedResults, ok := morphMapResults[groupKeyStr]
 			if ok {
 				morphedModel, ok := morphedResults[modelKeyStr]
 				if ok {
-					if !model.Field(modelRelationFiledIndex).CanSet() {
+					if !model.Field(modelRelationFieldIndex).CanSet() {
 						panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 					}
 					if isPtr {
-						model.Field(modelRelationFiledIndex).Set(morphedModel.Addr())
+						model.Field(modelRelationFieldIndex).Set(morphedModel.Addr())
 					} else {
-						model.Field(modelRelationFiledIndex).Set(morphedModel)
+						model.Field(modelRelationFieldIndex).Set(morphedModel)
 					}
 				}
 			}

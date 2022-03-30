@@ -116,32 +116,32 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
-	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				model.Field(modelRelationFiledIndex).Set(value)
+				model.Field(modelRelationFieldIndex).Set(value)
 			}
 
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
-		modelKey := model.Field(modelKeyFiledIndex)
+		modelKey := model.Field(modelKeyFieldIndex)
 		modelKeyStr := fmt.Sprint(modelKey)
 		value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
-			if !model.Field(modelRelationFiledIndex).CanSet() {
+			if !model.Field(modelRelationFieldIndex).CanSet() {
 				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 			}
-			model.Field(modelRelationFiledIndex).Set(value)
+			model.Field(modelRelationFieldIndex).Set(value)
 		}
 	} else {
 		for i := 0; i < targetSlice.Len(); i++ {
@@ -149,15 +149,15 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 			if model.Kind() == reflect.Ptr {
 				model = reflect.Indirect(model)
 			}
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				if !model.Field(modelRelationFiledIndex).CanSet() {
+				if !model.Field(modelRelationFieldIndex).CanSet() {
 					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 				}
-				model.Field(modelRelationFiledIndex).Set(value)
+				model.Field(modelRelationFieldIndex).Set(value)
 			}
 
 		}

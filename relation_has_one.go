@@ -79,48 +79,48 @@ func MatchHasOne(models interface{}, related interface{}, relation *HasOneRelati
 	}
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
-	modelRelationFiledIndex := parsedModel.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFiledIndex := parsedModel.FieldsByDbName[relation.ParentKey].Index
+	modelRelationFieldIndex := parsedModel.FieldsByStructName[relation.Relation.Name].Index
+	modelKeyFieldIndex := parsedModel.FieldsByDbName[relation.ParentKey].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
 				if isPtr {
-					model.Field(modelRelationFiledIndex).Set(value)
+					model.Field(modelRelationFieldIndex).Set(value)
 				} else {
-					model.Field(modelRelationFiledIndex).Set(value.Elem())
+					model.Field(modelRelationFieldIndex).Set(value.Elem())
 				}
 			}
 
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
-		modelKey := model.Field(modelKeyFiledIndex)
+		modelKey := model.Field(modelKeyFieldIndex)
 		modelKeyStr := fmt.Sprint(modelKey)
 		value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		if value.IsValid() {
 			if isPtr {
-				model.Field(modelRelationFiledIndex).Set(value)
+				model.Field(modelRelationFieldIndex).Set(value)
 			} else {
-				model.Field(modelRelationFiledIndex).Set(value.Elem())
+				model.Field(modelRelationFieldIndex).Set(value.Elem())
 			}
 		}
 
 	} else {
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				if isPtr {
-					model.Field(modelRelationFiledIndex).Set(value)
+					model.Field(modelRelationFieldIndex).Set(value)
 				} else {
-					model.Field(modelRelationFiledIndex).Set(value.Elem())
+					model.Field(modelRelationFieldIndex).Set(value.Elem())
 				}
 			}
 		}

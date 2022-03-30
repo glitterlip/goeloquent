@@ -103,41 +103,41 @@ func MatchHasMany(models interface{}, related interface{}, relation *HasManyRela
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
-	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				model.Field(modelRelationFiledIndex).Set(value)
+				model.Field(modelRelationFieldIndex).Set(value)
 			}
 
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
-		modelKey := model.Field(modelKeyFiledIndex)
+		modelKey := model.Field(modelKeyFieldIndex)
 		modelKeyStr := fmt.Sprint(modelKey)
 		value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
 
-			model.Field(modelRelationFiledIndex).Set(value)
+			model.Field(modelRelationFieldIndex).Set(value)
 		}
 	} else {
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			modelSlice := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			value := modelSlice
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				model.Field(modelRelationFiledIndex).Set(value)
+				model.Field(modelRelationFieldIndex).Set(value)
 			}
 		}
 	}

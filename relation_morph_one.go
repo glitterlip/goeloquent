@@ -110,58 +110,58 @@ func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRe
 	}
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
-	modelRelationFiledIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFiledIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
 				if isPtr {
-					model.Field(modelRelationFiledIndex).Set(value.Elem().Index(0).Addr())
+					model.Field(modelRelationFieldIndex).Set(value.Elem().Index(0).Addr())
 				} else {
-					model.Field(modelRelationFiledIndex).Set(value.Index(0))
+					model.Field(modelRelationFieldIndex).Set(value.Index(0))
 
 				}
 			}
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
-		modelKey := model.Field(modelKeyFiledIndex)
+		modelKey := model.Field(modelKeyFieldIndex)
 		modelKeyStr := fmt.Sprint(modelKey)
 		modelSlice := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		value := modelSlice
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
-			if !model.Field(modelRelationFiledIndex).CanSet() {
+			if !model.Field(modelRelationFieldIndex).CanSet() {
 				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 			}
 			if isPtr {
-				model.Field(modelRelationFiledIndex).Set(value.Elem().Index(0).Addr())
+				model.Field(modelRelationFieldIndex).Set(value.Elem().Index(0).Addr())
 			} else {
-				model.Field(modelRelationFiledIndex).Set(value.Index(0))
+				model.Field(modelRelationFieldIndex).Set(value.Index(0))
 			}
 		}
 
 	} else {
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
-			modelKey := model.Field(modelKeyFiledIndex)
+			modelKey := model.Field(modelKeyFieldIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			modelSlice := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			value := modelSlice
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				if !model.Field(modelRelationFiledIndex).CanSet() {
+				if !model.Field(modelRelationFieldIndex).CanSet() {
 					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
 				}
 				if isPtr {
-					model.Field(modelRelationFiledIndex).Set(value.Elem().Index(0).Addr())
+					model.Field(modelRelationFieldIndex).Set(value.Elem().Index(0).Addr())
 				} else {
-					model.Field(modelRelationFiledIndex).Set(value.Index(0))
+					model.Field(modelRelationFieldIndex).Set(value.Index(0))
 				}
 			}
 		}
