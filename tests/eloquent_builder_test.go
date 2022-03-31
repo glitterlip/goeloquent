@@ -135,3 +135,42 @@ func TestFirst(t *testing.T) {
 		assert.Equal(t, "select `id`, `name` from `users` limit 1", b1.ToSql())
 	})
 }
+
+func TestQualifyColumn(t *testing.T) {
+	//testQualifyColumn
+	//testQualifyColumns
+}
+
+func TestValueMethod(t *testing.T) {
+	//testValueMethodWithModelFound
+	//testValueMethodWithModelNotFound
+	createUsers, dropUsers := UserTableSql()
+	now := time.Now()
+	u1 := map[string]interface{}{
+		"name":       "eloquent",
+		"age":        18,
+		"created_at": now,
+	}
+	RunWithDB(createUsers, dropUsers, func() {
+		var age int
+		var name, name1, notFound string
+		DB.Table("users").Insert(u1)
+		b := DB.Table("users").Where("age", 18)
+		b1 := DB.Table("users").Where("age", 18)
+		b2 := DB.Model(&User{}).Where("age", 18)
+		b3 := DB.Model(&User{}).Where("age", 8)
+		b.Value(&age, "age")
+		b1.Value(&name, "name")
+		b2.Value(&name1, "name")
+		b3.Value(&notFound, "name")
+		assert.Equal(t, "select `age` from `users` where `age` = ? limit 1", b.ToSql())
+		assert.Equal(t, "select `name` from `users` where `age` = ? limit 1", b1.ToSql())
+		assert.Equal(t, "select `name` from `users` where `age` = ? limit 1", b2.ToSql())
+		assert.Equal(t, "select `name` from `users` where `age` = ? limit 1", b3.ToSql())
+		assert.Equal(t, 18, age)
+		assert.Equal(t, "eloquent", name)
+		assert.Equal(t, "eloquent", name1)
+		assert.Equal(t, "", notFound)
+	})
+
+}

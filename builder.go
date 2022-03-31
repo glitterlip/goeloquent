@@ -2360,7 +2360,7 @@ func (b *Builder) When(boolean bool, cb ...func(builder *Builder)) *Builder {
 	return b
 }
 func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
-	return b.Get(dest, column)
+	return b.First(dest, column)
 }
 
 /*Reset
