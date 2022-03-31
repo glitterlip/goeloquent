@@ -61,14 +61,23 @@ func ElementsShouldMatch(t *testing.T, a interface{}, b interface{}) {
 	assert.ElementsMatch(t, a, b)
 }
 
-func RunWithDB(create, drop string, test func()) {
+func RunWithDB(create, drop interface{}, test func()) {
 	defer func() {
-		_, err := DB.Raw("default").Exec(strings.ReplaceAll(drop, `"`, "`"))
-		if err != nil {
-			return
+		if strs, ok := drop.([]string); ok {
+			for _, str := range strs {
+				DB.Raw("default").Exec(strings.ReplaceAll(str, `"`, "`"))
+			}
+		} else {
+			DB.Raw("default").Exec(strings.ReplaceAll(drop.(string), `"`, "`"))
 		}
 	}()
-	DB.Raw("default").Exec(strings.ReplaceAll(create, `"`, "`"))
+	if strs, ok := create.([]string); ok {
+		for _, str := range strs {
+			DB.Raw("default").Exec(strings.ReplaceAll(str, `"`, "`"))
+		}
+	} else {
+		DB.Raw("default").Exec(strings.ReplaceAll(create.(string), `"`, "`"))
+	}
 	test()
 
 }
