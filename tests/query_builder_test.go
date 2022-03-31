@@ -1092,6 +1092,35 @@ func TestInsertEmpty(t *testing.T) {
 	// testInsertGetIdMethod
 
 }
+func TestPluckMethod(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	now := time.Now()
+	u1 := map[string]interface{}{
+		"name":       "go-eloquent",
+		"age":        18,
+		"created_at": now,
+	}
+	RunWithDB(createUsers, dropUsers, func() {
+		var names, ns []string
+		u2 := map[string]interface{}{
+			"name":       "senc",
+			"age":        12,
+			"created_at": now,
+		}
+		us := []map[string]interface{}{
+			u1, u2,
+		}
+		DB.Table("users").Insert(us)
+		b := DB.Table("users")
+		b.Pluck(&names, "name")
+		assert.Equal(t, "select `name` from `users`", b.ToSql())
+		assert.Equal(t, []string{"go-eloquent", "senc"}, names)
+		b1 := DB.Table("users").Where("age", ">=", 18)
+		b1.Pluck(&ns, "name")
+		assert.Equal(t, "select `name` from `users` where `age` >= ?", b1.ToSql())
+		assert.Equal(t, []string{"go-eloquent"}, ns)
+	})
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 	b := DB.Query()
