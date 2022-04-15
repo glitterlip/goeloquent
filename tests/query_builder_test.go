@@ -1121,6 +1121,41 @@ func TestPluckMethod(t *testing.T) {
 		assert.Equal(t, []string{"go-eloquent"}, ns)
 	})
 }
+func TestStruct(t *testing.T) {
+	//test simple struct
+	type Temp struct {
+		Id     int64  `goelo:"column:tid;primaryKey"`
+		Name   string `goelo:"column:name"`
+		Status int8   `goelo:"column:status"`
+	}
+	type TempB struct {
+		Id   int64
+		Name string
+	}
+
+	var tagt, tag Temp
+	var tagtt TempB
+	tag.Name = "test"
+	tagt.Name = "test"
+	tagt.Status = 1
+	tagtt.Name = "test"
+
+	//test ignore zero value for struct
+	b := DB.Table("tag")
+	b.Insert(tag)
+	ElementsShouldMatch(t, []interface{}{"test"}, b.GetBindings())
+	assert.Equal(t, "insert into `tag` (`name`) values (?)", b.PreparedSql)
+
+	b1 := DB.Table("tag")
+	b1.Only("name").Insert(tagt)
+	ElementsShouldMatch(t, []interface{}{"test"}, b1.GetBindings())
+	assert.Equal(t, "insert into `tag` (`name`) values (?)", b.PreparedSql)
+
+	b2 := DB.Model()
+	b2.Except("id").Insert(&tagtt)
+	ElementsShouldMatch(t, []interface{}{"test"}, b2.GetBindings())
+	assert.Equal(t, "insert into `tag` (`name`) values (?)", b.PreparedSql)
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 	b := DB.Query()
