@@ -2125,6 +2125,13 @@ Insert new records into the database.
 func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	var start = time.Now()
 	items := PrepareInsertValues(values)
+	if b.FromTable == nil {
+		b.Model = GetParsedModel(values)
+		b.From(b.Model.Table)
+		b.Connection = Eloquent.Connection(b.Model.ConnectionName)
+		b.Grammar.SetTablePrefix(Eloquent.Configs[b.Model.ConnectionName].Prefix)
+
+	}
 	b.Grammar.CompileInsert(items)
 
 	if b.Tx != nil {
