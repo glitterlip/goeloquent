@@ -122,6 +122,7 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 		PrimaryKey:         nil,
 		DispatchesEvents:   make(map[string]reflect.Value),
 		ConnectionName:     connectionName,
+		PivotFieldIndex:    []int{},
 		//DefaultAttributes:  make(map[string]interface{}),
 		//RelationTypes:      make(map[string]reflect.Type),
 	}
@@ -239,7 +240,7 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 	if modelField.Name == EloquentName {
 		m.IsEloquent = true
 		m.PivotFieldIndex = append(m.PivotFieldIndex, modelField.Index)
-		embeded := reflect.New(m.ModelType).Elem().Field(modelField.Index).Type()
+		embeded := reflect.TypeOf(EloquentModel{})
 		for i := 0; i < embeded.NumField(); i++ {
 			if embeded.Field(i).Name == "Pivot" {
 				m.PivotFieldIndex = append(m.PivotFieldIndex, i)
@@ -351,7 +352,7 @@ func NewModelInTx(modelPointer interface{}, tx *Transaction) *EloquentModel {
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
 	parsed := GetParsedModel(m.Type())
 	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
-	return &e
+	return e
 }
 func NewModel(modelPointer interface{}) *EloquentModel {
 	e := NewEloquentModel(modelPointer, false)
@@ -368,9 +369,9 @@ func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	}
 	e := NewEloquentModel(modelPointer, exists[0])
 	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
-	return &e
+	return e
 }
-func NewEloquentModel(modelPointer interface{}, exists ...bool) EloquentModel {
+func NewEloquentModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m := EloquentModel{
 		Origin: make(map[string]interface{}),
 	}
@@ -382,17 +383,8 @@ func NewEloquentModel(modelPointer interface{}, exists ...bool) EloquentModel {
 		exists = []bool{false}
 	}
 	m.Exists = exists[0]
-	var tmap reflect.Value
-	parsed := GetParsedModel(modelPointer)
-	if len(parsed.PivotFieldIndex) > 1 {
-		model := reflect.Indirect(m.ModelPointer)
-		tmap = model.Field(parsed.PivotFieldIndex[0]).Field(parsed.PivotFieldIndex[1])
-	}
-	if !tmap.IsNil() {
-		m.Pivot = tmap.Interface().(map[string]sql.NullString)
-	}
 	m.SyncOrigin()
-	return m
+	return &m
 }
 func (m *EloquentModel) IsEager() bool {
 	return !m.Exists
