@@ -15,9 +15,11 @@ type DBConfig struct {
 	ConnMaxIdleTime int
 	MaxIdleConns    int
 	MaxOpenConns    int
+	ParseTime       bool
 	// 	mysql
-	Collation  string
-	UnixSocket string
+	Collation       string
+	UnixSocket      string
+	MultiStatements bool
 	// pgsql
 	Sslmode   string
 	TLS       string
