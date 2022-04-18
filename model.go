@@ -346,20 +346,10 @@ type EloquentModel struct {
 
 }
 
-func NewModelInTx(modelPointer interface{}, tx *Transaction) *EloquentModel {
-	e := NewEloquentModel(modelPointer, false)
+func InitModelInTx(modelPointer interface{}, tx *Transaction, exists ...bool) *EloquentModel {
+	e := InitModel(modelPointer, exists...)
 	e.Tx = tx
-	m := reflect.Indirect(reflect.ValueOf(modelPointer))
-	parsed := GetParsedModel(m.Type())
-	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
 	return e
-}
-func NewModel(modelPointer interface{}) *EloquentModel {
-	e := NewEloquentModel(modelPointer, false)
-	m := reflect.Indirect(reflect.ValueOf(modelPointer))
-	parsed := GetParsedModel(m.Type())
-	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
-	return &e
 }
 func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
