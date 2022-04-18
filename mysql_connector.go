@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"strings"
 	"time"
 )
 
@@ -25,7 +26,7 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	// user:password@/dbname
 	// user:password@/
 	*/
-
+	//TODO: Protocol loc readTimeout serverPubKey timeout
 	if config.MaxOpenConns == 0 {
 		config.MaxOpenConns = 10
 	}
@@ -38,19 +39,29 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	if config.ConnMaxIdleTime == 0 {
 		config.ConnMaxIdleTime = 7200
 	}
-	if config.Charset == "" {
-		config.Charset = "utf8mb4"
+	var params []string
+
+	if len(config.Charset) > 0 {
+		params = append(params, "charset="+config.Charset)
 	}
-	if config.Collation == "" {
-		config.Collation = "utf8mb4_unicode_ci"
+	if len(config.Collation) > 0 {
+		params = append(params, "collation="+config.Collation)
 	}
-	db, err := sql.Open(DriverMysql, fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=%s&collation=%s", config.Username, config.Password, config.Host, config.Port, config.Database, config.Charset, config.Collation))
+	if config.MultiStatements {
+		params = append(params, "multiStatements=true")
+	}
+	if config.ParseTime {
+		params = append(params, "parseTime=true")
+	}
+
+	openStr := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", config.Username, config.Password, config.Host, config.Port, config.Database, strings.Join(params, "&"))
+	db, err := sql.Open(DriverMysql, openStr)
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	err = db.Ping()
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)
