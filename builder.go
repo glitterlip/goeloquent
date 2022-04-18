@@ -45,6 +45,7 @@ var Bindings = map[string]struct{}{
 	TYPE_UNION_ORDER: {},
 	TYPE_INSERT:      {},
 }
+var BindingKeysInOrder = []string{TYPE_SELECT, TYPE_FROM, TYPE_JOIN, TYPE_UPDATE, TYPE_WHERE, TYPE_GROUP_BY, TYPE_HAVING, TYPE_ORDER, TYPE_UNION, TYPE_UNION_ORDER, TYPE_INSERT}
 
 type Builder struct {
 	Connection *Connection
@@ -876,7 +877,7 @@ func (b *Builder) AddBinding(value []interface{}, bindingType string) *Builder {
 
 //GetBindings Get the current query value bindings in a flattened slice.
 func (b *Builder) GetBindings() (res []interface{}) {
-	for key, _ := range Bindings {
+	for _, key := range BindingKeysInOrder {
 		if bindings, ok := b.Bindings[key]; ok {
 			res = append(res, bindings...)
 		}
