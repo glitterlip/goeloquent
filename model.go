@@ -387,7 +387,7 @@ func (m *EloquentModel) IsDirty(key string) bool {
 	if !keyValue.IsValid() || keyValue.IsZero() {
 		return m.Origin[key] == nil
 	}
-	return keyValue.Interface() == m.Origin[key]
+	return keyValue.Interface() != m.Origin[key]
 }
 func (m *EloquentModel) SyncOrigin() {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
