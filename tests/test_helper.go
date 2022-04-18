@@ -35,13 +35,14 @@ func init() {
 
 func GetDefaultConfig() goeloquent.DBConfig {
 	return goeloquent.DBConfig{
-		Host:      os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_HOST"),
-		Port:      os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PORT"),
-		Database:  os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_DATABASE"),
-		Username:  os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_USERNAME"),
-		Password:  os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PASSWORD"),
-		Driver:    "mysql",
-		EnableLog: true,
+		Host:            os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_HOST"),
+		Port:            os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PORT"),
+		Database:        os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_DATABASE"),
+		Username:        os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_USERNAME"),
+		Password:        os.Getenv("GOELOQUENT_TEST_DEFAUTL_DB_PASSWORD"),
+		MultiStatements: true,
+		Driver:          "mysql",
+		EnableLog:       true,
 	}
 }
 func GetChatConfig() goeloquent.DBConfig {
