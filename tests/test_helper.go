@@ -73,10 +73,18 @@ func RunWithDB(create, drop interface{}, test func()) {
 	}()
 	if strs, ok := create.([]string); ok {
 		for _, str := range strs {
-			DB.Raw("default").Exec(strings.ReplaceAll(str, `"`, "`"))
+			_, err := DB.Raw("default").Exec(strings.ReplaceAll(str, `"`, "`"))
+			if err != nil {
+				panic(err.Error())
+				return
+			}
 		}
 	} else {
-		DB.Raw("default").Exec(strings.ReplaceAll(create.(string), `"`, "`"))
+		_, err := DB.Raw("default").Exec(strings.ReplaceAll(create.(string), `"`, "`"))
+		if err != nil {
+			panic(err.Error())
+
+		}
 	}
 	test()
 
