@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 )
 
 type DatabaseManager struct {
@@ -113,4 +114,36 @@ func (dm *DatabaseManager) Transaction(closure TxClosure) (interface{}, error) {
 func (dm *DatabaseManager) BeginTransaction() (*Transaction, error) {
 	ic := dm.Connections["default"]
 	return (*ic).BeginTransaction()
+}
+
+func (dm *DatabaseManager) Create(model interface{}) (res sql.Result, err error) {
+	return dm.Save(model)
+}
+
+/*Save
+save/update single model
+*/
+func (dm *DatabaseManager) Save(modelP interface{}) (res sql.Result, err error) {
+	parsed := GetParsedModel(modelP)
+	model := reflect.Indirect(reflect.ValueOf(modelP))
+	if parsed.IsEloquent {
+		ininted := !model.Field(parsed.PivotFieldIndex[0]).IsZero()
+		if ininted {
+			t := model.Field(parsed.PivotFieldIndex[0])
+			tempRes := t.MethodByName("Save").Call([]reflect.Value{})
+			if !tempRes[0].IsNil() {
+				res = tempRes[0].Interface().(sql.Result)
+			}
+			if tempRes[1].IsNil() {
+				return
+			}
+			err = tempRes[1].Interface().(error)
+			return
+		} else {
+			return InitModel(modelP).Create()
+		}
+	} else {
+
+	}
+	return
 }

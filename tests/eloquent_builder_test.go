@@ -174,3 +174,59 @@ func TestValueMethod(t *testing.T) {
 	})
 
 }
+
+func TestSaveMethod(t *testing.T) {
+	c, d := CreateRelationTables()
+	RunWithDB(c, d, func() {
+		var u1, u2, u3 UserT
+		var us []UserT
+		u1.UserName = "u1"
+		u2.UserName = "u2"
+		u3.UserName = "u3"
+		u1.Age = 10
+		u2.Age = 20
+		u3.Age = 30
+		_, err := DB.Save(&u1)
+		assert.Nil(t, err)
+		assert.Greater(t, u1.Id, int64(0))
+		u1.Age = 11
+		save, err := DB.Save(&u1)
+		count, _ := save.RowsAffected()
+		assert.Equal(t, int64(1), count)
+		assert.Nil(t, err)
+		assert.Greater(t, u1.Id, int64(0))
+		us = append(us, u2, u3)
+		insert, err := DB.Model().Insert(&us)
+		assert.Nil(t, err)
+		count, _ = insert.RowsAffected()
+		assert.Equal(t, int64(2), count)
+	})
+}
+func TestAttrs(t *testing.T) {
+	c, d := CreateRelationTables()
+	RunWithDB(c, d, func() {
+		var u1 UserT
+		u1.UserName = "u1"
+		_, err := DB.Save(&u1)
+		assert.Empty(t, u1.GetDirty())
+		assert.Empty(t, u1.GetChanges())
+		assert.Nil(t, err)
+		assert.Greater(t, u1.Id, int64(0))
+		u1.Age = 11
+		assert.True(t, u1.IsDirty("Age"))
+		assert.Empty(t, u1.GetChanges())
+		assert.Equal(t, map[string]interface{}{
+			"Age": 11,
+		}, u1.GetDirty())
+		save, err := DB.Save(&u1)
+		count, _ := save.RowsAffected()
+		assert.Equal(t, int64(1), count)
+		assert.Nil(t, err)
+		assert.Greater(t, u1.Id, int64(0))
+		assert.Empty(t, u1.GetDirty())
+		assert.Equal(t, map[string]interface{}{
+			"Age": 11,
+		}, u1.GetChanges())
+
+	})
+}
