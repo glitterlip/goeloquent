@@ -13,15 +13,17 @@ var (
 )
 
 const (
-	EventSaving    = "Saving"
-	EventSaved     = "Saved"
-	EventCreating  = "Creating"
-	EventCreated   = "Created"
-	EventUpdating  = "Updating"
-	EventUpdated   = "Updated"
-	EventDeleteing = "Deleting"
-	EventDeleted   = "Deleted"
-	EventALL       = "ALL"
+	EventSaving     = "Saving"
+	EventSaved      = "Saved"
+	EventCreating   = "Creating"
+	EventCreated    = "Created"
+	EventUpdating   = "Updating"
+	EventUpdated    = "Updated"
+	EventDeleteing  = "Deleting"
+	EventDeleted    = "Deleted"
+	EventRetrieved  = "Retrieved" //TODO: EventRetrieved EventRetrieving
+	EventRetrieving = "Retrieving"
+	EventALL        = "ALL"
 )
 
 type TableName interface {
@@ -29,6 +31,33 @@ type TableName interface {
 }
 type ConnectionName interface {
 	ConnectionName() string
+}
+type ISaving interface {
+	Saving(builder *Builder) error
+}
+type ISaved interface {
+	Saved(builder *Builder) error
+}
+type ICreating interface {
+	Creating(builder *Builder) error
+}
+type ICreated interface {
+	Created(builder *Builder) error
+}
+type IUpdating interface {
+	Updating(builder *Builder) error
+}
+type IUpdated interface {
+	Updated(builder *Builder) error
+}
+type IDeleting interface {
+	Deleting(builder *Builder) error
+}
+type IDeleted interface {
+	Deleted(builder *Builder) error
+}
+type IRetrieved interface {
+	Retrieved(builder *Builder) error
 }
 type Model struct {
 	Name               string
@@ -457,12 +486,12 @@ Save save the model to the database
 */
 func (m *EloquentModel) Save() (res sql.Result, err error) {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
-	if eventErr := m.FireModelEvent(EventSaving); eventErr != nil {
+	builder := Eloquent.Model(parsed.ModelType)
+	if eventErr := m.FireModelEvent(EventSaving, builder); eventErr != nil {
 		return nil, eventErr
 	}
 	if !m.Exists {
-		builder := Eloquent.Model(parsed.ModelType)
-		if eventErr := m.FireModelEvent(EventCreating); eventErr != nil {
+		if eventErr := m.FireModelEvent(EventCreating, builder); eventErr != nil {
 			return nil, eventErr
 		}
 		//TODO:SetDefaults
@@ -481,20 +510,20 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 		}
 		m.Exists = true
 		//m.WasRecentlyCreated = true for createOrNew createOrUpdate?
-		if eventErr := m.FireModelEvent(EventCreated); eventErr != nil {
+		if eventErr := m.FireModelEvent(EventCreated, builder); eventErr != nil {
 			return nil, eventErr
 		}
 	} else {
-		if eventErr := m.FireModelEvent(EventUpdating); eventErr != nil {
+		if eventErr := m.FireModelEvent(EventUpdating, builder); eventErr != nil {
 			return nil, eventErr
 		}
 		m.Changes = m.GetDirty()
-		res, err = Eloquent.Model(parsed.ModelType).Where(parsed.PrimaryKey.ColumnName, m.ModelPointer.Elem().Field(parsed.PrimaryKey.Index).Interface()).Update(m.GetAttributesForUpdate())
-		if eventErr := m.FireModelEvent(EventUpdated); eventErr != nil {
+		res, err = builder.Update(m.GetAttributesForUpdate())
+		if eventErr := m.FireModelEvent(EventUpdated, builder); eventErr != nil {
 			return nil, eventErr
 		}
 	}
-	if eventErr := m.FireModelEvent(EventSaved); eventErr != nil {
+	if eventErr := m.FireModelEvent(EventSaved, builder); eventErr != nil {
 		return nil, eventErr
 	}
 	m.SyncOrigin()
@@ -513,12 +542,13 @@ func (m *EloquentModel) Create() (sql.Result, error) {
 Delete Delete the model from the database.
 */
 func (m *EloquentModel) Delete() (res sql.Result, err error) {
-	if eventErr := m.FireModelEvent(EventDeleteing); eventErr != nil {
+	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
+	b := Eloquent.Model(parsed.ModelType).Where(parsed.PrimaryKey.ColumnName, m.ModelPointer.Elem().Field(parsed.PrimaryKey.Index).Interface())
+	if eventErr := m.FireModelEvent(EventDeleteing, b); eventErr != nil {
 		return nil, eventErr
 	}
-	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
-	res, err = Eloquent.Model(parsed.ModelType).Where(parsed.PrimaryKey.ColumnName, m.ModelPointer.Elem().Field(parsed.PrimaryKey.Index).Interface()).Delete()
-	if eventErr := m.FireModelEvent(EventDeleted); eventErr != nil {
+	res, err = b.Delete()
+	if eventErr := m.FireModelEvent(EventDeleted, b); eventErr != nil {
 		return nil, eventErr
 	}
 	return
@@ -655,22 +685,44 @@ func (m *EloquentModel) GetAttributes() (attrs map[string]interface{}) {
 	return
 }
 
-func (m *EloquentModel) FireModelEvent(name string) error {
-	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
-	method, ok := parsed.DispatchesEvents[name]
-	if ok {
-		if strings.Contains(m.Muted, name) {
-			return nil
+func (m *EloquentModel) FireModelEvent(eventName string, b *Builder) error {
+	reverted := m.ModelPointer.Interface()
+	switch eventName {
+	case EventSaving:
+		if model, ok := reverted.(ISaving); ok {
+			return model.Saving(b)
 		}
-		result := method.Call([]reflect.Value{m.ModelPointer})
-		if result[0].IsNil() {
-			return nil
-		} else {
-			return result[0].Interface().(error)
+	case EventSaved:
+		if model, ok := reverted.(ISaved); ok {
+			return model.Saved(b)
 		}
-	} else {
-		return nil
+	case EventCreating:
+		if model, ok := reverted.(ICreating); ok {
+			return model.Creating(b)
+		}
+	case EventCreated:
+		if model, ok := reverted.(ICreated); ok {
+			return model.Created(b)
+		}
+	case EventUpdating:
+		if model, ok := reverted.(IUpdating); ok {
+			return model.Updating(b)
+		}
+	case EventUpdated:
+		if model, ok := reverted.(IUpdated); ok {
+			return model.Updated(b)
+		}
+	case EventDeleteing:
+		if model, ok := reverted.(IDeleting); ok {
+			return model.Deleting(b)
+		}
+	case EventDeleted:
+		if model, ok := reverted.(IDeleted); ok {
+			return model.Deleted(b)
+		}
 	}
+	return nil
+
 }
 
 //scope
