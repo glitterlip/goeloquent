@@ -398,10 +398,17 @@ func (m *EloquentModel) SyncOrigin() {
 func (m *EloquentModel) GetOrigin() map[string]interface{} {
 	return m.Origin
 }
+
+/*
+GetChanges Get the attributes that were changed.
+*/
 func (m *EloquentModel) GetChanges() map[string]interface{} {
 	return m.Changes
 }
 
+/*
+GetDirty Get the attributes that have been changed since the last sync.
+*/
 func (m *EloquentModel) GetDirty() map[string]interface{} {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
 	dirty := make(map[string]interface{})
@@ -444,6 +451,10 @@ func (m *EloquentModel) GetDirty() map[string]interface{} {
 	}
 	return dirty
 }
+
+/*
+Save save the model to the database
+*/
 func (m *EloquentModel) Save() (res sql.Result, err error) {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
 	if eventErr := m.FireModelEvent(EventSaving); eventErr != nil {
@@ -491,9 +502,16 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 
 }
 
+/*
+Create Save a new model and return the instance.
+*/
 func (m *EloquentModel) Create() (sql.Result, error) {
 	return m.Save()
 }
+
+/*
+Delete Delete the model from the database.
+*/
 func (m *EloquentModel) Delete() (res sql.Result, err error) {
 	if eventErr := m.FireModelEvent(EventDeleteing); eventErr != nil {
 		return nil, eventErr
