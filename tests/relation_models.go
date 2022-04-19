@@ -3,6 +3,8 @@ package tests
 import (
 	"database/sql"
 	_ "database/sql"
+	"errors"
+	"fmt"
 	goeloquent "github.com/glitterlip/go-eloquent"
 	"time"
 	_ "time"
@@ -57,6 +59,24 @@ type UserT struct {
 func (u *UserT) TableName() string {
 	return "user"
 }
+func (u *UserT) Saving(builder *goeloquent.Builder) (err error) {
+	if u.Age <= 0 {
+		u.Age = 18
+	}
+	if u.Age > 100 {
+		return errors.New("too old")
+	}
+	return
+}
+func (u *UserT) Saved(builder *goeloquent.Builder) (err error) {
+	//save avatar
+	var avatar Image
+	avatar.Url = fmt.Sprintf("cdn.com/statis/users/%d/avatar.png", u.Id)
+	avatar.ImageableType = "users"
+	avatar.ImageableId = u.Id
+	DB.Save(&avatar)
+	return
+}
 func (u *UserT) ViewedPostsRelation() *goeloquent.RelationBuilder {
 	return u.BelongsToMany(u, &Post{}, "view_record", "post_id", "users_id", "id", "id")
 }
@@ -86,8 +106,11 @@ func (c *Comment) PostRelation() *goeloquent.RelationBuilder {
 
 type Image struct {
 	*goeloquent.EloquentModel
-	ID   int64 `goelo:"column:id;primaryKey"`
-	Tags []Tag `goelo:"MorphToMany:TagsRelation"`
+	ID            int64  `goelo:"column:id;primaryKey"`
+	Url           string `goelo:"column:url"`
+	ImageableType string `goelo:"column:imageable_type"`
+	ImageableId   int64  `goelo:"column:imageable_id"`
+	Tags          []Tag  `goelo:"MorphToMany:TagsRelation"`
 }
 
 func (i *Image) TagsRelation() *goeloquent.RelationBuilder {

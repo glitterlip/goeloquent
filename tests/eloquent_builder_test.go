@@ -230,3 +230,29 @@ func TestAttrs(t *testing.T) {
 
 	})
 }
+
+func TestEvents(t *testing.T) {
+	c, d := CreateRelationTables()
+	RunWithDB(c, d, func() {
+		//test creating,created
+		var u1, u2 UserT
+		u1.UserName = "u1"
+		_, err := DB.Save(&u1)
+		assert.Nil(t, err)
+		assert.Greater(t, u1.Id, int64(0))
+		assert.Equal(t, 18, u1.Age)
+		u2.UserName = "Bob"
+		u2.Age = 200
+		res, err := DB.Save(&u2)
+		assert.Equal(t, err.Error(), "too old")
+		assert.Nil(t, res)
+		var avatar Image
+		DB.Model().Where("imageable_id", u1.Id).Where("imageable_type", "users").First(&avatar)
+		assert.Equal(t, avatar.ImageableId, u1.Id)
+		assert.Equal(t, avatar.ImageableType, "users")
+
+	})
+}
+func TestTimeStamps(t *testing.T) {
+
+}
