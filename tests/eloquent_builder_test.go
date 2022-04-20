@@ -2,6 +2,7 @@ package tests
 
 import (
 	"database/sql"
+	"fmt"
 	goeloquent "github.com/glitterlip/go-eloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -234,7 +235,7 @@ func TestAttrs(t *testing.T) {
 func TestEvents(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
-		//test creating,created
+		//test saving,saved
 		var u1, u2 UserT
 		u1.UserName = "u1"
 		_, err := DB.Save(&u1)
@@ -250,6 +251,55 @@ func TestEvents(t *testing.T) {
 		DB.Model().Where("imageable_id", u1.Id).Where("imageable_type", "users").First(&avatar)
 		assert.Equal(t, avatar.ImageableId, u1.Id)
 		assert.Equal(t, avatar.ImageableType, "users")
+
+	})
+	RunWithDB(c, d, func() {
+		//test creating,created
+		var u3, u4 UserT
+		var post Post
+		u3.Id = 10
+		r, err := DB.Save(&u3)
+		assert.Nil(t, r)
+		assert.Equal(t, "wrong id", err.Error())
+		u4.UserName = "Frank"
+		DB.Save(&u4)
+		_, err = DB.Model().Where("author_id", u4.Id).First(&post, u4.Id)
+		assert.Nil(t, err)
+		assert.Equal(t, post.AuthorId, u4.Id)
+	})
+	RunWithDB(c, d, func() {
+		//test updating,updated
+		var u6, u7 UserT
+		u6.UserName = "Alice"
+		DB.Save(&u6)
+		DB.Model().Find(&u7, u6.Id)
+		u7.Id = u7.Id + 10
+		save, err := u7.Save()
+		assert.Nil(t, save)
+		assert.Equal(t, err.Error(), "id can not be changed")
+		u6.UserName = "Alexa"
+		u6.Save()
+		newUrl := fmt.Sprintf("cdn.com/statis/users/%d/avatar-new.png", u6.Id)
+		var avatar Image
+		DB.Model().Where("imageable_id", u6.Id).Where("imageable_type", "users").First(&avatar)
+		assert.Equal(t, newUrl, avatar.Url)
+	})
+	RunWithDB(c, d, func() {
+		//test deleting deleted
+		var u1, u2 UserT
+		var post Post
+		u1.UserName = "Alice"
+		u2.UserName = "Joe"
+		DB.Save(&u1)
+		DB.Save(&u2)
+		DB.Model().Where("author_id", u1.Id).First(&post)
+		assert.Equal(t, post.AuthorId, u1.Id)
+		_, err := u1.Delete()
+		assert.Equal(t, "can't delete admin", err.Error())
+		_, err = u2.Delete()
+		n := 1
+		DB.Table("post").Where("author_id", u2.Id).Count(&n)
+		assert.Equal(t, 0, n)
 
 	})
 }

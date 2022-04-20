@@ -15,8 +15,9 @@ type Post struct {
 	ID       int64     `goelo:"column:pid;primaryKey"`
 	Title    string    `goelo:"column:title"`
 	Author   UserT     `goelo:"BelongsTo:AuthorRelation"`
+	AuthorId int64     `goelo:"column:author_id"`
 	Comments []Comment `goelo:"HasMany:CommentsRelation"`
-	Address  Address   `goelo:"HasOne:AttachmentRelation"`
+	Address  Address   `goelo:"HasOne:AddressRelation"`
 	Viewers  []UserT   `goelo:"BelongsToMany:ViewersRelation"`
 	Images   []Image   `goelo:"MorphMany:ImagesRelation"`
 	Image    Image     `goelo:"MorphOne:ImageRelation"`
@@ -76,6 +77,46 @@ func (u *UserT) Saved(builder *goeloquent.Builder) (err error) {
 	avatar.ImageableId = u.Id
 	DB.Save(&avatar)
 	return
+}
+func (u *UserT) Creating(builder *goeloquent.Builder) (err error) {
+	if u.Id > 0 {
+		return errors.New("wrong id")
+	}
+	return nil
+}
+func (u *UserT) Created(builder *goeloquent.Builder) (err error) {
+	var post Post
+	post.Title = "Hello I am here"
+	post.AuthorId = u.Id
+	_, err = DB.Save(&post)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (u *UserT) Deleting(builder *goeloquent.Builder) (err error) {
+	if u.Id == 1 {
+		return errors.New("can't delete admin")
+	}
+	return nil
+}
+func (u *UserT) Deleted(builder *goeloquent.Builder) (err error) {
+	DB.Model(&Post{}).Where("author_id", u.Id).Delete()
+	return nil
+}
+
+func (u *UserT) Updated(builder *goeloquent.Builder) (err error) {
+	var avatar Image
+	DB.Model().Where("imageable_id", u.Id).Where("imageable_type", "users").First(&avatar)
+	avatar.Url = fmt.Sprintf("cdn.com/statis/users/%d/avatar-new.png", u.Id)
+	avatar.Save()
+	return nil
+}
+func (u *UserT) Updating(builder *goeloquent.Builder) (err error) {
+	if u.IsDirty("Id") {
+		return errors.New("id can not be changed")
+	}
+	return nil
 }
 func (u *UserT) ViewedPostsRelation() *goeloquent.RelationBuilder {
 	return u.BelongsToMany(u, &Post{}, "view_record", "post_id", "users_id", "id", "id")
