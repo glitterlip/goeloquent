@@ -43,6 +43,7 @@ func GetDefaultConfig() goeloquent.DBConfig {
 		MultiStatements: true,
 		Driver:          "mysql",
 		EnableLog:       true,
+		ParseTime:       true,
 	}
 }
 func GetChatConfig() goeloquent.DBConfig {
