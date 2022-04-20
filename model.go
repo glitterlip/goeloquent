@@ -383,7 +383,7 @@ func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
 	parsed := GetParsedModel(m.Type())
 	if len(exists) == 0 {
-		exists = []bool{!m.Field(parsed.PrimaryKey.Index).IsZero()}
+		exists = []bool{false}
 	}
 	e := NewEloquentModel(modelPointer, exists[0])
 	m.Field(parsed.PivotFieldIndex[0]).Set(reflect.ValueOf(e))
