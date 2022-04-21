@@ -16,9 +16,6 @@ type MorphOneRelation struct {
 
 func (m *EloquentModel) MorphOne(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, parentKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-	if m.Tx != nil {
-		b.Tx = m.Tx
-	}
 	relation := MorphOneRelation{
 		Relation: Relation{
 			Parent:  self,

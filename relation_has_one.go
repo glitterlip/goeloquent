@@ -17,9 +17,6 @@ type HasOneRelation struct {
 
 func (m *EloquentModel) HasOne(self interface{}, related interface{}, relatedParentKey, parentKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-	if m.Tx != nil {
-		b.Tx = m.Tx
-	}
 	relation := HasOneRelation{
 		Relation{
 			Parent:  self,

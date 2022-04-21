@@ -19,9 +19,6 @@ type BelongsToRelation struct {
 
 func (m *EloquentModel) BelongsTo(parent interface{}, related interface{}, parentRelatedKey string, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-	if m.Tx != nil {
-		b.Tx = m.Tx
-	}
 	relation := BelongsToRelation{
 		Relation: Relation{
 			Parent:  parent,

@@ -19,9 +19,6 @@ type MorphToManyRelation struct {
 
 func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivotRelatedKey, pivotParentKey, parentKey, relatedKey, morphType string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-	if m.Tx != nil {
-		b.Tx = m.Tx
-	}
 	relation := MorphToManyRelation{
 		Relation: Relation{
 			Parent:  self,

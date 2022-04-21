@@ -16,9 +16,6 @@ type MorphManyRelation struct {
 
 func (m *EloquentModel) MorphMany(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, parentKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-	if m.Tx != nil {
-		b.Tx = m.Tx
-	}
 	relation := MorphManyRelation{
 		Relation: Relation{
 			Parent:  self,

@@ -84,6 +84,9 @@ func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, re
 			builder.LoadPivotWheres(r.Builder.PivotWheres...)
 			//dynamic constraints
 			builder = constraints(builder)
+			//copy conn/tx to new builder
+			builder.Connection = r.Connection
+			builder.Tx = r.Tx
 			relationResults := builder.GetEager(builder.Relation)
 			r.Match(models, relationResults, builder.Relation, relationName)
 		}
@@ -113,7 +116,10 @@ func (r *RelationBuilder) GetEager(relation interface{}) interface{} {
 		for key, keys := range morphto.Groups {
 			modelPointer := GetMorphDBMap(key)
 			models := reflect.MakeSlice(reflect.SliceOf(modelPointer.Type()), 0, 10)
-			_, err := Eloquent.Model(modelPointer.Type()).WhereIn(morphto.RelatedKey, keys).Get(&models)
+			nb := Eloquent.Model(modelPointer.Type())
+			nb.Connection = r.Connection
+			nb.Tx = r.Tx
+			_, err := nb.WhereIn(morphto.RelatedKey, keys).Get(&models)
 			if err != nil {
 				panic(err.Error())
 			}

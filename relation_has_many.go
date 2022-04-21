@@ -17,9 +17,6 @@ type HasManyRelation struct {
 
 func (m *EloquentModel) HasMany(self interface{}, related interface{}, releatedParentKey, parentKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
-	if m.Tx != nil {
-		b.Tx = m.Tx
-	}
 	relation := HasManyRelation{
 		Relation{
 			Parent:  self,
