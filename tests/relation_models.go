@@ -25,7 +25,7 @@ type Post struct {
 }
 
 func (p *Post) AuthorRelation() *goeloquent.RelationBuilder {
-	return p.BelongsTo(p, &UserT{}, "user_id", "id")
+	return p.BelongsTo(p, &UserT{}, "author_id", "id")
 }
 func (p *Post) CommentsRelation() *goeloquent.RelationBuilder {
 	return p.HasMany(p, &Comment{}, "post_id", "id")

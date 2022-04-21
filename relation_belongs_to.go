@@ -11,33 +11,33 @@ import (
 //the goal is to find phones' user
 type BelongsToRelation struct {
 	Relation
-	ParentRelatedKey string
-	RelatedKey       string
-	Parent           interface{}
-	Builder          *Builder
+	SelfKey    string
+	RelatedKey string
+	Self       interface{}
+	Builder    *Builder
 }
 
-func (m *EloquentModel) BelongsTo(parent interface{}, related interface{}, parentRelatedKey string, relatedKey string) *RelationBuilder {
+func (m *EloquentModel) BelongsTo(self interface{}, related interface{}, selfKey string, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := BelongsToRelation{
 		Relation: Relation{
-			Parent:  parent,
+			Parent:  self,
 			Related: related,
 			Type:    RelationBelongsTo,
 		},
-		ParentRelatedKey: parentRelatedKey, RelatedKey: relatedKey, Parent: parent, Builder: b,
+		SelfKey: selfKey, RelatedKey: relatedKey, Self: self, Builder: b,
 	}
-	parentModel := GetParsedModel(parent)
-	parentDirect := reflect.Indirect(reflect.ValueOf(parent))
-	//select * from users(related table) where users.id(relatedkey) = phone.user_id(parentRelatedKey)
-	b.Where(relation.RelatedKey, parentDirect.Field(parentModel.FieldsByDbName[parentRelatedKey].Index).Interface())
+	parentModel := GetParsedModel(self)
+	parentDirect := reflect.Indirect(reflect.ValueOf(self))
+	//select * from users(related table) where users.id(relatedkey) = phone.user_id(selfKey)
+	b.Where(relation.RelatedKey, parentDirect.Field(parentModel.FieldsByDbName[selfKey].Index).Interface())
 
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
 }
 func (r *BelongsToRelation) AddEagerConstraints(parentModels interface{}) {
 	parentParsedModel := GetParsedModel(r.Parent)
-	parentRelatedKeyIndex := parentParsedModel.FieldsByDbName[r.ParentRelatedKey].Index
+	parentRelatedKeyIndex := parentParsedModel.FieldsByDbName[r.SelfKey].Index
 	parentModelSlice := reflect.Indirect(reflect.ValueOf(parentModels))
 	var parentModelRelatedKeys []interface{}
 	if parentModelSlice.Type().Kind() == reflect.Slice {
@@ -84,7 +84,7 @@ func MatchBelongsTo(models interface{}, related interface{}, relation *BelongsTo
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentRelatedKey].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfKey].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
