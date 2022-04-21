@@ -2335,7 +2335,7 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 
 	result, err = b.RunSelect()
 	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	if len(b.EagerLoad) > 0 && result.(ScanResult).Count > 0 {
+	if err == nil && len(b.EagerLoad) > 0 && result.(ScanResult).Count > 0 {
 		rb := RelationBuilder{
 			Builder: b,
 		}
