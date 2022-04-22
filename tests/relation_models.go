@@ -17,7 +17,6 @@ type Post struct {
 	Author   UserT     `goelo:"BelongsTo:AuthorRelation"`
 	AuthorId int64     `goelo:"column:author_id"`
 	Comments []Comment `goelo:"HasMany:CommentsRelation"`
-	Address  Address   `goelo:"HasOne:AddressRelation"`
 	Viewers  []UserT   `goelo:"BelongsToMany:ViewersRelation"`
 	Images   []Image   `goelo:"MorphMany:ImagesRelation"`
 	Image    Image     `goelo:"MorphOne:ImageRelation"`
@@ -30,9 +29,7 @@ func (p *Post) AuthorRelation() *goeloquent.RelationBuilder {
 func (p *Post) CommentsRelation() *goeloquent.RelationBuilder {
 	return p.HasMany(p, &Comment{}, "post_id", "id")
 }
-func (p *Post) AddressRelation() *goeloquent.RelationBuilder {
-	return p.HasOne(p, &Address{}, "post_id", "id")
-}
+
 func (p *Post) ViewersRelation() *goeloquent.RelationBuilder {
 	return p.BelongsToMany(p, &UserT{}, "view_record", "user_id", "post_id", "id", "id")
 }
@@ -48,13 +45,15 @@ func (p *Post) ImageRelation() *goeloquent.RelationBuilder {
 
 type UserT struct {
 	*goeloquent.EloquentModel
-	Id          int64        `goelo:"column:id;primaryKey"`
-	UserName    string       `goelo:"column:name"`
-	Age         int          `goelo:"column:age"`
-	ViewedPosts []Post       `goelo:"BelongsToMany:ViewedPostsRelation"`
-	Friends     []UserT      `goelo:"BelongsToMany:FriendsRelation"`
-	CreatedAt   time.Time    `goelo:"column:created_at;CREATED_AT"`
-	UpdatedAt   sql.NullTime `goelo:"column:updated_at;UPDATED_AT"`
+	Id          int64   `goelo:"column:id;primaryKey"`
+	UserName    string  `goelo:"column:name"`
+	Age         int     `goelo:"column:age"`
+	ViewedPosts []Post  `goelo:"BelongsToMany:ViewedPostsRelation"`
+	Friends     []UserT `goelo:"BelongsToMany:FriendsRelation"`
+	Address     Address `goelo:"HasOne:AddressRelation"`
+
+	CreatedAt time.Time    `goelo:"column:created_at;CREATED_AT"`
+	UpdatedAt sql.NullTime `goelo:"column:updated_at;UPDATED_AT"`
 }
 
 func (u *UserT) TableName() string {
@@ -124,11 +123,19 @@ func (u *UserT) ViewedPostsRelation() *goeloquent.RelationBuilder {
 func (u *UserT) FriendsRelation() *goeloquent.RelationBuilder {
 	return u.BelongsToMany(u, &UserT{}, "friends", "user_id", "friend_id", "id", "id")
 }
+func (u *UserT) AddressRelation() *goeloquent.RelationBuilder {
+	return u.HasOne(u, &Address{}, "id", "user_id")
+}
 
 type Address struct {
 	*goeloquent.EloquentModel
-	ID     int64  `goelo:"column:id;primaryKey"`
-	UserTT *UserT `goelo:"BelongsTo:UserTTRelation"`
+	ID      int64  `goelo:"column:id;primaryKey"`
+	UserT   *UserT `goelo:"BelongsTo:UserRelation"`
+	UserId  int64  `goelo:"column:user_id"`
+	Country string `goelo:"column:country"`
+	State   string `goelo:"column:state"`
+	City    string `goelo:"column:city"`
+	Detail  string `goelo:"column:detail"`
 }
 
 func (a *Address) UserTRelation() *goeloquent.RelationBuilder {
@@ -177,7 +184,7 @@ func (t *Tag) PostsRelation() *goeloquent.RelationBuilder {
 }
 func CreateRelationTables() (create, drop string) {
 	create = `
-DROP TABLE IF EXISTS "comment","image","post","tag","tagable","user","users","view_record","friends";
+DROP TABLE IF EXISTS "comment","image","post","tag","tagable","user","users","view_record","friends","address";
 CREATE TABLE "comment" (
   "cid" int(10) unsigned NOT NULL AUTO_INCREMENT,
   "post_id" int(11) NOT NULL,
@@ -240,9 +247,18 @@ CREATE TABLE "friends" (
   "additional" varchar(255) DEFAULT '',
   PRIMARY KEY ("id")
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE "address" (
+  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
+  "user_id" int(10) unsigned NOT NULL,
+  "country" tinyint(4) NOT NULL,
+  "state" varchar(255) NOT NULL,
+  "city" varchar(255) NOT NULL,
+  "detail" varchar(255) DEFAULT NULL,
+  PRIMARY KEY ("id")
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `
 	drop = `
-DROP TABLE IF EXISTS "comment","image","post","tag","tagable","user","users","view_record","friends";
+DROP TABLE IF EXISTS "comment","image","post","tag","tagable","user","users","view_record","friends","address";
 `
 	return
 }
