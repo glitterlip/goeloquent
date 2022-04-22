@@ -10,30 +10,30 @@ import (
 //for user model hasmanyaddress relation parentkey => user table id column,relatedkey => address table id column,relatedparentkey => address table user_id column
 type HasManyRelation struct {
 	Relation
-	ReleatedParentKey string
-	ParentKey         string
-	Builder           *Builder
+	ReleatedKey string
+	SelfKey     string
+	Builder     *Builder
 }
 
-func (m *EloquentModel) HasMany(self interface{}, related interface{}, releatedParentKey, parentKey string) *RelationBuilder {
+func (m *EloquentModel) HasMany(self interface{}, related interface{}, selfKey, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := HasManyRelation{
 		Relation{
 			Parent:  self,
 			Related: related,
 			Type:    RelationHasMany,
-		}, releatedParentKey, parentKey, b,
+		}, relatedKey, selfKey, b,
 	}
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(releatedParentKey, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
-	b.WhereNotNull(releatedParentKey)
+	b.Where(relatedKey, "=", selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
+	b.WhereNotNull(relatedKey)
 
 	return &RelationBuilder{Builder: b, Relation: &relation}
 }
 func (r *HasManyRelation) AddEagerConstraints(models interface{}) {
 	relatedParsedModel := GetParsedModel(r.Related)
-	index := relatedParsedModel.FieldsByDbName[r.ParentKey].Index
+	index := relatedParsedModel.FieldsByDbName[r.ReleatedKey].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -53,8 +53,8 @@ func (r *HasManyRelation) AddEagerConstraints(models interface{}) {
 		keys = append(keys, modelKey)
 	}
 	r.Builder.Reset(TYPE_WHERE)
-	r.Builder.WhereNotNull(r.ReleatedParentKey)
-	r.Builder.WhereIn(r.ReleatedParentKey, keys)
+	r.Builder.WhereNotNull(r.ReleatedKey)
+	r.Builder.WhereIn(r.ReleatedKey, keys)
 }
 func MatchHasMany(models interface{}, related interface{}, relation *HasManyRelation) {
 	relatedModelsValue := related.(reflect.Value)
@@ -79,7 +79,7 @@ func MatchHasMany(models interface{}, related interface{}, relation *HasManyRela
 
 	for i := 0; i < relatedModels.Len(); i++ {
 		result := relatedModels.Index(i)
-		foreignKeyIndex := relatedModel.FieldsByDbName[relation.ReleatedParentKey].Index
+		foreignKeyIndex := relatedModel.FieldsByDbName[relation.ReleatedKey].Index
 		groupKey := reflect.ValueOf(fmt.Sprint(result.FieldByIndex([]int{foreignKeyIndex})))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
@@ -101,7 +101,7 @@ func MatchHasMany(models interface{}, related interface{}, relation *HasManyRela
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
 	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfKey].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
