@@ -12,8 +12,8 @@ func TestBelongsTo(t *testing.T) {
 		//test saving,saved
 		var u1, u2, u3 UserT
 		u1.UserName = "u1"
-		u1.UserName = "u2"
-		u1.UserName = "u3"
+		u2.UserName = "u2"
+		u3.UserName = "u3"
 		DB.Create(&u1)
 		DB.Create(&u2)
 		DB.Create(&u3)
