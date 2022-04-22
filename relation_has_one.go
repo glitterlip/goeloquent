@@ -10,12 +10,12 @@ import (
 //for user model parentkey => user table id column,relatedkey => phone table id column,relatedparentkey => phone table user_id column
 type HasOneRelation struct {
 	Relation
-	RelatedParentKey string
-	ParentKey        string
-	Builder          *Builder
+	RelatedKey string
+	SelfKey    string
+	Builder    *Builder
 }
 
-func (m *EloquentModel) HasOne(self interface{}, related interface{}, relatedParentKey, parentKey string) *RelationBuilder {
+func (m *EloquentModel) HasOne(self interface{}, related interface{}, selfKey, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := HasOneRelation{
 		Relation{
@@ -23,18 +23,18 @@ func (m *EloquentModel) HasOne(self interface{}, related interface{}, relatedPar
 			Related: related,
 			Type:    RelationHasOne,
 		},
-		relatedParentKey, parentKey, b,
+		relatedKey, selfKey, b,
 	}
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(relatedParentKey, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
-	b.WhereNotNull(relatedParentKey)
+	b.Where(relatedKey, "=", selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
+	b.WhereNotNull(relatedKey)
 
 	return &RelationBuilder{Builder: b, Relation: &relation}
 }
 func (r *HasOneRelation) AddEagerConstraints(models interface{}) {
 	relatedParsedModel := GetParsedModel(r.Related)
-	index := relatedParsedModel.FieldsByDbName[r.ParentKey].Index
+	index := relatedParsedModel.FieldsByDbName[r.SelfKey].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -54,8 +54,8 @@ func (r *HasOneRelation) AddEagerConstraints(models interface{}) {
 		keys = append(keys, modelKey)
 	}
 	r.Builder.Reset(TYPE_WHERE)
-	r.Builder.WhereNotNull(r.RelatedParentKey)
-	r.Builder.WhereIn(r.RelatedParentKey, keys)
+	r.Builder.WhereNotNull(r.RelatedKey)
+	r.Builder.WhereIn(r.RelatedKey, keys)
 }
 func MatchHasOne(models interface{}, related interface{}, relation *HasOneRelation) {
 	relatedModelsValue := related.(reflect.Value)
@@ -70,14 +70,14 @@ func MatchHasOne(models interface{}, related interface{}, relation *HasOneRelati
 	}
 	for i := 0; i < relatedModels.Len(); i++ {
 		result := relatedModels.Index(i)
-		foreignKeyIndex := relatedModel.FieldsByDbName[relation.RelatedParentKey].Index
+		foreignKeyIndex := relatedModel.FieldsByDbName[relation.RelatedKey].Index
 		groupKey := reflect.ValueOf(fmt.Sprint(result.FieldByIndex([]int{foreignKeyIndex})))
 		groupedResults.SetMapIndex(groupKey, result.Addr())
 	}
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 	modelRelationFieldIndex := parsedModel.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parsedModel.FieldsByDbName[relation.ParentKey].Index
+	modelKeyFieldIndex := parsedModel.FieldsByDbName[relation.SelfKey].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
