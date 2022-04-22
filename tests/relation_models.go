@@ -51,6 +51,7 @@ type UserT struct {
 	ViewedPosts []Post  `goelo:"BelongsToMany:ViewedPostsRelation"`
 	Friends     []UserT `goelo:"BelongsToMany:FriendsRelation"`
 	Address     Address `goelo:"HasOne:AddressRelation"`
+	Posts       []Post  `goelo:"HasMany:PostsRelation"`
 
 	CreatedAt time.Time    `goelo:"column:created_at;CREATED_AT"`
 	UpdatedAt sql.NullTime `goelo:"column:updated_at;UPDATED_AT"`
@@ -119,6 +120,9 @@ func (u *UserT) Updating(builder *goeloquent.Builder) (err error) {
 }
 func (u *UserT) ViewedPostsRelation() *goeloquent.RelationBuilder {
 	return u.BelongsToMany(u, &Post{}, "view_record", "post_id", "users_id", "id", "id")
+}
+func (u *UserT) PostsRelation() *goeloquent.RelationBuilder {
+	return u.HasMany(u, &Post{}, "id", "author_id")
 }
 func (u *UserT) FriendsRelation() *goeloquent.RelationBuilder {
 	return u.BelongsToMany(u, &UserT{}, "friends", "user_id", "friend_id", "id", "id")
