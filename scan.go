@@ -116,8 +116,12 @@ func scanStructSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 			t := make(map[string]sql.NullString, 2)
 			for columnName, index := range pivotColumnMap {
 				t[columnName] = *(scanArgs[index].(*sql.NullString))
+				t[strings.Replace(columnName, "goelo_pivot_", "", 1)] = *(scanArgs[index].(*sql.NullString))
 			}
-			v.Field(model.PivotFieldIndex[0]).Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
+			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
+			eloquentModel := reflect.Indirect(eloquentPtr)
+			eloquentModel.Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
+			v.Field(model.PivotFieldIndex[0]).Set(eloquentPtr)
 		}
 		if itemIsPtr {
 			realDest.Set(reflect.Append(realDest, vp))
@@ -163,8 +167,12 @@ func scanRelations(rows *sql.Rows, dest interface{}) (result ScanResult) {
 			t := make(map[string]sql.NullString, 2)
 			for columnName, index := range pivotColumnMap {
 				t[columnName] = *(scanArgs[index].(*sql.NullString))
+				t[strings.Replace(columnName, "goelo_pivot_", "", 1)] = *(scanArgs[index].(*sql.NullString))
 			}
-			v.Field(model.PivotFieldIndex[0]).Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
+			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
+			eloquentModel := reflect.Indirect(eloquentPtr)
+			eloquentModel.Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
+			v.Field(model.PivotFieldIndex[0]).Set(eloquentPtr)
 		}
 		*destValue = reflect.Append(*destValue, v)
 	}
