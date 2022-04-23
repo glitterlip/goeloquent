@@ -349,6 +349,7 @@ func BatchSync(models interface{}, exists ...bool) {
 				}
 				newModel := reflect.ValueOf(NewEloquentModel(model.Addr().Interface(), exist))
 				if !model.Field(parsed.PivotFieldIndex[0]).IsNil() && !model.FieldByIndex(parsed.PivotFieldIndex).IsZero() {
+					//if pivot is not nil ,copy old pivot to new eloquentmodel
 					newModel.Elem().Field(parsed.PivotFieldIndex[1]).Set(model.FieldByIndex(parsed.PivotFieldIndex))
 				}
 				model.Field(parsed.FieldsByStructName[EloquentName].Index).Set(newModel)
