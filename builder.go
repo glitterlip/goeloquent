@@ -330,11 +330,7 @@ func (b *Builder) CloneWithoutBindings(bindings ...string) *Builder {
 // 1. Select("column1","column2","column3")
 // 2. Select()
 func (b *Builder) Select(columns ...interface{}) *Builder {
-	b.Columns = []interface{}{}
 	b.Components[TYPE_COLUMN] = struct{}{}
-	if len(columns) == 0 {
-		b.Columns = append(b.Columns, "*")
-	}
 
 	for i := 0; i < len(columns); i++ {
 		if c, ok := columns[i].(string); ok {
