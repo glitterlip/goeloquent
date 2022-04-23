@@ -347,7 +347,12 @@ func BatchSync(models interface{}, exists ...bool) {
 				if model.Kind() == reflect.Ptr {
 					model = model.Elem()
 				}
-				model.Field(parsed.FieldsByStructName[EloquentName].Index).Set(reflect.ValueOf(NewEloquentModel(model.Addr().Interface(), exist)))
+				newModel := reflect.ValueOf(NewEloquentModel(model.Addr().Interface(), exist))
+				if !model.Field(parsed.PivotFieldIndex[0]).IsNil() && !model.FieldByIndex(parsed.PivotFieldIndex).IsZero() {
+					newModel.Elem().Field(parsed.PivotFieldIndex[1]).Set(model.FieldByIndex(parsed.PivotFieldIndex))
+				}
+				model.Field(parsed.FieldsByStructName[EloquentName].Index).Set(newModel)
+
 			}
 		}
 	} else if realModels.Type().Kind() == reflect.Struct {
@@ -364,7 +369,7 @@ type EloquentModel struct {
 	Origin        map[string]interface{}    `json:"-"` //store original attribute that get from database or default
 	Changes       map[string]interface{}    `json:"-"` //store changes attribute after save to database
 	ModelPointer  reflect.Value             `json:"-"` //model pointer points to the model hold this
-	Pivot         map[string]sql.NullString `json:"-"` //pivot relation table attribute
+	Pivot         map[string]sql.NullString `json:"-"` //pivot relation table attribute //TODO: field type mapping
 	Exists        bool                      `json:"-"` //indicate whether the model is get from database or newly created and not store to db yet
 	Related       reflect.Value             `json:"-"` //when call save/create on relationship ,this holds the related key
 	Muted         string                    `json:"-"` //mute events
@@ -523,6 +528,7 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 			return nil, eventErr
 		}
 	}
+	//FIXME: call save again in saved callback will cause primarykey dirty
 	if eventErr := m.FireModelEvent(EventSaved, builder); eventErr != nil {
 		return nil, eventErr
 	}
