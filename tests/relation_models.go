@@ -31,7 +31,7 @@ func (p *Post) CommentsRelation() *goeloquent.RelationBuilder {
 }
 
 func (p *Post) ViewersRelation() *goeloquent.RelationBuilder {
-	return p.BelongsToMany(p, &UserT{}, "view_record", "user_id", "post_id", "id", "id")
+	return p.BelongsToMany(p, &UserT{}, "view_records", "user_id", "post_id", "id", "id")
 }
 func (p *Post) TagsRelation() *goeloquent.RelationBuilder {
 	return p.MorphToMany(p, &Tag{}, "tagables", "tag_id", "tagable_id", "id", "id", "tagable_type")
@@ -42,6 +42,13 @@ func (p *Post) ImagesRelation() *goeloquent.RelationBuilder {
 func (p *Post) ImageRelation() *goeloquent.RelationBuilder {
 	return p.MorphOne(p, &Image{}, "imageable_type", "imageable_id", "id")
 }
+
+const (
+	FriendStatusWaiting = 1
+	FriendStatusNormal  = 2
+	FriendStatusDeleted = 3
+	FriendStatusBlocked = 4
+)
 
 type UserT struct {
 	*goeloquent.EloquentModel
@@ -131,6 +138,14 @@ func (u *UserT) AddressRelation() *goeloquent.RelationBuilder {
 	return u.HasOne(u, &Address{}, "id", "user_id")
 }
 
+type Friends struct {
+	ID         int64     `goelo:"column:id;primaryKey"`
+	UserId     int64     `goelo:"column:user_id"`
+	FriendId   int64     `goelo:"column:friend_id"`
+	Status     int       `goelo:"column:status"`
+	Time       time.Time `goelo:"column:time"`
+	Additional string    `goelo:"column:additional"`
+}
 type Address struct {
 	*goeloquent.EloquentModel
 	ID      int64  `goelo:"column:id;primaryKey"`
