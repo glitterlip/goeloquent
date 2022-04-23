@@ -66,6 +66,7 @@ func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, re
 	if relationMethod, ok := model.Relations[relationName]; ok {
 		var params []reflect.Value
 		builderI := relationMethod.Call(params)[0].Interface()
+		//FIXME: builder config lost cause log missing
 		if builder, ok := builderI.(*RelationBuilder); ok {
 			//load nested relations
 			wanted := relationName + "."
