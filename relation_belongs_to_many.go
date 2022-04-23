@@ -17,9 +17,9 @@ var (
 type BelongsToManyRelation struct {
 	Relation
 	PivotTable      string
-	PivotParentKey  string
+	PivotSelfKey    string
 	PivotRelatedKey string
-	ParentKey       string
+	SelfKey         string
 	RelatedKey      string
 	PivotColumns    []string
 	PivotWheres     []Where
@@ -27,24 +27,24 @@ type BelongsToManyRelation struct {
 	Builder         *Builder
 }
 
-func (m *EloquentModel) BelongsToMany(parent interface{}, related interface{}, pivotTable, pivotParentKey, pivotRelatedKey, parentKey, relatedKey string) *RelationBuilder {
+func (m *EloquentModel) BelongsToMany(self interface{}, related interface{}, pivotTable, pivotSelfKey, pivotRelatedKey, selfKey, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := BelongsToManyRelation{
 		Relation: Relation{
-			Parent:  parent,
+			Parent:  self,
 			Related: related,
 			Type:    RelationBelongsToMany,
 		},
-		PivotTable: pivotTable, PivotParentKey: pivotParentKey, PivotRelatedKey: pivotRelatedKey, ParentKey: parentKey, RelatedKey: relatedKey, Builder: b,
+		PivotTable: pivotTable, PivotSelfKey: pivotSelfKey, PivotRelatedKey: pivotRelatedKey, SelfKey: selfKey, RelatedKey: relatedKey, Builder: b,
 	}
 	relatedModel := GetParsedModel(related)
 	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedKey, "=", relatedModel.Table+"."+relation.RelatedKey)
 	b.Select(relatedModel.Table + "." + "*")
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotParentKey, PivotAlias, relation.PivotParentKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, PivotAlias, relation.PivotSelfKey))
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
-	selfModel := GetParsedModel(parent)
-	selfDirect := reflect.Indirect(reflect.ValueOf(parent))
-	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
+	selfModel := GetParsedModel(self)
+	selfDirect := reflect.Indirect(reflect.ValueOf(self))
+	b.Where(relation.PivotSelfKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
 }
@@ -73,7 +73,7 @@ func (relation *BelongsToManyRelation) WherePivots(pivotWheres ...Where) {
 }
 func (relation *BelongsToManyRelation) AddEagerConstraints(parentModels interface{}) {
 	parentParsedModel := GetParsedModel(relation.Parent)
-	index := parentParsedModel.FieldsByDbName[relation.ParentKey].Index
+	index := parentParsedModel.FieldsByDbName[relation.SelfKey].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(parentModels))
 	var parentKeys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -93,14 +93,14 @@ func (relation *BelongsToManyRelation) AddEagerConstraints(parentModels interfac
 		parentKeys = append(parentKeys, modelKey)
 	}
 	relation.Builder.Reset(TYPE_WHERE)
-	relation.Builder.WhereIn(relation.PivotTable+"."+relation.PivotParentKey, parentKeys)
+	relation.Builder.WhereIn(relation.PivotTable+"."+relation.PivotSelfKey, parentKeys)
 }
 func MatchBelongsToMany(models interface{}, related interface{}, relation *BelongsToManyRelation) {
 	relatedModels := related.(reflect.Value)
 	parsedRelatedModel := GetParsedModel(relation.Related)
-	parent := GetParsedModel(relation.Parent)
+	self := GetParsedModel(relation.Parent)
 
-	isPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Kind() == reflect.Ptr
+	isPtr := self.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Kind() == reflect.Ptr
 	var relatedType reflect.Type
 	if isPtr {
 		relatedType = reflect.ValueOf(relation.Relation.Related).Type()
@@ -110,14 +110,15 @@ func MatchBelongsToMany(models interface{}, related interface{}, relation *Belon
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotParentKey := PivotAlias + relation.PivotParentKey
+	pivotSelfKey := PivotAlias + relation.PivotSelfKey
 	if !relatedModels.IsValid() || relatedModels.IsNil() {
 		return
 	}
 	for i := 0; i < relatedModels.Len(); i++ {
 		relatedModel := relatedModels.Index(i)
-		pivotMap := relatedModel.FieldByIndex(parsedRelatedModel.PivotFieldIndex).Interface().(map[string]sql.NullString)
-		groupKey := reflect.ValueOf(pivotMap[pivotParentKey].String)
+		eloquentModelPtr := relatedModel.FieldByIndex(parsedRelatedModel.PivotFieldIndex[0:1])
+		pivotMap := eloquentModelPtr.Elem().FieldByIndex(parsedRelatedModel.PivotFieldIndex[1:2]).Interface().(map[string]sql.NullString)
+		groupKey := reflect.ValueOf(pivotMap[pivotSelfKey].String)
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
 			existed = reflect.New(slice.Type()).Elem()
@@ -137,8 +138,8 @@ func MatchBelongsToMany(models interface{}, related interface{}, relation *Belon
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
-	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelRelationFieldIndex := self.FieldsByStructName[relation.Relation.Name].Index
+	modelKeyFieldIndex := self.FieldsByDbName[relation.SelfKey].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
@@ -155,12 +156,12 @@ func MatchBelongsToMany(models interface{}, related interface{}, relation *Belon
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
 		modelKey := model.Field(modelKeyFieldIndex)
-		modelKeyStr := fmt.Sprint(modelKey)
+		modelKeyStr := fmt.Sprint(modelKey.Interface())
 		value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
 			if !model.Field(modelRelationFieldIndex).CanSet() {
-				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
+				panic(fmt.Sprintf("model: %s field: %s cant be set", self.Name, self.FieldsByStructName[relation.Relation.Name].Name))
 			}
 			model.Field(modelRelationFieldIndex).Set(value)
 		}
@@ -173,7 +174,7 @@ func MatchBelongsToMany(models interface{}, related interface{}, relation *Belon
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
 				if !model.Field(modelRelationFieldIndex).CanSet() {
-					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
+					panic(fmt.Sprintf("model: %s field: %s cant be set", self.Name, self.FieldsByStructName[relation.Relation.Name].Name))
 				}
 				model.Field(modelRelationFieldIndex).Set(value)
 			}
