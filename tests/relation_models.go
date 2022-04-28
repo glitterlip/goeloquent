@@ -37,7 +37,7 @@ func (p *Post) TagsRelation() *goeloquent.RelationBuilder {
 	return p.MorphToMany(p, &Tag{}, "tagables", "tag_id", "tagable_id", "id", "id", "tagable_type")
 }
 func (p *Post) ImagesRelation() *goeloquent.RelationBuilder {
-	rb := p.MorphMany(p, &Image{}, "imageable_type", "imageable_id", "id")
+	rb := p.MorphMany(p, &Image{}, "imageable_type", "imageable_id", "pid")
 	rb.EnableLogQuery()
 	return rb
 }

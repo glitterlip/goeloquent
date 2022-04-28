@@ -75,7 +75,7 @@ func TestMorphMany(t *testing.T) {
 		count, _ = c.RowsAffected()
 		assert.Nil(t, err)
 		assert.Equal(t, int64(1), count)
-		assert.Equal(t, int64(0), len(pp3.Images))
+		assert.Equal(t, 0, len(pp3.Images))
 		//test lazyload
 		var lazy Post
 		var lazyImages []Image
