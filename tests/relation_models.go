@@ -37,10 +37,14 @@ func (p *Post) TagsRelation() *goeloquent.RelationBuilder {
 	return p.MorphToMany(p, &Tag{}, "tagables", "tag_id", "tagable_id", "id", "id", "tagable_type")
 }
 func (p *Post) ImagesRelation() *goeloquent.RelationBuilder {
-	return p.MorphMany(p, &Image{}, "imageable_type", "imageable_id", "id")
+	rb := p.MorphMany(p, &Image{}, "imageable_type", "imageable_id", "id")
+	rb.EnableLogQuery()
+	return rb
 }
 func (p *Post) ImageRelation() *goeloquent.RelationBuilder {
-	return p.MorphOne(p, &Image{}, "imageable_type", "imageable_id", "id")
+	rb := p.MorphOne(p, &Image{}, "imageable_type", "imageable_id", "pid")
+	rb.EnableLogQuery()
+	return rb
 }
 
 const (
@@ -132,10 +136,17 @@ func (u *UserT) PostsRelation() *goeloquent.RelationBuilder {
 	return u.HasMany(u, &Post{}, "id", "author_id")
 }
 func (u *UserT) FriendsRelation() *goeloquent.RelationBuilder {
-	return u.BelongsToMany(u, &UserT{}, "friends", "user_id", "friend_id", "id", "id")
+	rb := u.BelongsToMany(u, &UserT{}, "friends", "user_id", "friend_id", "id", "id")
+	rb.Builder.EnableLogQuery()
+	return rb
 }
 func (u *UserT) AddressRelation() *goeloquent.RelationBuilder {
 	return u.HasOne(u, &Address{}, "id", "user_id")
+}
+func (u *UserT) ImagesRelation() *goeloquent.RelationBuilder {
+	rb := u.MorphMany(u, &Image{}, "imageable_type", "imageable_id", "id")
+	rb.EnableLogQuery()
+	return rb
 }
 
 type Friends struct {
