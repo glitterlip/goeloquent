@@ -2328,7 +2328,14 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 		b.Components[TYPE_COLUMN] = struct{}{}
 		b.Columns = append(b.Columns, "*")
 	}
-
+	if len(b.EagerLoad) == 0 {
+		if len(b.Pivots) > 0 {
+			WithPivots(b, b.Joins[0].JoinTable.(string), b.Pivots)
+		}
+		if len(b.PivotWheres) > 0 {
+			WherePivots(b, b.Joins[0].JoinTable.(string), b.PivotWheres)
+		}
+	}
 	result, err = b.RunSelect()
 	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	if err == nil && len(b.EagerLoad) > 0 && result.(ScanResult).Count > 0 {

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 var (
@@ -47,29 +46,6 @@ func (m *EloquentModel) BelongsToMany(self interface{}, related interface{}, piv
 	b.Where(relation.PivotSelfKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
-}
-func (relation *BelongsToManyRelation) SelectPivots(pivots ...string) {
-	for _, pivot := range pivots {
-		if strings.Contains(pivot, ".") {
-			if strings.Contains(pivot, relation.PivotTable) {
-				relation.Builder.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, pivot, PivotAlias, pivot))
-			}
-		} else {
-			relation.Builder.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, pivot, PivotAlias, pivot))
-		}
-	}
-}
-func (relation *BelongsToManyRelation) WherePivots(pivotWheres ...Where) {
-	for _, where := range pivotWheres {
-		if strings.Contains(where.Column, ".") {
-			if strings.Contains(where.Column, relation.PivotTable) {
-				sa := strings.SplitN(where.Column, ".", 2)
-				relation.Builder.Where(relation.PivotTable+"."+sa[1], where.Operator, where.Value, where.Boolean)
-			}
-		} else {
-			relation.Builder.Where(relation.PivotTable+"."+where.Column, where.Operator, where.Value, where.Boolean)
-		}
-	}
 }
 func (relation *BelongsToManyRelation) AddEagerConstraints(parentModels interface{}) {
 	parentParsedModel := GetParsedModel(relation.Parent)

@@ -49,17 +49,17 @@ func (r *RelationBuilder) EagerLoadRelations(models interface{}) {
 	}
 }
 func (r *RelationBuilder) LoadPivotColumns(pivots ...string) {
-	switch r.Relation.(type) {
+	switch relation := r.Relation.(type) {
 	case *BelongsToManyRelation:
-		relation := r.Relation.(*BelongsToManyRelation)
-		relation.SelectPivots(pivots...)
+	case *MorphToManyRelation:
+		WithPivots(r.Builder, relation.PivotTable, pivots)
 	}
 }
 func (r *RelationBuilder) LoadPivotWheres(pivotWheres ...Where) {
-	switch r.Relation.(type) {
+	switch relation := r.Relation.(type) {
 	case *BelongsToManyRelation:
-		relation := r.Relation.(*BelongsToManyRelation)
-		relation.WherePivots(pivotWheres...)
+	case *MorphToManyRelation:
+		WherePivots(r.Builder, relation.PivotTable, pivotWheres)
 	}
 }
 func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, relationName string, constraints func(*RelationBuilder) *RelationBuilder) {
@@ -172,5 +172,29 @@ func (r *RelationBuilder) Match(models interface{}, relationResults interface{},
 		relation := relationI.(*MorphByManyRelation)
 		relation.Name = relationName
 		MatchMorphByMany(models, relationResults, relation)
+	}
+}
+
+func WithPivots(builder *Builder, table string, columns []string) {
+	for _, pivot := range columns {
+		if strings.Contains(pivot, ".") {
+			if strings.Contains(pivot, table) {
+				builder.Select(fmt.Sprintf("%s.%s as %s%s", table, pivot, PivotAlias, pivot))
+			}
+		} else {
+			builder.Select(fmt.Sprintf("%s.%s as %s%s", table, pivot, PivotAlias, pivot))
+		}
+	}
+}
+func WherePivots(builder *Builder, table string, wheres []Where) {
+	for _, where := range wheres {
+		if strings.Contains(where.Column, ".") {
+			if strings.Contains(where.Column, table) {
+				sa := strings.SplitN(where.Column, ".", 2)
+				builder.Where(table+"."+sa[1], where.Operator, where.Value, where.Boolean)
+			}
+		} else {
+			builder.Where(table+"."+where.Column, where.Operator, where.Value, where.Boolean)
+		}
 	}
 }
