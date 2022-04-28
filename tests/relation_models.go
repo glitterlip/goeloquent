@@ -34,7 +34,9 @@ func (p *Post) ViewersRelation() *goeloquent.RelationBuilder {
 	return p.BelongsToMany(p, &UserT{}, "view_records", "user_id", "post_id", "id", "id")
 }
 func (p *Post) TagsRelation() *goeloquent.RelationBuilder {
-	return p.MorphToMany(p, &Tag{}, "tagables", "tag_id", "tagable_id", "id", "id", "tagable_type")
+	rb := p.MorphToMany(p, &Tag{}, "tagable", "tag_id", "tagable_id", "pid", "tid", "tagable_type")
+	rb.EnableLogQuery()
+	return rb
 }
 func (p *Post) ImagesRelation() *goeloquent.RelationBuilder {
 	rb := p.MorphMany(p, &Image{}, "imageable_type", "imageable_id", "pid")
@@ -249,9 +251,10 @@ CREATE TABLE "tag" (
   PRIMARY KEY ("tid") USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE "tagable" (
-  "id" int(10) unsigned zerofill NOT NULL,
+  "id" int(10) unsigned zerofill NOT NULL AUTO_INCREMENT,
   "tag_id" int(11) NOT NULL,
   "tagable_id" int(11) DEFAULT NULL,
+  "status" int(10) unsigned NOT NULL DEFAULT '0',
   "tagable_type" varchar(255) DEFAULT NULL,
   PRIMARY KEY ("id")
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
