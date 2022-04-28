@@ -14,7 +14,7 @@ type MorphManyRelation struct {
 	MorphType        string
 }
 
-func (m *EloquentModel) MorphMany(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, parentKey string) *RelationBuilder {
+func (m *EloquentModel) MorphMany(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, selfKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphManyRelation{
 		Relation: Relation{
@@ -22,13 +22,13 @@ func (m *EloquentModel) MorphMany(self interface{}, related interface{}, related
 			Related: related,
 			Type:    RelationMorphOne,
 		},
-		RelatedIdColumn: relatedIdColumn, ParentKey: parentKey, Builder: b, RelatedTpeColumn: relatedTypeColumn,
+		RelatedIdColumn: relatedIdColumn, ParentKey: selfKey, Builder: b, RelatedTpeColumn: relatedTypeColumn,
 	}
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
 	relation.MorphType = GetMorphMap(selfModel.Name)
 
-	b.Where(relatedIdColumn, "=", selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
+	b.Where(relatedIdColumn, "=", selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
 	b.WhereNotNull(relatedIdColumn)
 	b.Where(relatedTypeColumn, "=", relation.MorphType)
 
