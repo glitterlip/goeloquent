@@ -20,19 +20,16 @@ type MorphToResult struct {
 func (m *MorphToResult) GetMorph() {
 
 }
-func (m *EloquentModel) MorphTo(self interface{}, parentRelatedKey, relatedKey, parentRelatedType string) *RelationBuilder {
+func (m *EloquentModel) MorphTo(self interface{}, selfRelatedKey, relatedKey, parentRelatedType string) *RelationBuilder {
 
 	builder := NewRelationBaseBuilder(nil)
-	if m.Tx != nil {
-		builder.Tx = m.Tx
-	}
 	relation := MorphToRelation{
 		Relation: Relation{
 			Parent:  self,
 			Related: nil,
 			Type:    RelationMorphTo,
 		},
-		ParentRelatedKey: parentRelatedKey, RelatedKey: relatedKey, Builder: builder, ParentRelatedType: parentRelatedType,
+		ParentRelatedKey: selfRelatedKey, RelatedKey: relatedKey, Builder: builder, ParentRelatedType: parentRelatedType,
 	}
 	parent := GetParsedModel(self)
 	relatedTypeField := parent.FieldsByDbName[parentRelatedType]
@@ -40,7 +37,7 @@ func (m *EloquentModel) MorphTo(self interface{}, parentRelatedKey, relatedKey, 
 	if t != "" {
 		m := GetMorphDBMap(t)
 		builder.SetModel(m.Type())
-		builder.Where(relatedKey, reflect.Indirect(reflect.ValueOf(self)).Field(parent.FieldsByDbName[parentRelatedKey].Index).Interface())
+		builder.Where(relatedKey, reflect.Indirect(reflect.ValueOf(self)).Field(parent.FieldsByDbName[selfRelatedKey].Index).Interface())
 	}
 
 	return &RelationBuilder{Builder: builder, Relation: &relation}
