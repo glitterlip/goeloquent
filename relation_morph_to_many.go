@@ -17,7 +17,7 @@ type MorphToManyRelation struct {
 	MorphType       string
 }
 
-func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivotRelatedKey, pivotParentKey, parentKey, relatedKey, morphType string) *RelationBuilder {
+func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivotRelatedKey, pivotSelfKey, selfKey, relatedKey, morphType string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphToManyRelation{
 		Relation: Relation{
@@ -27,8 +27,8 @@ func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivot
 		},
 		PivotTable:      pivotTable,
 		PivotRelatedKey: pivotRelatedKey,
-		PivotParentKey:  pivotParentKey,
-		ParentKey:       parentKey,
+		PivotParentKey:  pivotSelfKey,
+		ParentKey:       selfKey,
 		RelatedKey:      relatedKey,
 		Builder:         b,
 		MorphType:       morphType,
@@ -40,7 +40,7 @@ func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivot
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotParentKey, PivotAlias, relation.PivotParentKey))
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
+	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
 	modelMorphName := GetMorphMap(selfModel.Name)
 	b.Where(morphType, modelMorphName)
 	return &RelationBuilder{Builder: b, Relation: &relation}
