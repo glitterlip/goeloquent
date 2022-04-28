@@ -184,18 +184,20 @@ func (c *Comment) PostRelation() *goeloquent.RelationBuilder {
 
 type Image struct {
 	*goeloquent.EloquentModel
-	ID            int64  `goelo:"column:id;primaryKey"`
-	Url           string `goelo:"column:url"`
-	ImageableType string `goelo:"column:imageable_type"`
-	ImageableId   int64  `goelo:"column:imageable_id"`
-	Tags          []Tag  `goelo:"MorphToMany:TagsRelation"`
+	ID            int64       `goelo:"column:id;primaryKey"`
+	Url           string      `goelo:"column:url"`
+	ImageableType string      `goelo:"column:imageable_type"`
+	ImageableId   int64       `goelo:"column:imageable_id"`
+	Tags          []Tag       `goelo:"MorphToMany:TagsRelation"`
+	Imageable     interface{} `goelo:"MorphTo:ImageableRelation"`
+}
+
+func (i *Image) ImageableRelation() *goeloquent.RelationBuilder {
+	return i.MorphTo(i, "imageable_id", "id", "imageable_type")
 }
 
 func (i *Image) TagsRelation() *goeloquent.RelationBuilder {
 	return i.MorphToMany(i, &Tag{}, "tagables", "tag_id", "tagable_id", "id", "id", "tagable_type")
-}
-func (i *Image) Imageable() *goeloquent.RelationBuilder {
-	return i.MorphTo(i, "imageable_id", "id", "imageable_type")
 }
 
 type Tag struct {
