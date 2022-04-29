@@ -51,15 +51,17 @@ func (r *RelationBuilder) EagerLoadRelations(models interface{}) {
 func (r *RelationBuilder) LoadPivotColumns(pivots ...string) {
 	switch relation := r.Relation.(type) {
 	case *BelongsToManyRelation:
+		WithPivots(relation.Builder, relation.PivotTable, pivots)
 	case *MorphToManyRelation:
-		WithPivots(r.Builder, relation.PivotTable, pivots)
+		WithPivots(relation.Builder, relation.PivotTable, pivots)
 	}
 }
 func (r *RelationBuilder) LoadPivotWheres(pivotWheres ...Where) {
 	switch relation := r.Relation.(type) {
 	case *BelongsToManyRelation:
+		WherePivots(relation.Builder, relation.PivotTable, pivotWheres)
 	case *MorphToManyRelation:
-		WherePivots(r.Builder, relation.PivotTable, pivotWheres)
+		WherePivots(relation.Builder, relation.PivotTable, pivotWheres)
 	}
 }
 func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, relationName string, constraints func(*RelationBuilder) *RelationBuilder) {
