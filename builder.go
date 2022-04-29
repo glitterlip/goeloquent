@@ -2465,3 +2465,13 @@ func (b *Builder) GetCountForPagination() (total int) {
 
 	return
 }
+
+/*
+Scopes Add scopes to the builder
+*/
+func (b *Builder) Scopes(scopes ...func(builder *Builder) *Builder) *Builder {
+	for _, scope := range scopes {
+		scope(b)
+	}
+	return b
+}
