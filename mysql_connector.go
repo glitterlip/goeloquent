@@ -61,7 +61,7 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	}
 	err = db.Ping()
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)
