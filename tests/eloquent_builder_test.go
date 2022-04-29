@@ -10,7 +10,7 @@ import (
 )
 
 type User struct {
-	goeloquent.EloquentModel
+	*goeloquent.EloquentModel
 	Id        int64          `goelo:"column:id;primaryKey"`
 	UserName  sql.NullString `goelo:"column:name"`
 	Age       int            `goelo:"column:age"`
@@ -23,7 +23,7 @@ func (user *User) TableName() string {
 }
 
 type UserTable struct {
-	goeloquent.EloquentModel
+	*goeloquent.EloquentModel
 	Id        int64          `goelo:"column:User_Sid;primaryKey"`
 	UserName  sql.NullString `goelo:"column:name"`
 	Age       int            `goelo:"column:age"`
@@ -36,7 +36,7 @@ func (user *UserTable) TableName() string {
 }
 
 type UserConnection struct {
-	goeloquent.EloquentModel
+	*goeloquent.EloquentModel
 	Id        int64          `goelo:"column:id;primaryKey"`
 	UserName  sql.NullString `goelo:"column:name"`
 	Age       int            `goelo:"column:age"`
@@ -49,7 +49,7 @@ func (user *UserConnection) ConnectionName() string {
 }
 func TestParseModel(t *testing.T) {
 	type U struct {
-		goeloquent.EloquentModel
+		*goeloquent.EloquentModel
 	}
 	var user User
 	var userT UserTable
