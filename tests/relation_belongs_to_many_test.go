@@ -113,7 +113,7 @@ func TestBelongsToMany(t *testing.T) {
 		var lazyUser []UserT
 		DB.Model(&u1).Find(&lazy, u1.Id)
 		lazy.FriendsRelation().WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "additional").Get(&lazyUser)
-		assert.Equal(t, 4, len(lazyUser))
+		assert.Equal(t, 2, len(lazyUser))
 		for _, friend := range lazy.Friends {
 			assert.Equal(t, friend.Pivot["status"].String, strconv.Itoa(FriendStatusNormal))
 			assert.Equal(t, friend.Pivot["user_id"].String, strconv.Itoa(int(lazy.Id)))
