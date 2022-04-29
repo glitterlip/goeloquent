@@ -2324,10 +2324,6 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 	var start = time.Now()
 	b.Dest = dest
 	b.DestReflectValue = reflect.ValueOf(dest)
-	if _, ok := b.Components[TYPE_COLUMN]; !ok || len(b.Columns) == 0 {
-		b.Components[TYPE_COLUMN] = struct{}{}
-		b.Columns = append(b.Columns, "*")
-	}
 	if len(b.EagerLoad) == 0 {
 		if len(b.Pivots) > 0 {
 			WithPivots(b, b.Joins[0].JoinTable.(string), b.Pivots)

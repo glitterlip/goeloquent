@@ -115,6 +115,10 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 
 func (m *MysqlGrammar) CompileSelect() string {
 	b := m.GetBuilder()
+	if _, ok := b.Components[TYPE_COLUMN]; !ok || len(b.Columns) == 0 {
+		b.Components[TYPE_COLUMN] = struct{}{}
+		b.Columns = append(b.Columns, "*")
+	}
 	for _, componentName := range SelectComponents {
 		if _, ok := b.Components[componentName]; ok {
 			b.PreSql.WriteString(m.compileComponent(componentName))
