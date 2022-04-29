@@ -700,35 +700,35 @@ func (m *EloquentModel) FireModelEvent(eventName string, b *Builder) error {
 	reverted := m.ModelPointer.Interface()
 	switch eventName {
 	case EventSaving:
-		if model, ok := reverted.(ISaving); ok {
+		if model, ok := reverted.(ISaving); ok && !strings.Contains(m.Muted, EventSaving) {
 			return model.Saving(b)
 		}
 	case EventSaved:
-		if model, ok := reverted.(ISaved); ok {
+		if model, ok := reverted.(ISaved); ok && !strings.Contains(m.Muted, EventSaved) {
 			return model.Saved(b)
 		}
 	case EventCreating:
-		if model, ok := reverted.(ICreating); ok {
+		if model, ok := reverted.(ICreating); ok && !strings.Contains(m.Muted, EventCreating) {
 			return model.Creating(b)
 		}
 	case EventCreated:
-		if model, ok := reverted.(ICreated); ok {
+		if model, ok := reverted.(ICreated); ok && !strings.Contains(m.Muted, EventCreated) {
 			return model.Created(b)
 		}
 	case EventUpdating:
-		if model, ok := reverted.(IUpdating); ok {
+		if model, ok := reverted.(IUpdating); ok && !strings.Contains(m.Muted, EventUpdating) {
 			return model.Updating(b)
 		}
 	case EventUpdated:
-		if model, ok := reverted.(IUpdated); ok {
+		if model, ok := reverted.(IUpdated); ok && !strings.Contains(m.Muted, EventUpdated) {
 			return model.Updated(b)
 		}
 	case EventDeleteing:
-		if model, ok := reverted.(IDeleting); ok {
+		if model, ok := reverted.(IDeleting); ok && !strings.Contains(m.Muted, EventDeleteing) {
 			return model.Deleting(b)
 		}
 	case EventDeleted:
-		if model, ok := reverted.(IDeleted); ok {
+		if model, ok := reverted.(IDeleted); ok && !strings.Contains(m.Muted, EventDeleted) {
 			return model.Deleted(b)
 		}
 	}

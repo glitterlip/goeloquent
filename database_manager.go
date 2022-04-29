@@ -124,6 +124,8 @@ func (dm *DatabaseManager) Create(model interface{}) (res sql.Result, err error)
 save/update single model
 */
 func (dm *DatabaseManager) Save(modelP interface{}) (res sql.Result, err error) {
+	//TODO: use connection as proxy
+	//TODO: batch create/update/delete
 	parsed := GetParsedModel(modelP)
 	model := reflect.Indirect(reflect.ValueOf(modelP))
 	if parsed.IsEloquent {
@@ -146,4 +148,14 @@ func (dm *DatabaseManager) Save(modelP interface{}) (res sql.Result, err error) 
 
 	}
 	return
+}
+func (dm *DatabaseManager) Init(modelP interface{}) {
+	parsed := GetParsedModel(modelP)
+	model := reflect.Indirect(reflect.ValueOf(modelP))
+	if parsed.IsEloquent {
+		ininted := !model.Field(parsed.PivotFieldIndex[0]).IsZero()
+		if !ininted {
+			InitModel(modelP)
+		}
+	}
 }

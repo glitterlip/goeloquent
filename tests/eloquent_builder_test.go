@@ -302,6 +302,29 @@ func TestEvents(t *testing.T) {
 		assert.Equal(t, 0, n)
 
 	})
+	//test mute events
+	RunWithDB(c, d, func() {
+		//test deleting deleted
+		var u1, u2 UserT
+		var post Post
+		var image Image
+		u1.UserName = "Alice"
+		u2.UserName = "Bob"
+		DB.Init(&u1)
+		DB.Init(&u2)
+		u1.Mute(goeloquent.EventALL)
+		u2.Mute(goeloquent.EventSaving)
+		DB.Save(&u1)
+		DB.Save(&u2)
+		var count int64
+		imageR, err := DB.Table("image").Where("imageable_id", u1.Id).Where("imageable_type", "users").First(&image)
+		DB.Table("post").Where("author_id", u2.Id).First(&post)
+		assert.Nil(t, err)
+		count, _ = imageR.RowsAffected()
+		assert.Equal(t, int64(0), count)
+		assert.Equal(t, u2.Id, post.AuthorId)
+
+	})
 }
 func TestTimeStamps(t *testing.T) {
 
