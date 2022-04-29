@@ -32,8 +32,8 @@ func (m *EloquentModel) HasMany(self interface{}, related interface{}, selfKey, 
 	return &RelationBuilder{Builder: b, Relation: &relation}
 }
 func (r *HasManyRelation) AddEagerConstraints(models interface{}) {
-	relatedParsedModel := GetParsedModel(r.Related)
-	index := relatedParsedModel.FieldsByDbName[r.ReleatedKey].Index
+	relatedParsedModel := GetParsedModel(r.Parent)
+	index := relatedParsedModel.FieldsByDbName[r.SelfKey].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {

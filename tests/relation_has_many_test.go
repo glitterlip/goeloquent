@@ -20,7 +20,6 @@ func TestHasMany(t *testing.T) {
 		DB.Create(&u2)
 		DB.Create(&u3)
 		var p1, p2, p3 Post
-		var ps []Post
 		p1.Title = "Intro"
 		p2.Title = "Intro2"
 		p3.Title = "Intro3"
@@ -43,11 +42,10 @@ func TestHasMany(t *testing.T) {
 		assert.Nil(t, err)
 		count, _ := result.RowsAffected()
 		assert.Nil(t, err)
-		assert.Equal(t, int64(2), count)
-		assert.Equal(t, 2, len(ps))
+		assert.Equal(t, int64(3), count)
 		for _, user := range us {
 			if user.Id == u2.Id {
-				assert.Equal(t, 2, len(user.Posts))
+				assert.Equal(t, 3, len(user.Posts))
 			}
 			for _, post := range user.Posts {
 				assert.Equal(t, post.AuthorId, user.Id)
