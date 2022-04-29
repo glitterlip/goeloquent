@@ -2423,7 +2423,29 @@ func (b *Builder) ApplyQueryCallbacks() {
 /*
 Paginate Paginate the given query into a simple paginator.
 */
-func (b *Builder) Paginate(p *Paginator, columns ...interface{}) (*Paginator, error) {
+func (b *Builder) Paginate(items interface{}, perPage, currentPage int64, columns ...interface{}) (*Paginator, error) {
+	if len(b.Groups) > 0 || len(b.Havings) > 0 {
+		panic("having/group pagination not supported")
+	}
+	p := &Paginator{
+		Items:       items,
+		Total:       0,
+		PerPage:     perPage,
+		CurrentPage: currentPage,
+	}
+	cb := CloneWithout(b, TYPE_COLUMN, TYPE_ORDER, TYPE_OFFSET, TYPE_LIMIT)
+	cb.Bindings = b.GetRawBindings()
+	_, err := cb.Count(&p.Total)
+	if err != nil {
+		return nil, err
+	}
+	_, err = b.ForPage(p.CurrentPage, p.PerPage).Get(p.Items, columns...)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+func (b *Builder) PaginateUsingPaginator(p *Paginator, columns ...interface{}) (*Paginator, error) {
 	if len(b.Groups) > 0 || len(b.Havings) > 0 {
 		panic("having/group pagination not supported")
 	}

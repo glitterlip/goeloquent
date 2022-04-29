@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	goeloquent "github.com/glitterlip/go-eloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -1166,6 +1167,45 @@ func TestQueryScopes(t *testing.T) {
 		return b.Where("age", 18)
 	}, ScopeFunc).Get(&us)
 	assert.Equal(t, "select * from `users` where `age` = ? order by `id` desc", b.ToSql())
+
+}
+func TestPaginate(t *testing.T) {
+	//testPaginate
+	c, d := CreateRelationTables()
+
+	RunWithDB(c, d, func() {
+		var usersSlice []map[string]interface{}
+		var users, users1 []UserT
+		for i := 0; i < 50; i++ {
+			user := map[string]interface{}{
+				"name": fmt.Sprintf("bot_%d", i),
+				"age":  100 - i,
+			}
+			usersSlice = append(usersSlice, user)
+		}
+		c, err := DB.Table("user").Insert(usersSlice)
+		assert.Nil(t, err)
+		count, err := c.RowsAffected()
+		assert.Equal(t, int64(len(usersSlice)), count)
+		paginator, err := DB.Model(&UserT{}).Where("id", ">", 10).Where("id", "<", 28).Paginate(&users, 10, 1)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(17), paginator.Total)
+		assert.Equal(t, int64(1), paginator.CurrentPage)
+		assert.Equal(t, 10, len(users))
+		for _, u := range users {
+			assert.True(t, u.Id > 10 && u.Id < 28)
+		}
+
+		paginator1, err := DB.Model(&UserT{}).Where("id", ">", 13).Paginate(&users1, 5, 2)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(37), paginator1.Total)
+		assert.Equal(t, int64(2), paginator1.CurrentPage)
+		assert.Equal(t, 5, len(users1))
+		for _, u := range users1 {
+			assert.True(t, u.Id > 13)
+		}
+
+	})
 
 }
 func TestAggregate(t *testing.T) {
