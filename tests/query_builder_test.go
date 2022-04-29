@@ -474,12 +474,12 @@ func TestOrderBys(t *testing.T) {
 	//testReorder
 	sql = GetBuilder().From("users").Select().OrderBy("email")
 	ShouldEqual(t, "select * from `users` order by `email` asc", sql)
-	sql.ReOrder()
+	sql = GetBuilder().From("users").Select().OrderBy("email").ReOrder()
 	ShouldEqual(t, "select * from `users`", sql)
 
 	sql = GetBuilder().From("users").Select().OrderBy("email")
 	ShouldEqual(t, "select * from `users` order by `email` asc", sql)
-	sql.ReOrder("name", "desc")
+	sql = GetBuilder().From("users").Select().OrderBy("email").ReOrder("name", "desc")
 	ShouldEqual(t, "select * from `users` order by `name` desc", sql)
 
 	sql = GetBuilder().Select().From("users").OrderByRaw("?", []interface{}{true})
