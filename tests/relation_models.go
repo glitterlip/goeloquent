@@ -143,7 +143,9 @@ func (u *UserT) FriendsRelation() *goeloquent.RelationBuilder {
 	return rb
 }
 func (u *UserT) AddressRelation() *goeloquent.RelationBuilder {
-	return u.HasOne(u, &Address{}, "id", "user_id")
+	rb := u.HasOne(u, &Address{}, "id", "user_id")
+	rb.EnableLogQuery()
+	return rb
 }
 func (u *UserT) ImagesRelation() *goeloquent.RelationBuilder {
 	rb := u.MorphMany(u, &Image{}, "imageable_type", "imageable_id", "id")
@@ -170,8 +172,10 @@ type Address struct {
 	Detail  string `goelo:"column:detail"`
 }
 
-func (a *Address) UserTRelation() *goeloquent.RelationBuilder {
-	return a.BelongsTo(a, &Address{}, "id", "post_id")
+func (a *Address) UserRelation() *goeloquent.RelationBuilder {
+	rb := a.BelongsTo(a, &Address{}, "id", "post_id")
+	rb.EnableLogQuery()
+	return rb
 }
 
 type Comment struct {
