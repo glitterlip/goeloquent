@@ -357,10 +357,14 @@ func BatchSync(models interface{}, exists ...bool) {
 			}
 		}
 	} else if realModels.Type().Kind() == reflect.Struct {
-		item := realModels
-		p := GetParsedModel(item.Type())
-		if p.IsEloquent {
-			item.Field(p.FieldsByStructName[EloquentName].Index).Set(reflect.ValueOf(NewEloquentModel(item.Addr().Interface(), exist)))
+		parsed := GetParsedModel(realModels.Type())
+		if parsed.IsEloquent {
+			model := realModels
+			newModel := reflect.ValueOf(NewEloquentModel(model.Addr().Interface(), exist))
+			if !model.Field(parsed.PivotFieldIndex[0]).IsNil() && !model.FieldByIndex(parsed.PivotFieldIndex).IsZero() {
+				newModel.Elem().Field(parsed.PivotFieldIndex[1]).Set(model.FieldByIndex(parsed.PivotFieldIndex))
+			}
+			realModels.Field(parsed.FieldsByStructName[EloquentName].Index).Set(reflect.ValueOf(NewEloquentModel(realModels.Addr().Interface(), exist)))
 		}
 	}
 	return
