@@ -1208,6 +1208,12 @@ func TestPaginate(t *testing.T) {
 	})
 
 }
+func TestChunk(t *testing.T) {
+	//TODO: testChunkWithLastChunkComplete
+	//TODO: testChunkWithLastChunkPartial
+	//TODO: testChunkCanBeStoppedByReturningFalse
+	//TODO: testChunkWithCountZero
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 	b := DB.Query()
@@ -1237,3 +1243,173 @@ func TestAggregate(t *testing.T) {
 	b5.From("users").Sum(&m1, "age")
 	assert.Equal(t, "select sum(`age`) as aggregate from `users`", b5.ToSql())
 }
+
+//TODO: testJsonWhereNullMysql
+//TODO: testJsonWhereNotNullMysql
+//TODO: testUnlessCallback
+//TODO: testUnlessCallbackWithReturn
+//TODO: testUnlessCallbackWithDefault
+//TODO: testTapCallback
+//TODO: testWhereFulltextMySql
+//TODO: testWhenCallbackWithReturn
+//TODO: testFindReturnsFirstResultByID
+//TODO: testFirstMethodReturnsFirstResult
+//TODO: testPluckMethodGetsCollectionOfColumnValues
+//TODO: testImplode
+//TODO: testValueMethodReturnsSingleColumn
+//TODO: testExistsOr
+//TODO: testDoesntExistsOr
+//TODO: testAggregateResetFollowedByGet
+//TODO: testAggregateResetFollowedBySelectGet
+//TODO: testAggregateResetFollowedByGetWithColumns
+//TODO: testAggregateWithSubSelect
+//TODO: testInsertUsingMethod
+//TODO: testInsertUsingInvalidSubquery
+//TODO: testInsertGetIdMethodRemovesExpressions
+//TODO: testInsertGetIdWithEmptyValues
+//TODO: testInsertMethodRespectsRawBindings
+//TODO: testUpsertMethod
+//TODO: testUpsertMethodWithUpdateColumns
+//TODO: testUpdateMethodWithJoins
+//TODO: testUpdateMethodWithJoinsOnMySql
+//TODO: testUpdateMethodRespectsRaw
+//TODO: testUpdateOrInsertMethod
+//TODO: testUpdateOrInsertMethodWorksWithEmptyUpdateValues
+//TODO: testDeleteWithJoinMethod
+//TODO: testTruncateMethod
+//TODO: testPreserveAddsClosureToArray
+//TODO: testApplyPreserveCleansArray
+//TODO: testPreservedAreAppliedByToSql
+//TODO: testPreservedAreAppliedByInsert
+//TODO: testPreservedAreAppliedByInsertGetId
+//TODO: testPreservedAreAppliedByInsertUsing
+//TODO: testPreservedAreAppliedByUpsert
+//TODO: testPreservedAreAppliedByUpdate
+//TODO: testPreservedAreAppliedByDelete
+//TODO: testPreservedAreAppliedByTruncate
+//TODO: testPreservedAreAppliedByExists
+//TODO: testMySqlUpdateWrappingJson
+//TODO: testMySqlUpdateWrappingNestedJson
+//TODO: testMySqlUpdateWrappingJsonArray
+//TODO: testMySqlUpdateWithJsonPreparesBindingsCorrectly
+//TODO: testMySqlWrappingJsonWithString
+//TODO: testMySqlWrappingJsonWithInteger
+//TODO: testMySqlWrappingJsonWithDouble
+//TODO: testMySqlWrappingJsonWithBoolean
+//TODO: testMySqlWrappingJsonWithBooleanAndIntegerThatLooksLikeOne
+//TODO: testJsonPathEscaping
+//TODO: testMySqlWrappingJson
+//TODO: testMergeWheresCanMergeWheresAndBindings
+//TODO: testProvidingNullWithOperatorsBuildsCorrectly
+//TODO: testDynamicWhere
+//TODO: testDynamicWhereIsNotGreedy
+//TODO: testCallTriggersDynamicWhere
+//TODO: testSelectWithLockUsesWritePdo
+//TODO: testBindingOrder
+//TODO: testAddBindingWithArrayMergesBindings
+//TODO: testAddBindingWithArrayMergesBindingsInCorrectOrder
+//TODO: testMergeBuilders
+//TODO: testMergeBuildersBindingOrder
+//TODO: testSubSelectResetBindings
+
+//TODO: testChunkPaginatesUsingIdWithLastChunkComplete
+//TODO: testChunkPaginatesUsingIdWithLastChunkPartial
+//TODO: testChunkPaginatesUsingIdWithCountZero
+//TODO: testChunkPaginatesUsingIdWithAlias
+//TODO: testPaginateWithDefaultArguments
+//TODO: testPaginateWhenNoResults
+//TODO: testPaginateWithSpecificColumns
+//TODO: testCursorPaginate
+//TODO: testCursorPaginateMultipleOrderColumns
+//TODO: testCursorPaginateWithDefaultArguments
+//TODO: testCursorPaginateWhenNoResults
+//TODO: testCursorPaginateWithSpecificColumns
+//TODO: testCursorPaginateWithMixedOrders
+//TODO: testWhereRowValues
+//TODO: testWhereRowValuesArityMismatch
+//TODO: testWhereJsonContainsMySql
+//TODO: testWhereJsonDoesntContainMySql
+//TODO: testWhereJsonLengthMySql
+//TODO: testFromSubWithoutBindings
+//TODO: testFromSubWithoutBindings
+
+//TODO: testWhereTimeOperatorOptionalPostgres
+//TODO: testWhereTimeSqlServer
+//TODO: testWhereDatePostgres
+//TODO: testWhereDayPostgres
+//TODO: testWhereMonthPostgres
+//TODO: testWhereYearPostgres
+//TODO: testWhereTimePostgres
+//TODO: testWhereLikePostgres
+//TODO: testWhereDateSqlite
+//TODO: testWhereDaySqlite
+//TODO: testWhereMonthSqlite
+//TODO: testWhereYearSqlite
+//TODO: testWhereTimeSqlite
+//TODO: testWhereTimeOperatorOptionalSqlite
+//TODO: testWhereDateSqlServer
+//TODO: testWhereDaySqlServer
+//TODO: testWhereMonthSqlServer
+//TODO: testWhereYearSqlServer
+//TODO: testWhereIntegerInRaw
+//TODO: testOrWhereIntegerInRaw
+//TODO: testWhereIntegerNotInRaw
+//TODO: testOrWhereIntegerNotInRaw
+//TODO: testEmptyWhereIntegerInRaw
+//TODO: testEmptyWhereIntegerNotInRaw
+//TODO: testWhereFulltextPostgres
+//TODO: testUnions
+//TODO: testUnionAlls
+//TODO: testMultipleUnions
+//TODO: testMultipleUnionAlls
+//TODO: testUnionOrderBys
+//TODO: testUnionLimitsAndOffsets
+//TODO: testUnionWithJoin
+//TODO: testMySqlUnionOrderBys
+//TODO: testMySqlUnionLimitsAndOffsets
+//TODO: testUnionAggregate
+//TODO: testOrderBysSqlServer
+
+//TODO: testGetCountForPaginationWithUnion
+//TODO: testSqlServerExists
+//TODO: testPostgresInsertOrIgnoreMethod
+//TODO: testSQLiteInsertOrIgnoreMethod
+//TODO: testSqlServerInsertOrIgnoreMethod
+//TODO: testUpdateMethodWithJoinsOnSqlServer
+//TODO: testUpdateMethodWithJoinsOnSQLite
+//TODO: testUpdateMethodWithJoinsAndAliasesOnSqlServer
+//TODO: testUpdateMethodWithoutJoinsOnPostgres
+//TODO: testUpdateMethodWithJoinsOnPostgres
+//TODO: testUpdateFromMethodWithJoinsOnPostgres
+//TODO: testPostgresInsertGetId
+//TODO: testPostgresUpdateWrappingJson
+//TODO: testPostgresUpdateWrappingJsonArray
+//TODO: testSQLiteUpdateWrappingJsonArray
+//TODO: testSQLiteUpdateWrappingNestedJsonArray
+//TODO: testPostgresWrappingJson
+//TODO: testSqlServerWrappingJson
+//TODO: testSqliteWrappingJson
+//TODO: testSQLiteOrderBy
+//TODO: testSqlServerLimitsAndOffsets
+//TODO: testMySqlSoundsLikeOperator
+//TODO: testBitwiseOperators
+//TODO: testBuilderThrowsExpectedExceptionWithUndefinedMethod
+//TODO: testPostgresLock
+//TODO: testSqlServerLock
+//TODO: testSqlServerWhereDate
+//TODO: testUppercaseLeadingBooleansAreRemoved
+//TODO: testLowercaseLeadingBooleansAreRemoved
+//TODO: testCaseInsensitiveLeadingBooleansAreRemoved
+//TODO: testTableValuedFunctionAsTableInSqlServer
+//TODO: testWhereJsonContainsPostgres
+//TODO: testWhereJsonContainsSqlite
+//TODO: testWhereJsonContainsSqlServer
+//TODO: testWhereJsonDoesntContainPostgres
+//TODO: testWhereJsonDoesntContainSqlite
+//TODO: testWhereJsonDoesntContainSqlServer
+//TODO: testWhereJsonLengthPostgres
+//TODO: testWhereJsonLengthSqlite
+//TODO: testWhereJsonLengthSqlServer
+//TODO: testFromRawOnSqlServer
+//TODO: testFromRawWithWhereOnTheMainQuery
+//TODO: testFromQuestionMarkOperatorOnPostgres

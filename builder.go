@@ -226,6 +226,20 @@ func CloneBuilder(b *Builder) *Builder {
 	cb.Grammar.SetBuilder(&cb)
 	return &cb
 }
+func MergeBuilder(b *Builder, builder *Builder) *Builder {
+	cb := Builder{
+		Connection:     b.Connection,
+		Components:     make(map[string]struct{}),
+		EagerLoad:      make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+		Grammar:        &MysqlGrammar{},
+		Tx:             b.Tx,
+		Bindings:       make(map[string][]interface{}),
+		LoggingQueries: b.LoggingQueries,
+	}
+	cb.Grammar.SetTablePrefix(b.Grammar.GetTablePrefix())
+	cb.Grammar.SetBuilder(&cb)
+	return &cb
+}
 
 /*
 Clone Clone the query.
@@ -2496,4 +2510,33 @@ func (b *Builder) Scopes(scopes ...func(builder *Builder) *Builder) *Builder {
 		scope(b)
 	}
 	return b
+}
+func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest interface{}) error) (err error) {
+	if len(b.Orders) == 0 {
+		panic(errors.New("must specify an orderby clause when using this method"))
+	}
+	var page int64 = 1
+	var count int64 = 0
+	get, err := b.ForPage(1, chunkSize).Get(dest)
+	if err != nil {
+		return
+	}
+	count, _ = get.RowsAffected()
+	for count > 0 {
+		err = callback(dest)
+		if err != nil {
+			return
+		}
+		if count != chunkSize {
+			break
+		} else {
+			page++
+			get, err = b.ForPage(page, chunkSize).Get(dest)
+			count, _ = get.RowsAffected()
+			if err != nil {
+				return
+			}
+		}
+	}
+
 }

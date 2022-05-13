@@ -71,7 +71,9 @@ func GetMorphDBMap(name string) reflect.Value {
 func RegisterModels(models []interface{}) {
 	for _, m := range models {
 		t := reflect.ValueOf(m).Elem().Type()
-		Eloquent.RegisteredModelsMap.Store(t.PkgPath()+"."+t.Name(), reflect.Indirect(reflect.ValueOf(m)))
+		i := reflect.Indirect(reflect.ValueOf(m))
+		Eloquent.RegisteredModelsMap.Store(t.PkgPath()+"."+t.Name(), i)
+		Eloquent.RegisteredModelsMap.Store(t.Name(), i)
 	}
 }
 func GetRegisteredModel(name string) reflect.Value {

@@ -99,6 +99,9 @@ func TestSingleConnectionNotCreatedUntilNeeded(t *testing.T) {
 	_, ok := DB.Connections["chat"]
 	assert.False(t, ok)
 }
+func TestCorrectDSNParams(t *testing.T) {
+
+}
 
 //TODO: testCustomConnectorsCanBeResolvedViaContainer
 //TODO: testSqliteForeignKeyConstraints

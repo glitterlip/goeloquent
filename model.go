@@ -24,6 +24,8 @@ const (
 	EventRetrieved  = "Retrieved" //TODO: EventRetrieved EventRetrieving
 	EventRetrieving = "Retrieving"
 	EventALL        = "ALL"
+	EventBooting    = "Booting"
+	EventBooted     = "Booted"
 )
 
 type TableName interface {
@@ -59,6 +61,7 @@ type IDeleted interface {
 type IRetrieved interface {
 	Retrieved(builder *Builder) error
 }
+
 type Model struct {
 	Name               string
 	ModelType          reflect.Type
@@ -73,8 +76,9 @@ type Model struct {
 	ConnectionName     string
 	Exists             bool //exists in database
 	PrimaryKey         *Field
-	IsEloquent         bool
-	PivotFieldIndex    []int
+	//PrimaryKeyType     *Field //TODO: The "type" of the primary key ID.
+	IsEloquent      bool
+	PivotFieldIndex []int
 	//DefaultAttributes  map[string]interface{}
 	UpdatedAt  string
 	CreatedAt  string
@@ -82,7 +86,9 @@ type Model struct {
 	SoftDelete bool
 	//EagerLoad     []
 	//GlobalScopes map[string]interface{}
-	DispatchesEvents map[string]reflect.Value
+	DispatchesEvents   map[string]reflect.Value
+	WithRelations      []string //TODO: The relations to eager load on every query.
+	WithRelationCounts []string //TODO: The relationship counts that should be eager loaded on every query.
 }
 type Field struct {
 	Name       string
@@ -381,6 +387,7 @@ type EloquentModel struct {
 	OnlyColumns   map[string]interface{}    `json:"-"` //only update/save these columns
 	ExceptColumns map[string]interface{}    `json:"-"` //exclude update/save there columns
 	Tx            *Transaction              `json:"-"` //use same transaction
+	Booted        bool                      `json:"-"` //model is booted
 
 }
 
@@ -389,6 +396,13 @@ func InitModelInTx(modelPointer interface{}, tx *Transaction, exists ...bool) *E
 	e.Tx = tx
 	return e
 }
+
+//TODO Init DB.Init
+//TODO fireevent => booting
+//boot
+//booted(addglobescopes) =>fireevent
+//syncorigin
+//fill
 func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
 	parsed := GetParsedModel(m.Type())
