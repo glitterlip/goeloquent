@@ -14,6 +14,7 @@ type User struct {
 	Id        int64          `goelo:"column:id;primaryKey"`
 	UserName  sql.NullString `goelo:"column:name"`
 	Age       int            `goelo:"column:age"`
+	Status    int            `goelo:"column:status"`
 	CreatedAt time.Time      `goelo:"column:created_at,timestatmp:create"`
 	UpdatedAt sql.NullTime   `goelo:"column:updated_at,timestatmp:update"`
 }

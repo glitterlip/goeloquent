@@ -2517,13 +2517,14 @@ func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest in
 	}
 	var page int64 = 1
 	var count int64 = 0
-	get, err := b.ForPage(1, chunkSize).Get(dest)
+	tempDest := reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type()).Interface()
+	get, err := b.ForPage(1, chunkSize).Get(tempDest)
 	if err != nil {
 		return
 	}
 	count, _ = get.RowsAffected()
 	for count > 0 {
-		err = callback(dest)
+		err = callback(tempDest)
 		if err != nil {
 			return
 		}
@@ -2531,12 +2532,13 @@ func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest in
 			break
 		} else {
 			page++
-			get, err = b.ForPage(page, chunkSize).Get(dest)
-			count, _ = get.RowsAffected()
+			tempDest = reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type()).Interface()
+			get, err = b.ForPage(page, chunkSize).Get(tempDest)
 			if err != nil {
-				return
+				return err
 			}
+			count, _ = get.RowsAffected()
 		}
 	}
-
+	return nil
 }

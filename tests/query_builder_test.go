@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	goeloquent "github.com/glitterlip/go-eloquent"
 	"github.com/stretchr/testify/assert"
@@ -25,11 +27,12 @@ CREATE TABLE "users" (
   "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
   "name" varchar(255) NOT NULL,
   "age" tinyint(10) unsigned NOT NULL DEFAULT '0',
+  "status" tinyint(10) unsigned NOT NULL DEFAULT '0',
   "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   "deleted_at" datetime DEFAULT NULL,
   PRIMARY KEY ("id")
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;
 `
 	drop = `DROP TABLE IF EXISTS users`
 	return
@@ -1209,10 +1212,72 @@ func TestPaginate(t *testing.T) {
 
 }
 func TestChunk(t *testing.T) {
-	//TODO: testChunkWithLastChunkComplete
-	//TODO: testChunkWithLastChunkPartial
-	//TODO: testChunkCanBeStoppedByReturningFalse
-	//TODO: testChunkWithCountZero
+	//testChunkWithLastChunkComplete
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		var total int
+		totalP := &total
+		err = DB.Table("users").OrderBy("id").Chunk(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for _, user := range *us {
+				assert.Equal(t, user.UserName, sql.NullString{
+					String: fmt.Sprintf("user-%d", user.Age),
+					Valid:  true,
+				})
+				*totalP++
+			}
+			return nil
+		})
+		assert.Nil(t, err)
+		assert.Equal(t, 50, *totalP)
+	})
+	//testChunkCanBeStoppedByReturningError
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		err = DB.Model(&User{}).OrderBy("id").Chunk(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for i := 0; i < len(*us); i++ {
+				(*us)[i].Status = 1
+				fmt.Printf("%p\n", (*us)[i].ModelPointer.Interface())
+				fmt.Printf("%p\n", &(*us)[i])
+				DB.Save(&((*us)[i]))
+				if (*us)[i].Id == 5 {
+					return errors.New("stopped")
+				}
+			}
+			return nil
+		})
+		assert.Equal(t, "stopped", err.Error())
+		var count int
+		DB.Table("users").Where("status", 1).Count(&count)
+		assert.Equal(t, 5, count)
+
+	})
 }
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
