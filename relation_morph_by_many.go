@@ -37,7 +37,7 @@ func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivot
 	b.Select(relatedModel.Table + "." + "*")
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, PivotAlias, relation.PivotSelfKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotTypeColumn, PivotAlias, modelMorphName))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotTypeColumn, PivotAlias, relation.PivotTypeColumn))
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
 	b.Where(relation.PivotSelfKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
 	b.Where(pivotTypeColumn, modelMorphName)
@@ -87,7 +87,7 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotKey := PivotAlias + relation.PivotRelatedKey
+	pivotKey := PivotAlias + relation.PivotSelfKey
 	if !relatedResults.IsValid() || relatedResults.IsNil() {
 		return
 	}
