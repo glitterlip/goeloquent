@@ -12,15 +12,15 @@ import (
 type MorphByManyRelation struct {
 	Relation
 	PivotTable      string
-	PivotParentKey  string
+	PivotSelfKey    string
 	PivotRelatedKey string
-	ParentKey       string
+	SelfKey         string
 	RelatedKey      string
 	Builder         *Builder
 	PivotTypeColumn string
 }
 
-func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivotParentKey, pivotRelatedKey, parentKey, relatedKey, pivotTypeColumn string) *RelationBuilder {
+func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivotSelfKey, pivotRelatedKey, selfKey, relatedKey, pivotTypeColumn string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphByManyRelation{
 		Relation: Relation{
@@ -28,17 +28,18 @@ func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivot
 			Related: related,
 			Type:    RelationMorphByMany,
 		},
-		PivotTable: pivotTable, PivotParentKey: pivotParentKey, PivotRelatedKey: pivotRelatedKey, ParentKey: parentKey, RelatedKey: relatedKey, Builder: b, PivotTypeColumn: pivotTypeColumn,
+		PivotTable: pivotTable, PivotSelfKey: pivotSelfKey, PivotRelatedKey: pivotRelatedKey, SelfKey: selfKey, RelatedKey: relatedKey, Builder: b, PivotTypeColumn: pivotTypeColumn,
 	}
 	selfModel := GetParsedModel(self)
 	relatedModel := GetParsedModel(related)
+	modelMorphName := GetMorphMap(relatedModel.Name)
 	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedKey, "=", relatedModel.Table+"."+relation.RelatedKey)
 	b.Select(relatedModel.Table + "." + "*")
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotParentKey, PivotAlias, relation.PivotParentKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, PivotAlias, relation.PivotSelfKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotTypeColumn, PivotAlias, modelMorphName))
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[parentKey].Index).Interface())
-	modelMorphName := GetMorphMap(relatedModel.Name)
+	b.Where(relation.PivotSelfKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
 	b.Where(pivotTypeColumn, modelMorphName)
 	return &RelationBuilder{Builder: b, Relation: &relation}
 
@@ -46,7 +47,7 @@ func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivot
 
 func (r *MorphByManyRelation) AddEagerConstraints(models interface{}) {
 	parentParsedModel := GetParsedModel(r.Parent)
-	index := parentParsedModel.FieldsByDbName[r.ParentKey].Index
+	index := parentParsedModel.FieldsByDbName[r.SelfKey].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -66,8 +67,9 @@ func (r *MorphByManyRelation) AddEagerConstraints(models interface{}) {
 		keys = append(keys, modelKey)
 	}
 	r.Builder.Reset(TYPE_WHERE)
-	r.Builder.WhereIn(r.PivotTable+"."+r.PivotParentKey, keys)
-	r.Builder.Where(r.PivotTypeColumn, GetMorphMap(parentParsedModel.Name))
+	r.Builder.WhereIn(r.PivotTable+"."+r.PivotSelfKey, keys)
+	relatedParsedModel := GetParsedModel(r.Related)
+	r.Builder.Where(r.PivotTypeColumn, GetMorphMap(relatedParsedModel.Name))
 }
 func MatchMorphByMany(models interface{}, related interface{}, relation *MorphByManyRelation) {
 	relatedValue := related.(reflect.Value)
@@ -114,7 +116,7 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
 	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfKey].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
