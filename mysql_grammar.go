@@ -115,6 +115,8 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 
 func (m *MysqlGrammar) CompileSelect() string {
 	b := m.GetBuilder()
+	b.PreparedSql = ""
+	b.PreSql = strings.Builder{}
 	if _, ok := b.Components[TYPE_COLUMN]; !ok || len(b.Columns) == 0 {
 		b.Components[TYPE_COLUMN] = struct{}{}
 		b.Columns = append(b.Columns, "*")
