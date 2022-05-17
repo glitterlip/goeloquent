@@ -208,21 +208,21 @@ func (i *Image) TagsRelation() *goeloquent.RelationBuilder {
 
 type Tag struct {
 	*goeloquent.EloquentModel
-	ID    int64  `goelo:"column:tid;primaryKey"`
-	Name  string `goelo:"column:name"`
-	Post  Post   `goelo:"MorphByMany:PostsRelation"`
-	Image Image  `goelo:"MorphByMany:ImagesRelation"`
+	ID     int64   `goelo:"column:tid;primaryKey"`
+	Name   string  `goelo:"column:name"`
+	Posts  []Post  `goelo:"MorphByMany:PostsRelation"`
+	Images []Image `goelo:"MorphByMany:ImagesRelation"`
 }
 
 func (t *Tag) ImagesRelation() *goeloquent.RelationBuilder {
-	return t.MorphByMany(t, &Post{}, "tagables", "id", "tagable_id", "id", "id", "tagable_type")
+	return t.MorphByMany(t, &Image{}, "tagables", "tag_id", "tagable_id", "tid", "id", "tagable_type")
 }
 func (t *Tag) PostsRelation() *goeloquent.RelationBuilder {
-	return t.MorphByMany(t, &Post{}, "tagables", "id", "tagable_id", "id", "id", "tagable_type")
+	return t.MorphByMany(t, &Post{}, "tagables", "tag_id", "tagable_id", "tid", "pid", "tagable_type")
 }
 func CreateRelationTables() (create, drop string) {
 	create = `
-DROP TABLE IF EXISTS "comment","image","post","tag","tagable","user","users","view_record","friends","address";
+DROP TABLE IF EXISTS "comment","image","post","tag","tagables","user","users","view_record","friends","address";
 CREATE TABLE "comment" (
   "cid" int(10) unsigned NOT NULL AUTO_INCREMENT,
   "post_id" int(11) NOT NULL,
@@ -254,7 +254,7 @@ CREATE TABLE "tag" (
   "name" varchar(255) DEFAULT '',
   PRIMARY KEY ("tid") USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "tagable" (
+CREATE TABLE "tagables" (
   "id" int(10) unsigned zerofill NOT NULL AUTO_INCREMENT,
   "tag_id" int(11) NOT NULL,
   "tagable_id" int(11) DEFAULT NULL,
