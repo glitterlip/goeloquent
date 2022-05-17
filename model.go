@@ -542,7 +542,7 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 			return nil, eventErr
 		}
 		m.Changes = m.GetDirty()
-		res, err = builder.Update(m.GetAttributesForUpdate())
+		res, err = builder.Where(parsed.PrimaryKey.ColumnName, reflect.Indirect(m.ModelPointer).Field(parsed.PrimaryKey.Index).Interface()).Update(m.GetAttributesForUpdate())
 		if eventErr := m.FireModelEvent(EventUpdated, builder); eventErr != nil {
 			return nil, eventErr
 		}
