@@ -2542,3 +2542,56 @@ func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest in
 	}
 	return nil
 }
+func (b *Builder) ChunkById(dest interface{}, chunkSize int64, callback func(dest interface{}) error, extra ...string) (err error) {
+	eleType := reflect.TypeOf(dest).Elem().Elem()
+	if eleType.Kind() == reflect.Ptr {
+		eleType = eleType.Elem()
+	}
+
+	isMap := eleType.Kind() == reflect.Map
+	var column string
+	var item *Model
+
+	if isMap {
+		column = extra[0]
+	} else {
+		item = GetParsedModel(dest)
+		column = item.PrimaryKey.ColumnName
+	}
+
+	page := int64(1)
+	count := int64(0)
+	tempDest := reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type())
+	nb := Clone(b)
+	get, err := nb.ForPage(1, chunkSize).OrderBy(column).Get(tempDest.Interface())
+	if err != nil {
+		return
+	}
+	count, _ = get.RowsAffected()
+	for count > 0 {
+		err = callback(tempDest.Interface())
+		if err != nil {
+			return
+		}
+		if count != chunkSize {
+			break
+		} else {
+			page++
+			nb = Clone(b)
+			lastEle := tempDest.Elem().Index(tempDest.Elem().Len() - 1)
+			var lastId interface{}
+			if isMap {
+				lastId = lastEle.MapIndex(reflect.ValueOf(column)).Interface()
+			} else {
+				lastId = lastEle.Field(item.PrimaryKey.Index).Interface()
+			}
+			tempDest = reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type())
+			get, err = nb.Limit(int(chunkSize)).Where(column, ">", lastId).OrderBy(column).Get(tempDest.Interface())
+			if err != nil {
+				return err
+			}
+			count, _ = get.RowsAffected()
+		}
+	}
+	return nil
+}

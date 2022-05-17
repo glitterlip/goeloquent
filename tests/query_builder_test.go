@@ -1263,8 +1263,84 @@ func TestChunk(t *testing.T) {
 			us := dest.(*[]User)
 			for i := 0; i < len(*us); i++ {
 				(*us)[i].Status = 1
-				fmt.Printf("%p\n", (*us)[i].ModelPointer.Interface())
-				fmt.Printf("%p\n", &(*us)[i])
+				DB.Save(&((*us)[i]))
+				if (*us)[i].Id == 5 {
+					return errors.New("stopped")
+				}
+			}
+			return nil
+		})
+		assert.Equal(t, "stopped", err.Error())
+		var count int
+		DB.Table("users").Where("status", 1).Count(&count)
+		assert.Equal(t, 5, count)
+
+	})
+}
+func TestChunkById(t *testing.T) {
+	//testChunkWithLastChunkComplete
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		var total int
+		totalP := &total
+		err = DB.Table("users").ChunkById(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for _, user := range *us {
+				assert.Equal(t, user.UserName, sql.NullString{
+					String: fmt.Sprintf("user-%d", user.Age),
+					Valid:  true,
+				})
+				*totalP++
+			}
+			return nil
+		})
+		assert.Nil(t, err)
+		assert.Equal(t, 50, *totalP)
+
+		*totalP = 0
+		err = DB.Table("users").OrderBy("id").ChunkById(&[]map[string]interface{}{}, 10, func(dest interface{}) error {
+			us := dest.(*[]map[string]interface{})
+			for _, user := range *us {
+				assert.Equal(t, string(user["name"].([]uint8)), fmt.Sprintf("user-%d", user["age"]))
+				*totalP++
+			}
+			return nil
+		}, "id")
+		assert.Nil(t, err)
+		assert.Equal(t, 50, *totalP)
+	})
+	//testChunkCanBeStoppedByReturningError
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		err = DB.Model(&User{}).OrderBy("id").Chunk(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for i := 0; i < len(*us); i++ {
+				(*us)[i].Status = 1
 				DB.Save(&((*us)[i]))
 				if (*us)[i].Id == 5 {
 					return errors.New("stopped")
