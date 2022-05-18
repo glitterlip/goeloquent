@@ -1373,6 +1373,72 @@ func TestAggregate(t *testing.T) {
 	b5.From("users").Sum(&m1, "age")
 	assert.Equal(t, "select sum(`age`) as aggregate from `users`", b5.ToSql())
 }
+func TestBase(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 5; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+
+		//testValueMethodReturnsSingleColumn
+		var name string
+		b1 := DB.Query()
+		_, err = b1.From("users").Where("id", 1).Value(&name, "name")
+		assert.Nil(t, err)
+		assert.Equal(t, "user-0", name)
+		assert.Equal(t, "select `name` from `users` where `id` = ? limit 1", b1.PreparedSql)
+
+		//testFindReturnsFirstResultByID
+		var user = make(map[string]interface{})
+		b2 := DB.Query()
+		rows, err := b2.From("users").Find(&user, 1)
+		c, _ = rows.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), c)
+		assert.Equal(t, user["id"], int64(1))
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b2.PreparedSql)
+		assert.Equal(t, []interface{}{1}, b2.GetBindings())
+		//testFirstMethodReturnsFirstResult
+		var user2 = make(map[string]interface{})
+		b3 := DB.Query()
+		rows, err = b3.From("users").Where("id", "=", 1).First(&user2)
+		c, _ = rows.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), c)
+		assert.Equal(t, user2["id"], int64(1))
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b3.PreparedSql)
+		assert.Equal(t, []interface{}{1}, b3.GetBindings())
+		//testInsertMethodRespectsRawBindings
+		b4 := DB.Query().Pretend()
+		b4.From("users").Insert(map[string]interface{}{
+			"email": goeloquent.Raw("CURRENT TIMESTAMP"),
+		})
+		assert.Equal(t, "insert into `users` (`email`) values (CURRENT TIMESTAMP)", b4.ToSql())
+		assert.Nil(t, b4.GetBindings())
+		//testImplode
+		b5 := DB.Query()
+		implode, err := b5.From("users").Where("id", "<", 3).Implode("name")
+		assert.Nil(t, err)
+		assert.Equal(t, "user-0user-1", implode)
+
+		b6 := DB.Query()
+		implode2, err := b6.From("users").Where("id", "<", 3).Implode("name", ",")
+		assert.Nil(t, err)
+		assert.Equal(t, "user-0,user-1", implode2)
+
+	})
+
+}
 
 //TODO: testJsonWhereNullMysql
 //TODO: testJsonWhereNotNullMysql
@@ -1382,11 +1448,7 @@ func TestAggregate(t *testing.T) {
 //TODO: testTapCallback
 //TODO: testWhereFulltextMySql
 //TODO: testWhenCallbackWithReturn
-//TODO: testFindReturnsFirstResultByID
-//TODO: testFirstMethodReturnsFirstResult
 //TODO: testPluckMethodGetsCollectionOfColumnValues
-//TODO: testImplode
-//TODO: testValueMethodReturnsSingleColumn
 //TODO: testExistsOr
 //TODO: testDoesntExistsOr
 //TODO: testAggregateResetFollowedByGet
@@ -1397,7 +1459,6 @@ func TestAggregate(t *testing.T) {
 //TODO: testInsertUsingInvalidSubquery
 //TODO: testInsertGetIdMethodRemovesExpressions
 //TODO: testInsertGetIdWithEmptyValues
-//TODO: testInsertMethodRespectsRawBindings
 //TODO: testUpsertMethod
 //TODO: testUpsertMethodWithUpdateColumns
 //TODO: testUpdateMethodWithJoins
