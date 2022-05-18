@@ -1497,6 +1497,8 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	switch params[0].(type) {
 	case Where:
 		cb.Wheres = append(cb.Wheres, params[0].(Where))
+	case []Where:
+		cb.Wheres = append(cb.Wheres, params[0].([]Where)...)
 	case [][]interface{}:
 		tp := params[0].([][]interface{})
 		for i := 0; i < len(tp); i++ {
