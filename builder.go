@@ -212,7 +212,11 @@ func NewTxBuilder(tx *Transaction) *Builder {
 	}
 	return &b
 }
-func CloneBuilder(b *Builder) *Builder {
+
+/*
+CloneBuilderWithTable clone builder use same connection and table
+*/
+func CloneBuilderWithTable(b *Builder) *Builder {
 	cb := Builder{
 		Connection:     b.Connection,
 		Components:     make(map[string]struct{}),
@@ -408,7 +412,7 @@ func (b *Builder) CreateSub(query interface{}) (string, []interface{}) {
 	if bT, ok := query.(*Builder); ok {
 		builder = bT
 	} else if function, ok := query.(func(builder *Builder)); ok {
-		builder = CloneBuilder(b)
+		builder = CloneBuilderWithTable(b)
 		function(builder)
 	} else if str, ok := query.(string); ok {
 		return b.ParseSub(str)
@@ -638,7 +642,7 @@ func (b *Builder) RightJoinWhere(table, firstColumn, joinOperator, secondColumn 
 	return b.joinWhere(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_RIGHT)
 }
 func NewJoin(builder *Builder, joinType string, table interface{}) *Builder {
-	cb := CloneBuilder(builder)
+	cb := CloneBuilderWithTable(builder)
 	cb.JoinBuilder = true
 	cb.JoinType = joinType
 	cb.JoinTable = table
@@ -938,7 +942,7 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 			boolean = BOOLEAN_AND
 		}
 		//clousure
-		cb := CloneBuilder(b)
+		cb := CloneBuilderWithTable(b)
 		clousure(cb)
 		return b.AddNestedWhereQuery(cb, boolean)
 	} else if where, ok := params[0].(Where); ok {
@@ -967,7 +971,7 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		if paramsLength > 1 {
 			boolean = params[1].(string)
 		}
-		cb := CloneBuilder(b)
+		cb := CloneBuilderWithTable(b)
 		for k, v := range m {
 			cb.Where(k, v)
 		}
@@ -1489,7 +1493,7 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	if paramsLength == 1 {
 		params = append(params, BOOLEAN_AND)
 	}
-	cb := CloneBuilder(b)
+	cb := CloneBuilderWithTable(b)
 	switch params[0].(type) {
 	case Where:
 		cb.Wheres = append(cb.Wheres, params[0].(Where))
@@ -1520,7 +1524,7 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	return b
 }
 func (b *Builder) WhereSub(column string, operator string, value func(builder *Builder), boolean string) *Builder {
-	cb := CloneBuilder(b)
+	cb := CloneBuilderWithTable(b)
 	value(cb)
 	b.Wheres = append(b.Wheres, Where{
 		Type:     CONDITION_TYPE_SUB,
@@ -1539,7 +1543,7 @@ func (b *Builder) WhereSub(column string, operator string, value func(builder *B
 // 2. WhereExists(cb,"and")
 // 3. WhereExists(cb)
 func (b *Builder) WhereExists(cb func(builder *Builder), params ...interface{}) *Builder {
-	newBuilder := CloneBuilder(b)
+	newBuilder := CloneBuilderWithTable(b)
 	cb(newBuilder)
 	boolean := BOOLEAN_AND
 	not := false

@@ -51,11 +51,11 @@ func TestBasicSelectWithColumns(t *testing.T) {
 	b.From("users").Get(&dest)
 	assert.Equal(t, "select * from `users`", b.PreparedSql)
 
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.From("users").Select("id", "name").Get(&dest)
 	assert.Equal(t, "select `id`, `name` from `users`", b1.PreparedSql)
 
-	b2 := goeloquent.CloneBuilder(b)
+	b2 := goeloquent.CloneBuilderWithTable(b)
 	b2.From("users", "u").Get(&dest, "id", "name")
 	assert.Equal(t, "select `id`, `name` from `users` as `u`", b2.PreparedSql)
 }
@@ -68,12 +68,12 @@ func TestWrap(t *testing.T) {
 	assert.Equal(t, "select `x`.`y` as `foo.bar` from `baz`", b.ToSql())
 
 	//testAliasWrappingWithSpacesInDatabaseName
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.Select("w x.y.z as foo.bar").From("baz")
 	assert.Equal(t, "select `w x`.`y`.`z` as `foo.bar` from `baz`", b1.ToSql())
 
 	//testBasicTableWrapping
-	b2 := goeloquent.CloneBuilder(b)
+	b2 := goeloquent.CloneBuilderWithTable(b)
 	b2.Select().From("public.users")
 	assert.Equal(t, "select * from `public`.`users`", b2.ToSql())
 
@@ -114,7 +114,7 @@ func TestAlias(t *testing.T) {
 	assert.Equal(t, "select `foo` as `bar` from `users`", b.ToSql())
 
 	//testAliasWithPrefix
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.Grammar.SetTablePrefix("prefix_")
 	b1.Select("foo as bar", "baz").From("users as u")
 	assert.Equal(t, "select `foo` as `bar`, `baz` from `prefix_users` as `prefix_u`", b1.ToSql())
@@ -131,13 +131,13 @@ func TestWhenCallback(t *testing.T) {
 	b.Select("*").From("users").When(true, cb).Where("name", "John")
 	assert.Equal(t, "select * from `users` where `age` > ? and `name` = ?", b.ToSql())
 
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.Select("*").From("users").When(false, cb).Where("name", "John")
 	assert.Equal(t, "select * from `users` where `name` = ?", b1.ToSql())
 
 	//testWhenCallbackWithDefault
-	b2 := goeloquent.CloneBuilder(b)
-	b3 := goeloquent.CloneBuilder(b)
+	b2 := goeloquent.CloneBuilderWithTable(b)
+	b3 := goeloquent.CloneBuilderWithTable(b)
 	defaultCb := func(builder *goeloquent.Builder) {
 		builder.Where("age", "<", 18)
 	}
