@@ -90,6 +90,7 @@ type Builder struct {
 	JoinTable        interface{}
 	UseWrite         bool //TODO:
 	QueryCallBacks   []func(builder *Builder)
+	RemovedScopes    map[string]struct{}
 }
 
 type Log struct {
@@ -99,14 +100,7 @@ type Log struct {
 	Time     time.Duration
 }
 
-func (b *Builder) WithOutGlobalScope(...interface{}) *Builder {
-
-	return b
-}
-func (b *Builder) WithOutGlobalScopes(...interface{}) *Builder {
-
-	return b
-}
+type ScopeFunc func(builder *Builder) *Builder
 
 const (
 	CONDITION_TYPE_BASIC          = "basic"
@@ -198,6 +192,7 @@ func NewBuilder(c *Connection) *Builder {
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		//Processor:  processors.MysqlProcessor{},
 		Bindings:       make(map[string][]interface{}),
+		RemovedScopes:  make(map[string]struct{}),
 		LoggingQueries: c.Config.EnableLog,
 	}
 	return &b
@@ -209,6 +204,7 @@ func NewTxBuilder(tx *Transaction) *Builder {
 		Tx:             tx,
 		Bindings:       make(map[string][]interface{}),
 		LoggingQueries: tx.Config.EnableLog,
+		RemovedScopes:  make(map[string]struct{}),
 	}
 	return &b
 }
@@ -438,7 +434,7 @@ func (b *Builder) ParseSub(query interface{}) (string, []interface{}) {
 ToSql Get the SQL representation of the query.
 */
 func (b *Builder) ToSql() string {
-
+	b.ApplyQueryCallbacks()
 	if len(b.PreparedSql) > 0 {
 		return b.PreparedSql
 	}
@@ -1966,26 +1962,49 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 }
 
 /*
-RunSelect Run the query as a "select" statement against the connection.
+RunSelect run the query as a "select" statement against the connection.
 */
 func (b *Builder) RunSelect() (result sql.Result, err error) {
-	if b.Tx != nil {
-		result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
-	} else {
-		result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
-	}
-	if err != nil {
+	result, err = b.Run(b.ToSql(), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
+		} else {
+			result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
+		}
 		return
-	}
+	})
+
 	d := reflect.TypeOf(b.Dest).Elem()
 	if d.Kind() == reflect.Slice {
 		d = d.Elem()
 	}
-	if b.Model != nil && b.Model.IsEloquent && d.Kind() == reflect.Struct {
+	if result != nil && b.Model != nil && b.Model.IsEloquent && d.Kind() == reflect.Struct {
 		c, _ := result.RowsAffected()
 		BatchSync(b.Dest, c > 0)
 	}
 	return
+}
+func (b *Builder) GetConnection() IConnection {
+	if b.Tx != nil {
+		return b.Tx
+	}
+	return b.Connection
+}
+func (b *Builder) Run(query string, bindings []interface{}, callback func() (result sql.Result, err error)) (result sql.Result, err error) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			return
+		}
+	}()
+	start := time.Now()
+	result, err = callback()
+	b.logQuery(query, bindings, time.Since(start), result)
+	return
+
 }
 func (b *Builder) WithPivot(columns ...string) *Builder {
 	b.Pivots = append(b.Pivots, columns...)
@@ -2140,32 +2159,32 @@ func PrepareInsertValues(values interface{}) []map[string]interface{} {
 Insert new records into the database.
 */
 func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
-	var start = time.Now()
 	items := PrepareInsertValues(values)
 	if b.FromTable == nil {
 		b.Model = GetParsedModel(values)
 		b.From(b.Model.Table)
 		b.Connection = Eloquent.Connection(b.Model.ConnectionName)
 		b.Grammar.SetTablePrefix(Eloquent.Configs[b.Model.ConnectionName].Prefix)
-
 	}
-	b.Grammar.CompileInsert(items)
-
-	if b.Tx != nil {
-		result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
-	}
-
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileInsert(items), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
 }
 
 /*
 InsertGetId Insert a new record and get the value of the primary key.
 */
 func (b *Builder) InsertGetId(values interface{}) (int64, error) {
-
+	b.ApplyQueryCallbacks()
 	insert, err := b.Insert(values)
 	if err != nil {
 		return 0, err
@@ -2178,30 +2197,39 @@ func (b *Builder) InsertGetId(values interface{}) (int64, error) {
 InsertOrIgnore Insert a new record and get the value of the primary key.
 */
 func (b *Builder) InsertOrIgnore(values interface{}) (result sql.Result, err error) {
-
-	var start = time.Now()
 	items := PrepareInsertValues(values)
-	b.Grammar.CompileInsertOrIgnore(items)
-
-	if b.Tx != nil {
-		result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+	if b.FromTable == nil {
+		b.Model = GetParsedModel(values)
+		b.From(b.Model.Table)
+		b.Connection = Eloquent.Connection(b.Model.ConnectionName)
+		b.Grammar.SetTablePrefix(Eloquent.Configs[b.Model.ConnectionName].Prefix)
 	}
-
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileInsertOrIgnore(items), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
 }
 func (b *Builder) Update(v map[string]interface{}) (result sql.Result, err error) {
-	var start = time.Now()
-	b.Grammar.CompileUpdate(v)
-	if b.Tx != nil {
-		result, err = b.Tx.Update(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Update(b.PreparedSql, b.GetBindings())
-	}
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileUpdate(v), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Update(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Update(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
 }
 func (b *Builder) UpdateOrInsert(n int) interface{} {
 
@@ -2251,16 +2279,23 @@ func (b *Builder) InRandomOrder() {
 Delete Delete records from the database.
 //TODO: Delete(1) Delete(1,2,3) Delete([]interface{}{1,2,3})
 */
-func (b *Builder) Delete() (result sql.Result, err error) {
-	var start = time.Now()
-	b.Grammar.CompileDelete()
-	if b.Tx != nil {
-		result, err = b.Tx.Delete(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Delete(b.PreparedSql, b.GetBindings())
+func (b *Builder) Delete(id ...interface{}) (result sql.Result, err error) {
+	if len(id) > 0 {
+		b.Where("id", id[0])
 	}
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileDelete(), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Delete(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Delete(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
+
 }
 func (b *Builder) Raw() *sql.DB {
 	return b.Connection.GetDB()
@@ -2331,6 +2366,7 @@ func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Du
 Get Execute the query as a "select" statement.
 */
 func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Result, err error) {
+	b.ApplyGlobalScores()
 	if b.FromTable == nil {
 		b.Model = GetParsedModel(dest)
 		b.From(b.Model.Table)
@@ -2341,7 +2377,6 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 	if len(columns) > 0 {
 		b.Select(columns...)
 	}
-	var start = time.Now()
 	b.Dest = dest
 	b.DestReflectValue = reflect.ValueOf(dest)
 	if len(b.EagerLoad) == 0 {
@@ -2353,7 +2388,6 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 		}
 	}
 	result, err = b.RunSelect()
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	if err == nil && len(b.EagerLoad) > 0 && result.(ScanResult).Count > 0 {
 		rb := RelationBuilder{
 			Builder: b,
@@ -2439,6 +2473,46 @@ func (b *Builder) ApplyQueryCallbacks() {
 	}
 	b.QueryCallBacks = nil
 }
+func (b *Builder) ApplyGlobalScores() {
+	if b.Model != nil && len(b.Model.GlobalScopes) > 0 {
+		for name, scopeFunc := range b.Model.GlobalScopes {
+			if _, removed := b.RemovedScopes[name]; !removed {
+				b.callScope(scopeFunc)
+			}
+		}
+	}
+}
+func (b *Builder) callScope(scope ScopeFunc) *Builder {
+	originalWhereCount := len(b.Wheres)
+	scope(b)
+	if len(b.Wheres) > originalWhereCount {
+		b.addNewWheresWithInGroup(originalWhereCount)
+	}
+	return b
+}
+func (b *Builder) addNewWheresWithInGroup(count int) *Builder {
+	wheres := b.Wheres
+	b.Wheres = nil
+	b.groupWhereSliceForScope(wheres[0:count])
+	b.groupWhereSliceForScope(wheres[count:])
+	return b
+}
+func (b *Builder) groupWhereSliceForScope(wheres []Where) *Builder {
+
+	index := 0
+	for i, where := range wheres {
+		if where.Boolean == BOOLEAN_OR {
+			index = i
+			break
+		}
+	}
+	if index > 0 {
+		b.WhereNested(wheres, wheres[0].Boolean)
+	} else {
+		b.Where(wheres)
+	}
+	return b
+}
 
 /*
 Paginate Paginate the given query into a simple paginator.
@@ -2517,6 +2591,21 @@ func (b *Builder) Scopes(scopes ...func(builder *Builder) *Builder) *Builder {
 	}
 	return b
 }
+func (b *Builder) WithOutGlobalScopes(names ...string) *Builder {
+	if len(names) == 0 {
+		//remove all
+		for name, _ := range b.Model.GlobalScopes {
+			b.RemovedScopes[name] = struct{}{}
+		}
+	} else {
+		for _, name := range names {
+			b.RemovedScopes[name] = struct{}{}
+		}
+	}
+
+	return b
+}
+
 func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest interface{}) error) (err error) {
 	if len(b.Orders) == 0 {
 		panic(errors.New("must specify an orderby clause when using this method"))

@@ -85,7 +85,7 @@ type Model struct {
 	DeletedAt  string
 	SoftDelete bool
 	//EagerLoad     []
-	//GlobalScopes map[string]interface{}
+	GlobalScopes       map[string]ScopeFunc
 	DispatchesEvents   map[string]reflect.Value
 	WithRelations      []string //TODO: The relations to eager load on every query.
 	WithRelationCounts []string //TODO: The relationship counts that should be eager loaded on every query.
@@ -196,6 +196,10 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 		}
 		if ptrReciver.Method(i).Name == "GetDefaultAttributes" {
 
+		}
+		if ptrReciver.Method(i).Name == "AddGlobalScopes" {
+			res := modelValue.MethodByName("AddGlobalScopes").Call([]reflect.Value{})
+			model.GlobalScopes = res[0].Interface().(map[string]ScopeFunc)
 		}
 	}
 	if model.PrimaryKey == nil {
