@@ -1439,6 +1439,19 @@ func TestBase(t *testing.T) {
 	})
 
 }
+func TestWhereRowValues(t *testing.T) {
+	//testWhereRowValues
+	b := DB.Query()
+	_, err := b.Select().From("orders").WhereRowValues([]string{"last_update", "order_number"}, "<", []interface{}{1, 2}).Pretend().Get(&[]map[string]interface{}{})
+	assert.Equal(t, "select * from `orders` where (`last_update`, `order_number`) < (?,?)", b.ToSql())
+	assert.Nil(t, err)
+
+	b1 := DB.Query()
+	_, err = b1.Select().From("orders").WhereRowValues([]string{"last_update", "order_number"}, "<", []interface{}{1, goeloquent.Raw("2")}).Pretend().Get(&[]map[string]interface{}{})
+	assert.Equal(t, "select * from `orders` where (`last_update`, `order_number`) < (?,2)", b1.ToSql())
+	assert.Nil(t, err)
+
+}
 
 //TODO: testJsonWhereNullMysql
 //TODO: testJsonWhereNotNullMysql
@@ -1516,7 +1529,6 @@ func TestBase(t *testing.T) {
 //TODO: testCursorPaginateWhenNoResults
 //TODO: testCursorPaginateWithSpecificColumns
 //TODO: testCursorPaginateWithMixedOrders
-//TODO: testWhereRowValues
 //TODO: testWhereRowValuesArityMismatch
 //TODO: testWhereJsonContainsMySql
 //TODO: testWhereJsonDoesntContainMySql

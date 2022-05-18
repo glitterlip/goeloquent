@@ -123,7 +123,7 @@ const (
 	CONDITION_TYPE_SUB            = "subquery" //todo
 	CONDITION_TYPE_EXIST          = "exist"
 	CONDITION_TYPE_NOT_EXIST      = "not exist"
-	CONDITION_TYPE_ROW_VALUES     = "rowValues" //todo
+	CONDITION_TYPE_ROW_VALUES     = "rowValues"
 	BOOLEAN_AND                   = "and"
 	BOOLEAN_OR                    = "or"
 	CONDITION_JOIN_NOT            = "not" //todo
@@ -174,6 +174,7 @@ type Having struct {
 type Where struct {
 	Type         string
 	Column       string
+	Columns      []string
 	Operator     string
 	FirstColumn  string
 	SecondColumn string
@@ -2716,4 +2717,26 @@ func (b *Builder) Implode(column string, glue ...string) (string, error) {
 	}
 
 	return strings.Join(dest, sep), nil
+}
+
+/*
+WhereRowValues Adds a where condition using row values.
+*/
+func (b *Builder) WhereRowValues(columns []string, operator string, values []interface{}, params ...string) *Builder {
+	if len(columns) != len(values) {
+		panic(errors.New("argements number mismatch"))
+	}
+	var boolean = BOOLEAN_AND
+	if len(params) == 1 {
+		boolean = params[0]
+	}
+	b.Components[TYPE_WHERE] = struct{}{}
+	b.Wheres = append(b.Wheres, Where{
+		Type:     CONDITION_TYPE_ROW_VALUES,
+		Operator: operator,
+		Columns:  columns,
+		Values:   values,
+		Boolean:  boolean,
+	})
+	return b
 }

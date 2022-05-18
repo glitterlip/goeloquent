@@ -359,6 +359,12 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 		}
 		sqlBuilder.WriteString("exists ")
 		sqlBuilder.WriteString(fmt.Sprintf("(%s)", w.Query.ToSql()))
+	case CONDITION_TYPE_ROW_VALUES:
+		var columns []interface{}
+		for _, column := range w.Columns {
+			columns = append(columns, column)
+		}
+		sqlBuilder.WriteString(fmt.Sprintf("(%s) %s (%s)", m.columnize(columns), w.Operator, m.parameter(w.Values...)))
 
 	default:
 		panic("where type not Found")
