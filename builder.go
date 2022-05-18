@@ -2698,3 +2698,22 @@ func (b *Builder) Pretend() *Builder {
 	b.Pretending = true
 	return b
 }
+
+/*
+Implode concatenate values of a given column as a string.
+*/
+func (b *Builder) Implode(column string, glue ...string) (string, error) {
+	var dest []string
+	_, err := b.Pluck(&dest, column)
+	if err != nil {
+		return "", nil
+	}
+	var sep string
+	if len(glue) == 0 {
+		sep = ""
+	} else {
+		sep = glue[0]
+	}
+
+	return strings.Join(dest, sep), nil
+}
