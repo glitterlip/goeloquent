@@ -2276,8 +2276,12 @@ func (b *Builder) Increment(column string, amount int, extra ...map[string]inter
 
 	return b.Update(update)
 }
-func (b *Builder) InRandomOrder() {
 
+/*
+InRandomOrder Put the query's results in random order.
+*/
+func (b *Builder) InRandomOrder(seed string) *Builder {
+	return b.OrderByRaw(b.Grammar.CompileRandom(seed), []interface{}{})
 }
 
 /*

@@ -557,3 +557,10 @@ func (m *MysqlGrammar) WrapValue(value string) string {
 	}
 	return value
 }
+
+/*
+CompileRandom Compile the random statement into SQL.
+*/
+func (m *MysqlGrammar) CompileRandom(seed string) string {
+	return fmt.Sprintf("RAND(%s)", seed)
+}
