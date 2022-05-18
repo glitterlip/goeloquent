@@ -1160,18 +1160,7 @@ func TestStruct(t *testing.T) {
 	ElementsShouldMatch(t, []interface{}{"test"}, b2.GetBindings())
 	assert.Equal(t, "insert into `tag` (`name`) values (?)", b.PreparedSql)
 }
-func ScopeFunc(builder *goeloquent.Builder) *goeloquent.Builder {
-	return builder.OrderBy("id", "desc")
-}
-func TestQueryScopes(t *testing.T) {
-	b := DB.Query()
-	var us []UserT
-	b.Select().From("users").Scopes(func(builder *goeloquent.Builder) *goeloquent.Builder {
-		return b.Where("age", 18)
-	}, ScopeFunc).Get(&us)
-	assert.Equal(t, "select * from `users` where `age` = ? order by `id` desc", b.ToSql())
 
-}
 func TestPaginate(t *testing.T) {
 	//testPaginate
 	c, d := CreateRelationTables()
