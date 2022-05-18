@@ -265,7 +265,7 @@ func (m *MysqlGrammar) CompileComponentWheres() string {
 			builder.WriteString(m.Wrap(w.Column))
 			builder.WriteString(" " + w.Operator + " ")
 			builder.WriteString("(")
-			cb := CloneBuilder(m.GetBuilder())
+			cb := CloneBuilderWithTable(m.GetBuilder())
 
 			if clousure, ok := w.Value.(func(builder *Builder)); ok {
 				clousure(cb)
