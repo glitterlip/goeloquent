@@ -2690,3 +2690,7 @@ func (b *Builder) ChunkById(dest interface{}, chunkSize int64, callback func(des
 	}
 	return nil
 }
+func (b *Builder) Pretend() *Builder {
+	b.Pretending = true
+	return b
+}
