@@ -984,7 +984,7 @@ func TestUpdateMethod(t *testing.T) {
 		assert.Nil(t, err)
 		id, err := insert.LastInsertId()
 		assert.Nil(t, err)
-		assert.Equal(t, int64(14), id)
+		assert.Equal(t, int64(1), id)
 		b1 := DB.Table("users")
 		result, err := b1.Where("id", id).Update(map[string]interface{}{
 			"name":       "newname",

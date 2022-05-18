@@ -34,7 +34,7 @@ func (p *Post) ViewersRelation() *goeloquent.RelationBuilder {
 	return p.BelongsToMany(p, &UserT{}, "view_records", "user_id", "post_id", "id", "id")
 }
 func (p *Post) TagsRelation() *goeloquent.RelationBuilder {
-	rb := p.MorphToMany(p, &Tag{}, "tagable", "tag_id", "tagable_id", "pid", "tid", "tagable_type")
+	rb := p.MorphToMany(p, &Tag{}, "tagables", "tag_id", "tagable_id", "pid", "tid", "tagable_type")
 	rb.EnableLogQuery()
 	return rb
 }
@@ -297,7 +297,7 @@ CREATE TABLE "address" (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `
 	drop = `
-DROP TABLE IF EXISTS "comment","image","post","tag","tagable","user","users","view_record","friends","address";
+DROP TABLE IF EXISTS "comment","image","post","tag","tagables","user","users","view_record","friends","address";
 `
 	return
 }
