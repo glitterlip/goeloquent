@@ -2019,16 +2019,23 @@ func (b *Builder) WithPivot(columns ...string) *Builder {
 /*
 Exists Determine if any rows exist for the current query.
 */
-func (b *Builder) Exists() (exists bool) {
-	b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists)
-	return exists
+func (b *Builder) Exists() (exists bool, err error) {
+	_, err = b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 /*
 DoesntExist Determine if no rows exist for the current query.
 */
-func (b *Builder) DoesntExist() bool {
-	return !b.Exists()
+func (b *Builder) DoesntExist() (notExists bool, err error) {
+	e, err := b.Exists()
+	if err != nil {
+		return false, err
+	}
+	return !e, nil
 }
 
 /*
