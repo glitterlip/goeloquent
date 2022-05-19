@@ -2243,9 +2243,102 @@ func (b *Builder) Update(v map[string]interface{}) (result sql.Result, err error
 		return
 	})
 }
-func (b *Builder) UpdateOrInsert(n int) interface{} {
 
-	return 1
+/*
+UpdateOrInsert insert or update a record matching the attributes, and fill it with values.
+*/
+func (b *Builder) UpdateOrInsert(conditions map[string]interface{}, values map[string]interface{}) (updated bool, err error) {
+	exist, err := b.Where(conditions).Exists()
+	if err != nil {
+		return
+	}
+	if !exist {
+		for k, v := range values {
+			conditions[k] = v
+		}
+		b.Reset(TYPE_WHERE)
+		_, err = b.Insert(conditions)
+		if err != nil {
+			return
+		}
+		return false, nil
+	} else {
+		_, err = b.Limit(1).Update(values)
+		if err != nil {
+			return
+		}
+		return true, nil
+	}
+}
+
+/*
+UpdateOrCreate Create or update a record matching the attributes, and fill it with values.
+*/
+func (b *Builder) UpdateOrCreate(target interface{}, conditions, values map[string]interface{}) (updated bool, err error) {
+	rows, err := b.SetModel(target).Where(conditions).First(target)
+	if err != nil {
+		return
+	}
+	c, _ := rows.RowsAffected()
+	if c == 1 {
+		err = Fill(target, values)
+	} else {
+		err = Fill(target, conditions, values)
+	}
+	if err != nil {
+		return
+	}
+	_, err = Eloquent.Save(target)
+	if err != nil {
+		return
+	}
+	return c == 1, nil
+
+}
+
+/*
+Upsert Insert new records or update the existing one
+*/
+func (b *Builder) Upsert() {
+
+}
+
+/*
+FirstOrNew get the first record matching the attributes or instantiate it.
+*/
+func (b *Builder) FirstOrNew(target interface{}, conditions ...map[string]interface{}) (found bool, err error) {
+	res, err := b.SetModel(target).Where(conditions[0]).First(target)
+	c, err := res.RowsAffected()
+	found = c == 1
+	if !found {
+		err = Fill(target, conditions...)
+		if err != nil {
+			return
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
+/*
+FirstOrCreate get the first record matching the attributes or create it.
+*/
+func (b *Builder) FirstOrCreate(target interface{}, conditions ...map[string]interface{}) (found bool, err error) {
+	res, err := b.SetModel(target).Where(conditions[0]).First(target)
+	c, err := res.RowsAffected()
+	found = c == 1
+	if !found {
+		err = Fill(target, conditions...)
+		if err != nil {
+			return
+		}
+		_, err = Eloquent.Save(target)
+		if err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
 }
 
 /*
