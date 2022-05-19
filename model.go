@@ -2,6 +2,7 @@ package goeloquent
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
