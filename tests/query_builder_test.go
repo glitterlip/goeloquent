@@ -1453,6 +1453,231 @@ func TestWhereRowValues(t *testing.T) {
 
 }
 
+func TestUpdateOrInsert(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 5; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+
+		//test updated
+		q := DB.Query()
+		updated, err := q.Table("users").UpdateOrInsert(map[string]interface{}{
+			"age":  2,
+			"name": "user-2",
+		}, map[string]interface{}{
+			"age": 18,
+		})
+		assert.Nil(t, err)
+		assert.True(t, updated)
+		assert.Equal(t, "update `users` set `age` = ? where (`age` = ? and `name` = ?)", q.PreparedSql)
+		assert.Equal(t, []interface{}{18, 2, "user-2"}, q.GetBindings())
+		exist, err := DB.Query().Table("users").Where(map[string]interface{}{
+			"age":  18,
+			"name": "user-2",
+		}).Exists()
+		assert.True(t, exist)
+
+		//test inserted
+		q1 := DB.Query()
+		updated, err = q1.Table("users").UpdateOrInsert(map[string]interface{}{
+			"age": 7,
+		}, map[string]interface{}{
+			"age":  18,
+			"name": "user-7",
+		})
+		assert.Nil(t, err)
+		assert.False(t, updated)
+		assert.Equal(t, "insert into `users` (`age`, `name`) values (?, ?)", q1.PreparedSql)
+		assert.Equal(t, []interface{}{18, "user-7"}, q1.GetBindings())
+		exist, err = DB.Query().Table("users").Where(map[string]interface{}{
+			"age":  18,
+			"name": "user-7",
+		}).Exists()
+		assert.True(t, exist)
+		assert.Nil(t, err)
+	})
+}
+func TestUpdateOrCreate(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		//test found
+		user := User{
+			UserName: sql.NullString{
+				String: "user-x",
+				Valid:  true,
+			},
+			Age:    200,
+			Status: 1,
+		}
+		_, err := DB.Save(&user)
+		assert.Nil(t, err)
+		q := DB.Model(&user)
+		updated, err := q.UpdateOrCreate(&user, map[string]interface{}{
+			"age":    200,
+			"status": 1,
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "impossible",
+				Valid:  true,
+			},
+			"status": 2,
+		})
+		assert.Nil(t, err)
+		assert.True(t, updated)
+		assert.Equal(t, "select * from `users` where (`age` = ? and `status` = ?) limit 1", q.PreparedSql)
+		assert.Equal(t, []interface{}{200, 1}, q.GetBindings())
+		exist, err := DB.Query().Table("users").Where(map[string]interface{}{
+			"age":    200,
+			"name":   "impossible",
+			"status": 2,
+		}).Exists()
+		assert.Nil(t, err)
+		assert.True(t, exist)
+
+		//test created
+		var user2 User
+		q1 := DB.Model(&user2)
+		updated, err = q1.UpdateOrCreate(&user2, map[string]interface{}{
+			"age": -1,
+		}, map[string]interface{}{
+			"age": 28,
+			"name": sql.NullString{
+				String: "user-28",
+				Valid:  true,
+			},
+		})
+		assert.Nil(t, err)
+		assert.False(t, updated)
+		assert.Equal(t, "select * from `users` where (`age` = ?) limit 1", q1.PreparedSql)
+		assert.Equal(t, []interface{}{-1}, q1.GetBindings())
+		exist, err = DB.Query().Table("users").Where(map[string]interface{}{
+			"age":  28,
+			"name": "user-28",
+		}).Exists()
+		assert.True(t, exist)
+		assert.Nil(t, err)
+	})
+}
+func TestFirstOrNew(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		const StatusPending = 1
+		//test found
+		user := User{
+			UserName: sql.NullString{
+				String: "john@gmail.com",
+				Valid:  true,
+			},
+			Age:    200,
+			Status: 1,
+		}
+		DB.Save(&user)
+		var tu User
+		q := DB.Query()
+		found, err := q.FirstOrNew(&tu, map[string]interface{}{
+			"name": "john@gmail.com",
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.True(t, found)
+		assert.ObjectsAreEqualValues(user, tu)
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+
+		//test new
+		var t2 User
+		q2 := DB.Query()
+		found, err = q2.FirstOrNew(&t2, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.False(t, found)
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+		assert.ObjectsAreEqualValues(t2, User{
+			UserName: sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+			Age:    18,
+			Status: StatusPending,
+		})
+	})
+}
+func TestFirstOrCreate(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		const StatusPending = 1
+		//test found
+		user := User{
+			UserName: sql.NullString{
+				String: "john@gmail.com",
+				Valid:  true,
+			},
+			Age:    200,
+			Status: 1,
+		}
+		DB.Save(&user)
+		var tu User
+		q := DB.Query()
+		found, err := q.FirstOrCreate(&tu, map[string]interface{}{
+			"name": "john@gmail.com",
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.True(t, found)
+		assert.ObjectsAreEqualValues(user, tu)
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+
+		//test new
+		var t2 User
+		q2 := DB.Query()
+		found, err = q2.FirstOrCreate(&t2, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.False(t, found)
+		assert.Greater(t, t2.Id, int64(0))
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+
+	})
+}
+
+//pending
 //TODO: testJsonWhereNullMysql
 //TODO: testJsonWhereNotNullMysql
 //TODO: testUnlessCallback
@@ -1537,6 +1762,65 @@ func TestWhereRowValues(t *testing.T) {
 //TODO: testFromSubWithoutBindings
 
 //TODO: testWhereTimeOperatorOptionalPostgres
+
+//TODO: testGetCountForPaginationWithUnion
+
+//TODO: testMySqlSoundsLikeOperator
+//TODO: testBitwiseOperators
+//TODO: testBuilderThrowsExpectedExceptionWithUndefinedMethod
+
+//TODO: testUppercaseLeadingBooleansAreRemoved
+//TODO: testLowercaseLeadingBooleansAreRemoved
+//TODO: testCaseInsensitiveLeadingBooleansAreRemoved
+//TODO: testFromRawWithWhereOnTheMainQuery
+
+//not support
+//TODO: testSqlServerExists
+//TODO: testUpdateMethodWithJoinsAndAliasesOnSqlServer
+//TODO: testUpdateMethodWithoutJoinsOnPostgres
+//TODO: testUpdateMethodWithJoinsOnPostgres
+//TODO: testUpdateFromMethodWithJoinsOnPostgres
+//TODO: testPostgresInsertOrIgnoreMethod
+//TODO: testSQLiteInsertOrIgnoreMethod
+//TODO: testSqlServerInsertOrIgnoreMethod
+//TODO: testUpdateMethodWithJoinsOnSqlServer
+//TODO: testUpdateMethodWithJoinsOnSQLite
+//TODO: testPostgresInsertGetId
+//TODO: testPostgresUpdateWrappingJson
+//TODO: testPostgresUpdateWrappingJsonArray
+//TODO: testSQLiteUpdateWrappingJsonArray
+//TODO: testSQLiteUpdateWrappingNestedJsonArray
+//TODO: testPostgresWrappingJson
+//TODO: testSqlServerWrappingJson
+//TODO: testSqliteWrappingJson
+//TODO: testSQLiteOrderBy
+//TODO: testSqlServerLimitsAndOffsets
+//TODO: testPostgresLock
+//TODO: testSqlServerLock
+//TODO: testSqlServerWhereDate
+//TODO: testUnions
+//TODO: testUnionAlls
+//TODO: testMultipleUnions
+//TODO: testMultipleUnionAlls
+//TODO: testUnionOrderBys
+//TODO: testUnionLimitsAndOffsets
+//TODO: testUnionWithJoin
+//TODO: testMySqlUnionOrderBys
+//TODO: testMySqlUnionLimitsAndOffsets
+//TODO: testUnionAggregate
+//TODO: testOrderBysSqlServer
+//TODO: testTableValuedFunctionAsTableInSqlServer
+//TODO: testWhereJsonContainsPostgres
+//TODO: testWhereJsonContainsSqlite
+//TODO: testWhereJsonContainsSqlServer
+//TODO: testWhereJsonDoesntContainPostgres
+//TODO: testWhereJsonDoesntContainSqlite
+//TODO: testWhereJsonDoesntContainSqlServer
+//TODO: testWhereJsonLengthPostgres
+//TODO: testWhereJsonLengthSqlite
+//TODO: testWhereJsonLengthSqlServer
+//TODO: testFromRawOnSqlServer
+//TODO: testFromQuestionMarkOperatorOnPostgres
 //TODO: testWhereTimeSqlServer
 //TODO: testWhereDatePostgres
 //TODO: testWhereDayPostgres
@@ -1561,58 +1845,3 @@ func TestWhereRowValues(t *testing.T) {
 //TODO: testEmptyWhereIntegerInRaw
 //TODO: testEmptyWhereIntegerNotInRaw
 //TODO: testWhereFulltextPostgres
-//TODO: testUnions
-//TODO: testUnionAlls
-//TODO: testMultipleUnions
-//TODO: testMultipleUnionAlls
-//TODO: testUnionOrderBys
-//TODO: testUnionLimitsAndOffsets
-//TODO: testUnionWithJoin
-//TODO: testMySqlUnionOrderBys
-//TODO: testMySqlUnionLimitsAndOffsets
-//TODO: testUnionAggregate
-//TODO: testOrderBysSqlServer
-
-//TODO: testGetCountForPaginationWithUnion
-//TODO: testSqlServerExists
-//TODO: testPostgresInsertOrIgnoreMethod
-//TODO: testSQLiteInsertOrIgnoreMethod
-//TODO: testSqlServerInsertOrIgnoreMethod
-//TODO: testUpdateMethodWithJoinsOnSqlServer
-//TODO: testUpdateMethodWithJoinsOnSQLite
-//TODO: testUpdateMethodWithJoinsAndAliasesOnSqlServer
-//TODO: testUpdateMethodWithoutJoinsOnPostgres
-//TODO: testUpdateMethodWithJoinsOnPostgres
-//TODO: testUpdateFromMethodWithJoinsOnPostgres
-//TODO: testPostgresInsertGetId
-//TODO: testPostgresUpdateWrappingJson
-//TODO: testPostgresUpdateWrappingJsonArray
-//TODO: testSQLiteUpdateWrappingJsonArray
-//TODO: testSQLiteUpdateWrappingNestedJsonArray
-//TODO: testPostgresWrappingJson
-//TODO: testSqlServerWrappingJson
-//TODO: testSqliteWrappingJson
-//TODO: testSQLiteOrderBy
-//TODO: testSqlServerLimitsAndOffsets
-//TODO: testMySqlSoundsLikeOperator
-//TODO: testBitwiseOperators
-//TODO: testBuilderThrowsExpectedExceptionWithUndefinedMethod
-//TODO: testPostgresLock
-//TODO: testSqlServerLock
-//TODO: testSqlServerWhereDate
-//TODO: testUppercaseLeadingBooleansAreRemoved
-//TODO: testLowercaseLeadingBooleansAreRemoved
-//TODO: testCaseInsensitiveLeadingBooleansAreRemoved
-//TODO: testTableValuedFunctionAsTableInSqlServer
-//TODO: testWhereJsonContainsPostgres
-//TODO: testWhereJsonContainsSqlite
-//TODO: testWhereJsonContainsSqlServer
-//TODO: testWhereJsonDoesntContainPostgres
-//TODO: testWhereJsonDoesntContainSqlite
-//TODO: testWhereJsonDoesntContainSqlServer
-//TODO: testWhereJsonLengthPostgres
-//TODO: testWhereJsonLengthSqlite
-//TODO: testWhereJsonLengthSqlServer
-//TODO: testFromRawOnSqlServer
-//TODO: testFromRawWithWhereOnTheMainQuery
-//TODO: testFromQuestionMarkOperatorOnPostgres
