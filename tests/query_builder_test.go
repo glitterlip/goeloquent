@@ -1353,11 +1353,11 @@ func TestAggregate(t *testing.T) {
 
 	b1 := DB.Query()
 	b1.From("users").Select().Exists()
-	assert.Equal(t, "select exists(select * from `users`) as `exists`", b1.ToSql())
+	assert.Equal(t, "select exists(select * from `users`) as `exists`", b1.PreparedSql)
 
 	b2 := DB.Query()
 	b2.From("users").Select().Exists()
-	assert.Equal(t, "select exists(select * from `users`) as `exists`", b2.ToSql())
+	assert.Equal(t, "select exists(select * from `users`) as `exists`", b1.PreparedSql)
 
 	var m = 0
 	b3 := DB.Query()
@@ -1423,7 +1423,7 @@ func TestBase(t *testing.T) {
 		b4.From("users").Insert(map[string]interface{}{
 			"email": goeloquent.Raw("CURRENT TIMESTAMP"),
 		})
-		assert.Equal(t, "insert into `users` (`email`) values (CURRENT TIMESTAMP)", b4.ToSql())
+		assert.Equal(t, "insert into `users` (`email`) values (CURRENT TIMESTAMP)", b4.PreparedSql)
 		assert.Nil(t, b4.GetBindings())
 		//testImplode
 		b5 := DB.Query()
