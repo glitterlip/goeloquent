@@ -62,6 +62,7 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 		}
 	}
 	b.PreparedSql = b.PreSql.String()
+	b.PreSql.Reset()
 	return b.PreparedSql
 }
 
@@ -81,7 +82,7 @@ func (m *MysqlGrammar) CompileDelete() string {
 		b.PreSql.WriteString(m.CompileComponentLimitNum())
 	}
 	m.GetBuilder().PreparedSql = m.GetBuilder().PreSql.String()
-
+	b.PreSql.Reset()
 	return m.GetBuilder().PreparedSql
 }
 
@@ -110,6 +111,7 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 	}
 	b.PreSql.WriteString(m.CompileComponentWheres())
 	m.GetBuilder().PreparedSql = b.PreSql.String()
+	b.PreSql.Reset()
 	return m.GetBuilder().PreparedSql
 }
 
@@ -127,7 +129,8 @@ func (m *MysqlGrammar) CompileSelect() string {
 		}
 	}
 	b.PreparedSql = b.PreSql.String()
-	return b.PreSql.String()
+	b.PreSql.Reset()
+	return b.PreparedSql
 }
 
 func (m *MysqlGrammar) CompileExists() string {

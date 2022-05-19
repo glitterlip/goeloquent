@@ -437,7 +437,7 @@ ToSql Get the SQL representation of the query.
 func (b *Builder) ToSql() string {
 	b.ApplyQueryCallbacks()
 	if len(b.PreparedSql) > 0 {
-		return b.PreparedSql
+		b.PreparedSql = ""
 	}
 	return b.Grammar.CompileSelect()
 }
