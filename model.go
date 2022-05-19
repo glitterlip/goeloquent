@@ -395,18 +395,19 @@ type EloquentModel struct {
 
 }
 
+func Init(modelPointer interface{}) {
+	parsed := GetParsedModel(modelPointer)
+	isBooted := reflect.Indirect(reflect.ValueOf(modelPointer)).Field(parsed.PivotFieldIndex[0]).Elem().Field(0).Interface().(bool)
+	if !isBooted {
+		InitModel(modelPointer)
+	}
+}
 func InitModelInTx(modelPointer interface{}, tx *Transaction, exists ...bool) *EloquentModel {
 	e := InitModel(modelPointer, exists...)
 	e.Tx = tx
 	return e
 }
 
-//TODO Init DB.Init
-//TODO fireevent => booting
-//boot
-//booted(addglobescopes) =>fireevent
-//syncorigin
-//fill
 func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
 	parsed := GetParsedModel(m.Type())
@@ -432,6 +433,51 @@ func NewEloquentModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m.SyncOrigin()
 	return &m
 }
+
+func Fill(target interface{}, values ...map[string]interface{}) error {
+	if eloquent, ok := target.(*EloquentModel); ok {
+		for _, value := range values {
+			eloquent.Fill(value)
+		}
+		return nil
+	}
+	parsed := GetParsedModel(target)
+	if !parsed.IsEloquent {
+		return errors.New(fmt.Sprintf("target: %s is not eloquent model", parsed.Name))
+	}
+	v := reflect.Indirect(reflect.ValueOf(target))
+	if eloquent, ok := v.Field(parsed.PivotFieldIndex[0]).Interface().(*EloquentModel); !ok {
+		return errors.New(fmt.Sprintf("target: %s is not eloquent model", parsed.Name))
+	} else {
+		for _, value := range values {
+			eloquent.Fill(value)
+		}
+		return nil
+	}
+
+}
+
+//reserved
+
+func (m *EloquentModel) BootIfNotBooted() {
+	if !m.IsBooted {
+		//m.FireModelEvent(EventBooting,nil)
+		m.Booting()
+		m.Boot()
+		m.Booted()
+		//m.FireModelEvent(EventBooted,nil)
+	}
+}
+func (m *EloquentModel) Booting() {
+
+}
+func (m *EloquentModel) Boot() {
+
+}
+func (m *EloquentModel) Booted() {
+
+}
+
 func (m *EloquentModel) IsEager() bool {
 	return !m.Exists
 }
