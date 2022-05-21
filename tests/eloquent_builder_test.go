@@ -3,7 +3,7 @@ package tests
 import (
 	"database/sql"
 	"fmt"
-	goeloquent "github.com/glitterlip/go-eloquent"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

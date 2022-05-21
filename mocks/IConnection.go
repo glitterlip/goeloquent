@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	goeloquent "github.com/glitterlip/go-eloquent"
+	"github.com/glitterlip/goeloquent"
 	mock "github.com/stretchr/testify/mock"
 
 	sql "database/sql"

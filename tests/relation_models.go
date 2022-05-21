@@ -5,7 +5,7 @@ import (
 	_ "database/sql"
 	"errors"
 	"fmt"
-	goeloquent "github.com/glitterlip/go-eloquent"
+	"github.com/glitterlip/goeloquent"
 	"time"
 	_ "time"
 )

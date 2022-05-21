@@ -1,4 +1,4 @@
-module github.com/glitterlip/go-eloquent
+module github.com/glitterlip/goeloquent
 
 go 1.16
 
