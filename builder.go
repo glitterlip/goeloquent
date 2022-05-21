@@ -341,22 +341,27 @@ func (b *Builder) CloneWithoutBindings(bindings ...string) *Builder {
 	return CloneWithoutBindings(b, bindings...)
 }
 
-// Select set columns to be selected
-// 1. Select("column1","column2","column3")
-// 2. Select()
+// Select set the columns to be selected
 func (b *Builder) Select(columns ...interface{}) *Builder {
 	b.Components[TYPE_COLUMN] = struct{}{}
 
 	for i := 0; i < len(columns); i++ {
 		if c, ok := columns[i].(string); ok {
 			b.Columns = append(b.Columns, c)
-		} else if mf, ok := columns[i].(map[string]func(builder *Builder)); ok {
+		} else if mf, ok := columns[i].(map[string]interface{}); ok {
 			for as, q := range mf {
-				b.SelectSub(q, as)
-			}
-		} else if mb, ok := columns[i].(map[string]*Builder); ok {
-			for as, q := range mb {
-				b.SelectSub(q, as)
+				switch q.(type) {
+				case func(builder *Builder):
+					b.SelectSub(q, as)
+				case *Builder:
+					b.SelectSub(q, as)
+				case Expression:
+					b.AddSelect(q)
+				case string:
+					b.Columns = append(b.Columns, q)
+				default:
+					panic(errors.New("unsupported type for select"))
+				}
 			}
 		} else if raw, ok := columns[i].(Expression); ok {
 			b.AddSelect(raw)
