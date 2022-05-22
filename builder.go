@@ -346,10 +346,11 @@ func (b *Builder) Select(columns ...interface{}) *Builder {
 	b.Components[TYPE_COLUMN] = struct{}{}
 
 	for i := 0; i < len(columns); i++ {
-		if c, ok := columns[i].(string); ok {
-			b.Columns = append(b.Columns, c)
-		} else if mf, ok := columns[i].(map[string]interface{}); ok {
-			for as, q := range mf {
+		switch columnType := columns[i].(type) {
+		case string:
+			b.Columns = append(b.Columns, columnType)
+		case map[string]interface{}:
+			for as, q := range columnType {
 				switch q.(type) {
 				case func(builder *Builder):
 					b.SelectSub(q, as)
@@ -363,8 +364,8 @@ func (b *Builder) Select(columns ...interface{}) *Builder {
 					panic(errors.New("unsupported type for select"))
 				}
 			}
-		} else if raw, ok := columns[i].(Expression); ok {
-			b.AddSelect(raw)
+		case Expression:
+			b.AddSelect(columnType)
 		}
 	}
 	return b
@@ -386,14 +387,15 @@ func (b *Builder) AddSelect(columns ...interface{}) *Builder {
 	b.Components[TYPE_COLUMN] = struct{}{}
 
 	for i := 0; i < len(columns); i++ {
-		if str, ok := columns[i].(string); ok {
-			b.Columns = append(b.Columns, str)
-		} else if m, ok := columns[i].(map[string]interface{}); ok {
-			for as, q := range m {
+		switch columnType := columns[i].(type) {
+		case string:
+			b.Columns = append(b.Columns, columnType)
+		case map[string]interface{}:
+			for as, q := range columnType {
 				b.SelectSub(q, as)
 			}
-		} else if e, ok := columns[i].(Expression); ok {
-			b.Columns = append(b.Columns, e)
+		case Expression:
+			b.Columns = append(b.Columns, columnType)
 		}
 	}
 	return b
