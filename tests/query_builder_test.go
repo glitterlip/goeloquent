@@ -18,6 +18,7 @@ func GetBuilder() *goeloquent.Builder {
 	builder.Grammar = &goeloquent.MysqlGrammar{}
 	builder.Grammar.SetTablePrefix(c.Config.Prefix)
 	builder.Grammar.SetBuilder(builder)
+	builder.EnableLogQuery()
 	return builder
 }
 
@@ -37,11 +38,19 @@ CREATE TABLE "users" (
 	drop = `DROP TABLE IF EXISTS users`
 	return
 }
-func TestBasicSelect(t *testing.T) {
+func TestSelect(t *testing.T) {
 	//testBasicSelect
 	b := GetBuilder()
-	b.Select("*").From("users")
+	var users []User
+	b.Select().From("users").Get(&users)
 	assert.Equal(t, "select * from `users`", b.ToSql())
+	b1 := GetBuilder()
+	b1.Select("*").From("users").Get(&users)
+	assert.Equal(t, "select * from `users`", b1.ToSql())
+	b2 := GetBuilder()
+	b2.From("users").Get(&users)
+	assert.Equal(t, "select * from `users`", b2.ToSql())
+	//testselectraw
 }
 
 func TestBasicSelectWithColumns(t *testing.T) {
@@ -1091,6 +1100,19 @@ func TestSubSelect(t *testing.T) {
 	b1.SelectSub(b2, "sub")
 	assert.Equal(t, "select `foo`, `bar`, ( select `baz` from `two` where `subkey` = ? ) as `sub` from `one` where `key` = ?", b1.ToSql())
 	ElementsShouldMatch(t, []interface{}{"subval", "val"}, b1.GetBindings())
+
+	b = GetBuilder()
+	tempB := GetBuilder()
+	tempB.Select("phone").From("user_info").Limit(1)
+	b.Select(map[string]interface{}{
+		"address": func(builder *goeloquent.Builder) {
+			builder.Select("post_code").From("addresses").Limit(1)
+		},
+		"phone":   tempB,
+		"balance": goeloquent.Raw("(select balance from accounts limit 1) as balance"),
+		"time":    "updated_at",
+	}).From("users")
+	assert.Equal(t, "select (select balance from accounts limit 1) as balance, `updated_at`, ( select `post_code` from `addresses` limit 1 ) as `address`, ( select `phone` from `user_info` limit 1 ) as `phone` from `users`", b.ToSql())
 }
 func TestInsertEmpty(t *testing.T) {
 	// testInsertGetIdMethod
