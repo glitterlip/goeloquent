@@ -54,6 +54,8 @@ func (r *RelationBuilder) LoadPivotColumns(pivots ...string) {
 		WithPivots(relation.Builder, relation.PivotTable, pivots)
 	case *MorphToManyRelation:
 		WithPivots(relation.Builder, relation.PivotTable, pivots)
+	case *MorphByManyRelation:
+		WithPivots(relation.Builder, relation.PivotTable, pivots)
 	}
 }
 func (r *RelationBuilder) LoadPivotWheres(pivotWheres ...Where) {
@@ -61,6 +63,8 @@ func (r *RelationBuilder) LoadPivotWheres(pivotWheres ...Where) {
 	case *BelongsToManyRelation:
 		WherePivots(relation.Builder, relation.PivotTable, pivotWheres)
 	case *MorphToManyRelation:
+		WherePivots(relation.Builder, relation.PivotTable, pivotWheres)
+	case *MorphByManyRelation:
 		WherePivots(relation.Builder, relation.PivotTable, pivotWheres)
 	}
 }

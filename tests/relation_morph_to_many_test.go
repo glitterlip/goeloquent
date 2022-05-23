@@ -2,7 +2,7 @@ package tests
 
 import (
 	_ "fmt"
-	goeloquent "github.com/glitterlip/go-eloquent"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
@@ -55,7 +55,7 @@ func TestMorphToMany(t *testing.T) {
 			}
 		}
 
-		_, err := DB.Table("tagable").Insert(ts)
+		_, err := DB.Table("tagables").Insert(ts)
 		assert.Nil(t, err)
 		//test find
 		DB.Model(&p1).With("Tags").WithPivot("tagable_id", "tagable_type", "tag_id", "status").WherePivot("status", 1).Find(&pp1, p1.ID)

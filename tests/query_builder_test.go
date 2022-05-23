@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
-	goeloquent "github.com/glitterlip/go-eloquent"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -12,10 +14,14 @@ import (
 
 func GetBuilder() *goeloquent.Builder {
 	c := DB.Connection("default")
+	DB.SetLogger(func(log goeloquent.Log) {
+		fmt.Println(log)
+	})
 	builder := goeloquent.NewBuilder(c)
 	builder.Grammar = &goeloquent.MysqlGrammar{}
 	builder.Grammar.SetTablePrefix(c.Config.Prefix)
 	builder.Grammar.SetBuilder(builder)
+	builder.EnableLogQuery()
 	return builder
 }
 
@@ -25,20 +31,29 @@ CREATE TABLE "users" (
   "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
   "name" varchar(255) NOT NULL,
   "age" tinyint(10) unsigned NOT NULL DEFAULT '0',
+  "status" tinyint(10) unsigned NOT NULL DEFAULT '0',
   "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   "deleted_at" datetime DEFAULT NULL,
   PRIMARY KEY ("id")
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=0 DEFAULT CHARSET=utf8mb4;
 `
 	drop = `DROP TABLE IF EXISTS users`
 	return
 }
-func TestBasicSelect(t *testing.T) {
+func TestSelect(t *testing.T) {
 	//testBasicSelect
 	b := GetBuilder()
-	b.Select("*").From("users")
+	var users []User
+	b.Select().From("users").Get(&users)
 	assert.Equal(t, "select * from `users`", b.ToSql())
+	b1 := GetBuilder()
+	b1.Select("*").From("users").Get(&users)
+	assert.Equal(t, "select * from `users`", b1.ToSql())
+	b2 := GetBuilder()
+	b2.From("users").Get(&users)
+	assert.Equal(t, "select * from `users`", b2.ToSql())
+	//testselectraw
 }
 
 func TestBasicSelectWithColumns(t *testing.T) {
@@ -48,11 +63,11 @@ func TestBasicSelectWithColumns(t *testing.T) {
 	b.From("users").Get(&dest)
 	assert.Equal(t, "select * from `users`", b.PreparedSql)
 
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.From("users").Select("id", "name").Get(&dest)
 	assert.Equal(t, "select `id`, `name` from `users`", b1.PreparedSql)
 
-	b2 := goeloquent.CloneBuilder(b)
+	b2 := goeloquent.CloneBuilderWithTable(b)
 	b2.From("users", "u").Get(&dest, "id", "name")
 	assert.Equal(t, "select `id`, `name` from `users` as `u`", b2.PreparedSql)
 }
@@ -65,12 +80,12 @@ func TestWrap(t *testing.T) {
 	assert.Equal(t, "select `x`.`y` as `foo.bar` from `baz`", b.ToSql())
 
 	//testAliasWrappingWithSpacesInDatabaseName
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.Select("w x.y.z as foo.bar").From("baz")
 	assert.Equal(t, "select `w x`.`y`.`z` as `foo.bar` from `baz`", b1.ToSql())
 
 	//testBasicTableWrapping
-	b2 := goeloquent.CloneBuilder(b)
+	b2 := goeloquent.CloneBuilderWithTable(b)
 	b2.Select().From("public.users")
 	assert.Equal(t, "select * from `public`.`users`", b2.ToSql())
 
@@ -111,7 +126,7 @@ func TestAlias(t *testing.T) {
 	assert.Equal(t, "select `foo` as `bar` from `users`", b.ToSql())
 
 	//testAliasWithPrefix
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.Grammar.SetTablePrefix("prefix_")
 	b1.Select("foo as bar", "baz").From("users as u")
 	assert.Equal(t, "select `foo` as `bar`, `baz` from `prefix_users` as `prefix_u`", b1.ToSql())
@@ -128,13 +143,13 @@ func TestWhenCallback(t *testing.T) {
 	b.Select("*").From("users").When(true, cb).Where("name", "John")
 	assert.Equal(t, "select * from `users` where `age` > ? and `name` = ?", b.ToSql())
 
-	b1 := goeloquent.CloneBuilder(b)
+	b1 := goeloquent.CloneBuilderWithTable(b)
 	b1.Select("*").From("users").When(false, cb).Where("name", "John")
 	assert.Equal(t, "select * from `users` where `name` = ?", b1.ToSql())
 
 	//testWhenCallbackWithDefault
-	b2 := goeloquent.CloneBuilder(b)
-	b3 := goeloquent.CloneBuilder(b)
+	b2 := goeloquent.CloneBuilderWithTable(b)
+	b3 := goeloquent.CloneBuilderWithTable(b)
 	defaultCb := func(builder *goeloquent.Builder) {
 		builder.Where("age", "<", 18)
 	}
@@ -981,7 +996,7 @@ func TestUpdateMethod(t *testing.T) {
 		assert.Nil(t, err)
 		id, err := insert.LastInsertId()
 		assert.Nil(t, err)
-		assert.Equal(t, int64(14), id)
+		assert.Equal(t, int64(1), id)
 		b1 := DB.Table("users")
 		result, err := b1.Where("id", id).Update(map[string]interface{}{
 			"name":       "newname",
@@ -1088,6 +1103,19 @@ func TestSubSelect(t *testing.T) {
 	b1.SelectSub(b2, "sub")
 	assert.Equal(t, "select `foo`, `bar`, ( select `baz` from `two` where `subkey` = ? ) as `sub` from `one` where `key` = ?", b1.ToSql())
 	ElementsShouldMatch(t, []interface{}{"subval", "val"}, b1.GetBindings())
+
+	b = GetBuilder()
+	tempB := GetBuilder()
+	tempB.Select("phone").From("user_info").Limit(1)
+	b.Select(map[string]interface{}{
+		"address": func(builder *goeloquent.Builder) {
+			builder.Select("post_code").From("addresses").Limit(1)
+		},
+		"phone":   tempB,
+		"balance": goeloquent.Raw("(select balance from accounts limit 1) as balance"),
+		"time":    "updated_at",
+	}).From("users")
+	assert.Equal(t, "select (select balance from accounts limit 1) as balance, `updated_at`, ( select `post_code` from `addresses` limit 1 ) as `address`, ( select `phone` from `user_info` limit 1 ) as `phone` from `users`", b.ToSql())
 }
 func TestInsertEmpty(t *testing.T) {
 	// testInsertGetIdMethod
@@ -1157,18 +1185,7 @@ func TestStruct(t *testing.T) {
 	ElementsShouldMatch(t, []interface{}{"test"}, b2.GetBindings())
 	assert.Equal(t, "insert into `tag` (`name`) values (?)", b.PreparedSql)
 }
-func ScopeFunc(builder *goeloquent.Builder) *goeloquent.Builder {
-	return builder.OrderBy("id", "desc")
-}
-func TestQueryScopes(t *testing.T) {
-	b := DB.Query()
-	var us []UserT
-	b.Select().From("users").Scopes(func(builder *goeloquent.Builder) *goeloquent.Builder {
-		return b.Where("age", 18)
-	}, ScopeFunc).Get(&us)
-	assert.Equal(t, "select * from `users` where `age` = ? order by `id` desc", b.ToSql())
 
-}
 func TestPaginate(t *testing.T) {
 	//testPaginate
 	c, d := CreateRelationTables()
@@ -1208,6 +1225,150 @@ func TestPaginate(t *testing.T) {
 	})
 
 }
+func TestChunk(t *testing.T) {
+	//testChunkWithLastChunkComplete
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		var total int
+		totalP := &total
+		err = DB.Table("users").OrderBy("id").Chunk(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for _, user := range *us {
+				assert.Equal(t, user.UserName, sql.NullString{
+					String: fmt.Sprintf("user-%d", user.Age),
+					Valid:  true,
+				})
+				*totalP++
+			}
+			return nil
+		})
+		assert.Nil(t, err)
+		assert.Equal(t, 50, *totalP)
+	})
+	//testChunkCanBeStoppedByReturningError
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		err = DB.Model(&User{}).OrderBy("id").Chunk(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for i := 0; i < len(*us); i++ {
+				(*us)[i].Status = 1
+				DB.Save(&((*us)[i]))
+				if (*us)[i].Id == 5 {
+					return errors.New("stopped")
+				}
+			}
+			return nil
+		})
+		assert.Equal(t, "stopped", err.Error())
+		var count int
+		DB.Table("users").Where("status", 1).Count(&count)
+		assert.Equal(t, 5, count)
+
+	})
+}
+func TestChunkById(t *testing.T) {
+	//testChunkWithLastChunkComplete
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		var total int
+		totalP := &total
+		err = DB.Table("users").ChunkById(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for _, user := range *us {
+				assert.Equal(t, user.UserName, sql.NullString{
+					String: fmt.Sprintf("user-%d", user.Age),
+					Valid:  true,
+				})
+				*totalP++
+			}
+			return nil
+		})
+		assert.Nil(t, err)
+		assert.Equal(t, 50, *totalP)
+
+		*totalP = 0
+		err = DB.Table("users").OrderBy("id").ChunkById(&[]map[string]interface{}{}, 10, func(dest interface{}) error {
+			us := dest.(*[]map[string]interface{})
+			for _, user := range *us {
+				assert.Equal(t, string(user["name"].([]uint8)), fmt.Sprintf("user-%d", user["age"]))
+				*totalP++
+			}
+			return nil
+		}, "id")
+		assert.Nil(t, err)
+		assert.Equal(t, 50, *totalP)
+	})
+	//testChunkCanBeStoppedByReturningError
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 50; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+		err = DB.Model(&User{}).OrderBy("id").Chunk(&[]User{}, 10, func(dest interface{}) error {
+			us := dest.(*[]User)
+			for i := 0; i < len(*us); i++ {
+				(*us)[i].Status = 1
+				DB.Save(&((*us)[i]))
+				if (*us)[i].Id == 5 {
+					return errors.New("stopped")
+				}
+			}
+			return nil
+		})
+		assert.Equal(t, "stopped", err.Error())
+		var count int
+		DB.Table("users").Where("status", 1).Count(&count)
+		assert.Equal(t, 5, count)
+
+	})
+}
 func TestAggregate(t *testing.T) {
 	//testAggregateFunctions
 	b := DB.Query()
@@ -1217,11 +1378,11 @@ func TestAggregate(t *testing.T) {
 
 	b1 := DB.Query()
 	b1.From("users").Select().Exists()
-	assert.Equal(t, "select exists(select * from `users`) as `exists`", b1.ToSql())
+	assert.Equal(t, "select exists(select * from `users`) as `exists`", b1.PreparedSql)
 
 	b2 := DB.Query()
 	b2.From("users").Select().Exists()
-	assert.Equal(t, "select exists(select * from `users`) as `exists`", b2.ToSql())
+	assert.Equal(t, "select exists(select * from `users`) as `exists`", b1.PreparedSql)
 
 	var m = 0
 	b3 := DB.Query()
@@ -1237,3 +1398,491 @@ func TestAggregate(t *testing.T) {
 	b5.From("users").Sum(&m1, "age")
 	assert.Equal(t, "select sum(`age`) as aggregate from `users`", b5.ToSql())
 }
+func TestBase(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 5; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+
+		//testValueMethodReturnsSingleColumn
+		var name string
+		b1 := DB.Query()
+		_, err = b1.From("users").Where("id", 1).Value(&name, "name")
+		assert.Nil(t, err)
+		assert.Equal(t, "user-0", name)
+		assert.Equal(t, "select `name` from `users` where `id` = ? limit 1", b1.PreparedSql)
+
+		//testFindReturnsFirstResultByID
+		var user = make(map[string]interface{})
+		b2 := DB.Query()
+		rows, err := b2.From("users").Find(&user, 1)
+		c, _ = rows.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), c)
+		assert.Equal(t, user["id"], int64(1))
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b2.PreparedSql)
+		assert.Equal(t, []interface{}{1}, b2.GetBindings())
+		//testFirstMethodReturnsFirstResult
+		var user2 = make(map[string]interface{})
+		b3 := DB.Query()
+		rows, err = b3.From("users").Where("id", "=", 1).First(&user2)
+		c, _ = rows.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), c)
+		assert.Equal(t, user2["id"], int64(1))
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b3.PreparedSql)
+		assert.Equal(t, []interface{}{1}, b3.GetBindings())
+		//testInsertMethodRespectsRawBindings
+		b4 := DB.Query().Pretend()
+		b4.From("users").Insert(map[string]interface{}{
+			"email": goeloquent.Raw("CURRENT TIMESTAMP"),
+		})
+		assert.Equal(t, "insert into `users` (`email`) values (CURRENT TIMESTAMP)", b4.PreparedSql)
+		assert.Nil(t, b4.GetBindings())
+		//testImplode
+		b5 := DB.Query()
+		implode, err := b5.From("users").Where("id", "<", 3).Implode("name")
+		assert.Nil(t, err)
+		assert.Equal(t, "user-0user-1", implode)
+
+		b6 := DB.Query()
+		implode2, err := b6.From("users").Where("id", "<", 3).Implode("name", ",")
+		assert.Nil(t, err)
+		assert.Equal(t, "user-0,user-1", implode2)
+
+		//testfindmap
+		var m = make(map[string]interface{})
+		b7 := DB.Query()
+		b7.From("users").Find(&m, 3)
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b7.ToSql())
+		assert.Equal(t, int64(2), m["age"])
+		assert.Equal(t, int64(3), m["id"])
+
+		//testgetmap
+		var ms []map[string]interface{}
+		b8 := DB.Query()
+		b8.From("users").Where("id", "<", 10).Limit(2).Get(&ms, "id", "name")
+		assert.Equal(t, "select `id`, `name` from `users` where `id` < ? limit 2", b8.ToSql())
+		assert.Equal(t, len(ms), 2)
+		for _, mt := range ms {
+			mt["name"] = fmt.Sprintf("user-%d", mt["id"].(int64)-1)
+		}
+	})
+
+}
+func TestWhereRowValues(t *testing.T) {
+	//testWhereRowValues
+	b := DB.Query()
+	_, err := b.Select().From("orders").WhereRowValues([]string{"last_update", "order_number"}, "<", []interface{}{1, 2}).Pretend().Get(&[]map[string]interface{}{})
+	assert.Equal(t, "select * from `orders` where (`last_update`, `order_number`) < (?,?)", b.ToSql())
+	assert.Nil(t, err)
+
+	b1 := DB.Query()
+	_, err = b1.Select().From("orders").WhereRowValues([]string{"last_update", "order_number"}, "<", []interface{}{1, goeloquent.Raw("2")}).Pretend().Get(&[]map[string]interface{}{})
+	assert.Equal(t, "select * from `orders` where (`last_update`, `order_number`) < (?,2)", b1.ToSql())
+	assert.Nil(t, err)
+
+}
+
+func TestUpdateOrInsert(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		var ts []map[string]interface{}
+		now := time.Now()
+		for i := 0; i < 5; i++ {
+			ts = append(ts, map[string]interface{}{
+				"name":       fmt.Sprintf("user-%d", i),
+				"age":        i,
+				"created_at": now,
+			})
+		}
+		result, err := DB.Table("users").Insert(&ts)
+		assert.Nil(t, err)
+		c, _ := result.RowsAffected()
+		assert.Equal(t, int64(len(ts)), c)
+
+		//test updated
+		q := DB.Query()
+		updated, err := q.Table("users").UpdateOrInsert(map[string]interface{}{
+			"age":  2,
+			"name": "user-2",
+		}, map[string]interface{}{
+			"age": 18,
+		})
+		assert.Nil(t, err)
+		assert.True(t, updated)
+		assert.Equal(t, "update `users` set `age` = ? where (`age` = ? and `name` = ?)", q.PreparedSql)
+		assert.Equal(t, []interface{}{18, 2, "user-2"}, q.GetBindings())
+		exist, err := DB.Query().Table("users").Where(map[string]interface{}{
+			"age":  18,
+			"name": "user-2",
+		}).Exists()
+		assert.True(t, exist)
+
+		//test inserted
+		q1 := DB.Query()
+		updated, err = q1.Table("users").UpdateOrInsert(map[string]interface{}{
+			"age": 7,
+		}, map[string]interface{}{
+			"age":  18,
+			"name": "user-7",
+		})
+		assert.Nil(t, err)
+		assert.False(t, updated)
+		assert.Equal(t, "insert into `users` (`age`, `name`) values (?, ?)", q1.PreparedSql)
+		assert.Equal(t, []interface{}{18, "user-7"}, q1.GetBindings())
+		exist, err = DB.Query().Table("users").Where(map[string]interface{}{
+			"age":  18,
+			"name": "user-7",
+		}).Exists()
+		assert.True(t, exist)
+		assert.Nil(t, err)
+	})
+}
+func TestUpdateOrCreate(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		//test found
+		user := User{
+			UserName: sql.NullString{
+				String: "user-x",
+				Valid:  true,
+			},
+			Age:    200,
+			Status: 1,
+		}
+		_, err := DB.Save(&user)
+		assert.Nil(t, err)
+		q := DB.Model(&user)
+		updated, err := q.UpdateOrCreate(&user, map[string]interface{}{
+			"age":    200,
+			"status": 1,
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "impossible",
+				Valid:  true,
+			},
+			"status": 2,
+		})
+		assert.Nil(t, err)
+		assert.True(t, updated)
+		assert.Equal(t, "select * from `users` where (`age` = ? and `status` = ?) limit 1", q.PreparedSql)
+		assert.Equal(t, []interface{}{200, 1}, q.GetBindings())
+		exist, err := DB.Query().Table("users").Where(map[string]interface{}{
+			"age":    200,
+			"name":   "impossible",
+			"status": 2,
+		}).Exists()
+		assert.Nil(t, err)
+		assert.True(t, exist)
+
+		//test created
+		var user2 User
+		q1 := DB.Model(&user2)
+		updated, err = q1.UpdateOrCreate(&user2, map[string]interface{}{
+			"age": -1,
+		}, map[string]interface{}{
+			"age": 28,
+			"name": sql.NullString{
+				String: "user-28",
+				Valid:  true,
+			},
+		})
+		assert.Nil(t, err)
+		assert.False(t, updated)
+		assert.Equal(t, "select * from `users` where (`age` = ?) limit 1", q1.PreparedSql)
+		assert.Equal(t, []interface{}{-1}, q1.GetBindings())
+		exist, err = DB.Query().Table("users").Where(map[string]interface{}{
+			"age":  28,
+			"name": "user-28",
+		}).Exists()
+		assert.True(t, exist)
+		assert.Nil(t, err)
+	})
+}
+func TestFirstOrNew(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		const StatusPending = 1
+		//test found
+		user := User{
+			UserName: sql.NullString{
+				String: "john@gmail.com",
+				Valid:  true,
+			},
+			Age:    200,
+			Status: 1,
+		}
+		DB.Save(&user)
+		var tu User
+		q := DB.Query()
+		found, err := q.FirstOrNew(&tu, map[string]interface{}{
+			"name": "john@gmail.com",
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.True(t, found)
+		assert.ObjectsAreEqualValues(user, tu)
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+
+		//test new
+		var t2 User
+		q2 := DB.Query()
+		found, err = q2.FirstOrNew(&t2, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.False(t, found)
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+		assert.ObjectsAreEqualValues(t2, User{
+			UserName: sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+			Age:    18,
+			Status: StatusPending,
+		})
+	})
+}
+func TestFirstOrCreate(t *testing.T) {
+	createUsers, dropUsers := UserTableSql()
+	RunWithDB(createUsers, dropUsers, func() {
+		const StatusPending = 1
+		//test found
+		user := User{
+			UserName: sql.NullString{
+				String: "john@gmail.com",
+				Valid:  true,
+			},
+			Age:    200,
+			Status: 1,
+		}
+		DB.Save(&user)
+		var tu User
+		q := DB.Query()
+		found, err := q.FirstOrCreate(&tu, map[string]interface{}{
+			"name": "john@gmail.com",
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.True(t, found)
+		assert.ObjectsAreEqualValues(user, tu)
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+
+		//test new
+		var t2 User
+		q2 := DB.Query()
+		found, err = q2.FirstOrCreate(&t2, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+		}, map[string]interface{}{
+			"name": sql.NullString{
+				String: "john2@gmail.com", Valid: true,
+			},
+			"age":    18,
+			"status": StatusPending,
+		})
+		assert.Nil(t, err)
+		assert.False(t, found)
+		assert.Greater(t, t2.Id, int64(0))
+		assert.Equal(t, "select * from `users` where (`name` = ?) limit 1", q.PreparedSql)
+
+	})
+}
+
+//pending
+//TODO: testJsonWhereNullMysql
+//TODO: testJsonWhereNotNullMysql
+//TODO: testUnlessCallback
+//TODO: testUnlessCallbackWithReturn
+//TODO: testUnlessCallbackWithDefault
+//TODO: testTapCallback
+//TODO: testWhereFulltextMySql
+//TODO: testWhenCallbackWithReturn
+//TODO: testPluckMethodGetsCollectionOfColumnValues
+//TODO: testExistsOr
+//TODO: testDoesntExistsOr
+//TODO: testAggregateResetFollowedByGet
+//TODO: testAggregateResetFollowedBySelectGet
+//TODO: testAggregateResetFollowedByGetWithColumns
+//TODO: testAggregateWithSubSelect
+//TODO: testInsertUsingMethod
+//TODO: testInsertUsingInvalidSubquery
+//TODO: testInsertGetIdMethodRemovesExpressions
+//TODO: testInsertGetIdWithEmptyValues
+//TODO: testUpsertMethod
+//TODO: testUpsertMethodWithUpdateColumns
+//TODO: testUpdateMethodWithJoins
+//TODO: testUpdateMethodWithJoinsOnMySql
+//TODO: testUpdateMethodRespectsRaw
+//TODO: testUpdateOrInsertMethodWorksWithEmptyUpdateValues
+//TODO: testDeleteWithJoinMethod
+//TODO: testTruncateMethod
+//TODO: testPreserveAddsClosureToArray
+//TODO: testApplyPreserveCleansArray
+//TODO: testPreservedAreAppliedByToSql
+//TODO: testPreservedAreAppliedByInsert
+//TODO: testPreservedAreAppliedByInsertGetId
+//TODO: testPreservedAreAppliedByInsertUsing
+//TODO: testPreservedAreAppliedByUpsert
+//TODO: testPreservedAreAppliedByUpdate
+//TODO: testPreservedAreAppliedByDelete
+//TODO: testPreservedAreAppliedByTruncate
+//TODO: testPreservedAreAppliedByExists
+//TODO: testMySqlUpdateWrappingJson
+//TODO: testMySqlUpdateWrappingNestedJson
+//TODO: testMySqlUpdateWrappingJsonArray
+//TODO: testMySqlUpdateWithJsonPreparesBindingsCorrectly
+//TODO: testMySqlWrappingJsonWithString
+//TODO: testMySqlWrappingJsonWithInteger
+//TODO: testMySqlWrappingJsonWithDouble
+//TODO: testMySqlWrappingJsonWithBoolean
+//TODO: testMySqlWrappingJsonWithBooleanAndIntegerThatLooksLikeOne
+//TODO: testJsonPathEscaping
+//TODO: testMySqlWrappingJson
+//TODO: testMergeWheresCanMergeWheresAndBindings
+//TODO: testProvidingNullWithOperatorsBuildsCorrectly
+//TODO: testDynamicWhere
+//TODO: testDynamicWhereIsNotGreedy
+//TODO: testCallTriggersDynamicWhere
+//TODO: testSelectWithLockUsesWritePdo
+//TODO: testBindingOrder
+//TODO: testAddBindingWithArrayMergesBindings
+//TODO: testAddBindingWithArrayMergesBindingsInCorrectOrder
+//TODO: testMergeBuilders
+//TODO: testMergeBuildersBindingOrder
+//TODO: testSubSelectResetBindings
+
+//TODO: testChunkPaginatesUsingIdWithLastChunkComplete
+//TODO: testChunkPaginatesUsingIdWithLastChunkPartial
+//TODO: testChunkPaginatesUsingIdWithCountZero
+//TODO: testChunkPaginatesUsingIdWithAlias
+//TODO: testPaginateWithDefaultArguments
+//TODO: testPaginateWhenNoResults
+//TODO: testPaginateWithSpecificColumns
+//TODO: testCursorPaginate
+//TODO: testCursorPaginateMultipleOrderColumns
+//TODO: testCursorPaginateWithDefaultArguments
+//TODO: testCursorPaginateWhenNoResults
+//TODO: testCursorPaginateWithSpecificColumns
+//TODO: testCursorPaginateWithMixedOrders
+//TODO: testWhereRowValuesArityMismatch
+//TODO: testWhereJsonContainsMySql
+//TODO: testWhereJsonDoesntContainMySql
+//TODO: testWhereJsonLengthMySql
+//TODO: testFromSubWithoutBindings
+//TODO: testFromSubWithoutBindings
+
+//TODO: testWhereTimeOperatorOptionalPostgres
+
+//TODO: testGetCountForPaginationWithUnion
+
+//TODO: testMySqlSoundsLikeOperator
+//TODO: testBitwiseOperators
+//TODO: testBuilderThrowsExpectedExceptionWithUndefinedMethod
+
+//TODO: testUppercaseLeadingBooleansAreRemoved
+//TODO: testLowercaseLeadingBooleansAreRemoved
+//TODO: testCaseInsensitiveLeadingBooleansAreRemoved
+//TODO: testFromRawWithWhereOnTheMainQuery
+
+//not support
+//TODO: testSqlServerExists
+//TODO: testUpdateMethodWithJoinsAndAliasesOnSqlServer
+//TODO: testUpdateMethodWithoutJoinsOnPostgres
+//TODO: testUpdateMethodWithJoinsOnPostgres
+//TODO: testUpdateFromMethodWithJoinsOnPostgres
+//TODO: testPostgresInsertOrIgnoreMethod
+//TODO: testSQLiteInsertOrIgnoreMethod
+//TODO: testSqlServerInsertOrIgnoreMethod
+//TODO: testUpdateMethodWithJoinsOnSqlServer
+//TODO: testUpdateMethodWithJoinsOnSQLite
+//TODO: testPostgresInsertGetId
+//TODO: testPostgresUpdateWrappingJson
+//TODO: testPostgresUpdateWrappingJsonArray
+//TODO: testSQLiteUpdateWrappingJsonArray
+//TODO: testSQLiteUpdateWrappingNestedJsonArray
+//TODO: testPostgresWrappingJson
+//TODO: testSqlServerWrappingJson
+//TODO: testSqliteWrappingJson
+//TODO: testSQLiteOrderBy
+//TODO: testSqlServerLimitsAndOffsets
+//TODO: testPostgresLock
+//TODO: testSqlServerLock
+//TODO: testSqlServerWhereDate
+//TODO: testUnions
+//TODO: testUnionAlls
+//TODO: testMultipleUnions
+//TODO: testMultipleUnionAlls
+//TODO: testUnionOrderBys
+//TODO: testUnionLimitsAndOffsets
+//TODO: testUnionWithJoin
+//TODO: testMySqlUnionOrderBys
+//TODO: testMySqlUnionLimitsAndOffsets
+//TODO: testUnionAggregate
+//TODO: testOrderBysSqlServer
+//TODO: testTableValuedFunctionAsTableInSqlServer
+//TODO: testWhereJsonContainsPostgres
+//TODO: testWhereJsonContainsSqlite
+//TODO: testWhereJsonContainsSqlServer
+//TODO: testWhereJsonDoesntContainPostgres
+//TODO: testWhereJsonDoesntContainSqlite
+//TODO: testWhereJsonDoesntContainSqlServer
+//TODO: testWhereJsonLengthPostgres
+//TODO: testWhereJsonLengthSqlite
+//TODO: testWhereJsonLengthSqlServer
+//TODO: testFromRawOnSqlServer
+//TODO: testFromQuestionMarkOperatorOnPostgres
+//TODO: testWhereTimeSqlServer
+//TODO: testWhereDatePostgres
+//TODO: testWhereDayPostgres
+//TODO: testWhereMonthPostgres
+//TODO: testWhereYearPostgres
+//TODO: testWhereTimePostgres
+//TODO: testWhereLikePostgres
+//TODO: testWhereDateSqlite
+//TODO: testWhereDaySqlite
+//TODO: testWhereMonthSqlite
+//TODO: testWhereYearSqlite
+//TODO: testWhereTimeSqlite
+//TODO: testWhereTimeOperatorOptionalSqlite
+//TODO: testWhereDateSqlServer
+//TODO: testWhereDaySqlServer
+//TODO: testWhereMonthSqlServer
+//TODO: testWhereYearSqlServer
+//TODO: testWhereIntegerInRaw
+//TODO: testOrWhereIntegerInRaw
+//TODO: testWhereIntegerNotInRaw
+//TODO: testOrWhereIntegerNotInRaw
+//TODO: testEmptyWhereIntegerInRaw
+//TODO: testEmptyWhereIntegerNotInRaw
+//TODO: testWhereFulltextPostgres

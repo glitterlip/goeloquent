@@ -2,6 +2,7 @@ package goeloquent
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -24,6 +25,8 @@ const (
 	EventRetrieved  = "Retrieved" //TODO: EventRetrieved EventRetrieving
 	EventRetrieving = "Retrieving"
 	EventALL        = "ALL"
+	EventBooting    = "Booting"
+	EventBooted     = "Booted"
 )
 
 type TableName interface {
@@ -59,6 +62,7 @@ type IDeleted interface {
 type IRetrieved interface {
 	Retrieved(builder *Builder) error
 }
+
 type Model struct {
 	Name               string
 	ModelType          reflect.Type
@@ -73,16 +77,19 @@ type Model struct {
 	ConnectionName     string
 	Exists             bool //exists in database
 	PrimaryKey         *Field
-	IsEloquent         bool
-	PivotFieldIndex    []int
+	//PrimaryKeyType     *Field //TODO: The "type" of the primary key ID.
+	IsEloquent      bool
+	PivotFieldIndex []int
 	//DefaultAttributes  map[string]interface{}
 	UpdatedAt  string
 	CreatedAt  string
 	DeletedAt  string
 	SoftDelete bool
 	//EagerLoad     []
-	//GlobalScopes map[string]interface{}
-	DispatchesEvents map[string]reflect.Value
+	GlobalScopes       map[string]ScopeFunc
+	DispatchesEvents   map[string]reflect.Value
+	WithRelations      []string //TODO: The relations to eager load on every query.
+	WithRelationCounts []string //TODO: The relationship counts that should be eager loaded on every query.
 }
 type Field struct {
 	Name       string
@@ -190,6 +197,10 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 		}
 		if ptrReciver.Method(i).Name == "GetDefaultAttributes" {
 
+		}
+		if ptrReciver.Method(i).Name == "AddGlobalScopes" {
+			res := modelValue.MethodByName("AddGlobalScopes").Call([]reflect.Value{})
+			model.GlobalScopes = res[0].Interface().(map[string]ScopeFunc)
 		}
 	}
 	if model.PrimaryKey == nil {
@@ -381,14 +392,23 @@ type EloquentModel struct {
 	OnlyColumns   map[string]interface{}    `json:"-"` //only update/save these columns
 	ExceptColumns map[string]interface{}    `json:"-"` //exclude update/save there columns
 	Tx            *Transaction              `json:"-"` //use same transaction
+	Booted        bool                      `json:"-"` //model is booted
 
 }
 
+func Init(modelPointer interface{}) {
+	parsed := GetParsedModel(modelPointer)
+	isBooted := reflect.Indirect(reflect.ValueOf(modelPointer)).Field(parsed.PivotFieldIndex[0]).Elem().Field(0).Interface().(bool)
+	if !isBooted {
+		InitModel(modelPointer)
+	}
+}
 func InitModelInTx(modelPointer interface{}, tx *Transaction, exists ...bool) *EloquentModel {
 	e := InitModel(modelPointer, exists...)
 	e.Tx = tx
 	return e
 }
+
 func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m := reflect.Indirect(reflect.ValueOf(modelPointer))
 	parsed := GetParsedModel(m.Type())
@@ -414,6 +434,51 @@ func NewEloquentModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m.SyncOrigin()
 	return &m
 }
+
+func Fill(target interface{}, values ...map[string]interface{}) error {
+	if eloquent, ok := target.(*EloquentModel); ok {
+		for _, value := range values {
+			eloquent.Fill(value)
+		}
+		return nil
+	}
+	parsed := GetParsedModel(target)
+	if !parsed.IsEloquent {
+		return errors.New(fmt.Sprintf("target: %s is not eloquent model", parsed.Name))
+	}
+	v := reflect.Indirect(reflect.ValueOf(target))
+	if eloquent, ok := v.Field(parsed.PivotFieldIndex[0]).Interface().(*EloquentModel); !ok {
+		return errors.New(fmt.Sprintf("target: %s is not eloquent model", parsed.Name))
+	} else {
+		for _, value := range values {
+			eloquent.Fill(value)
+		}
+		return nil
+	}
+
+}
+
+//reserved
+
+func (m *EloquentModel) BootIfNotBooted() {
+	if !m.IsBooted {
+		//m.FireModelEvent(EventBooting,nil)
+		m.Booting()
+		m.Boot()
+		m.Booted()
+		//m.FireModelEvent(EventBooted,nil)
+	}
+}
+func (m *EloquentModel) Booting() {
+
+}
+func (m *EloquentModel) Boot() {
+
+}
+func (m *EloquentModel) Booted() {
+
+}
+
 func (m *EloquentModel) IsEager() bool {
 	return !m.Exists
 }
@@ -528,7 +593,7 @@ func (m *EloquentModel) Save() (res sql.Result, err error) {
 			return nil, eventErr
 		}
 		m.Changes = m.GetDirty()
-		res, err = builder.Update(m.GetAttributesForUpdate())
+		res, err = builder.Where(parsed.PrimaryKey.ColumnName, reflect.Indirect(m.ModelPointer).Field(parsed.PrimaryKey.Index).Interface()).Update(m.GetAttributesForUpdate())
 		if eventErr := m.FireModelEvent(EventUpdated, builder); eventErr != nil {
 			return nil, eventErr
 		}

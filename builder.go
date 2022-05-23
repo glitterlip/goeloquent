@@ -90,6 +90,7 @@ type Builder struct {
 	JoinTable        interface{}
 	UseWrite         bool //TODO:
 	QueryCallBacks   []func(builder *Builder)
+	RemovedScopes    map[string]struct{}
 }
 
 type Log struct {
@@ -99,14 +100,7 @@ type Log struct {
 	Time     time.Duration
 }
 
-func (b *Builder) WithOutGlobalScope(...interface{}) *Builder {
-
-	return b
-}
-func (b *Builder) WithOutGlobalScopes(...interface{}) *Builder {
-
-	return b
-}
+type ScopeFunc func(builder *Builder) *Builder
 
 const (
 	CONDITION_TYPE_BASIC          = "basic"
@@ -129,7 +123,7 @@ const (
 	CONDITION_TYPE_SUB            = "subquery" //todo
 	CONDITION_TYPE_EXIST          = "exist"
 	CONDITION_TYPE_NOT_EXIST      = "not exist"
-	CONDITION_TYPE_ROW_VALUES     = "rowValues" //todo
+	CONDITION_TYPE_ROW_VALUES     = "rowValues"
 	BOOLEAN_AND                   = "and"
 	BOOLEAN_OR                    = "or"
 	CONDITION_JOIN_NOT            = "not" //todo
@@ -180,6 +174,7 @@ type Having struct {
 type Where struct {
 	Type         string
 	Column       string
+	Columns      []string
 	Operator     string
 	FirstColumn  string
 	SecondColumn string
@@ -198,6 +193,7 @@ func NewBuilder(c *Connection) *Builder {
 		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
 		//Processor:  processors.MysqlProcessor{},
 		Bindings:       make(map[string][]interface{}),
+		RemovedScopes:  make(map[string]struct{}),
 		LoggingQueries: c.Config.EnableLog,
 	}
 	return &b
@@ -209,10 +205,29 @@ func NewTxBuilder(tx *Transaction) *Builder {
 		Tx:             tx,
 		Bindings:       make(map[string][]interface{}),
 		LoggingQueries: tx.Config.EnableLog,
+		RemovedScopes:  make(map[string]struct{}),
 	}
 	return &b
 }
-func CloneBuilder(b *Builder) *Builder {
+
+/*
+CloneBuilderWithTable clone builder use same connection and table
+*/
+func CloneBuilderWithTable(b *Builder) *Builder {
+	cb := Builder{
+		Connection:     b.Connection,
+		Components:     make(map[string]struct{}),
+		EagerLoad:      make(map[string]func(builder *RelationBuilder) *RelationBuilder),
+		Grammar:        &MysqlGrammar{},
+		Tx:             b.Tx,
+		Bindings:       make(map[string][]interface{}),
+		LoggingQueries: b.LoggingQueries,
+	}
+	cb.Grammar.SetTablePrefix(b.Grammar.GetTablePrefix())
+	cb.Grammar.SetBuilder(&cb)
+	return &cb
+}
+func MergeBuilder(b *Builder, builder *Builder) *Builder {
 	cb := Builder{
 		Connection:     b.Connection,
 		Components:     make(map[string]struct{}),
@@ -326,25 +341,31 @@ func (b *Builder) CloneWithoutBindings(bindings ...string) *Builder {
 	return CloneWithoutBindings(b, bindings...)
 }
 
-// Select set columns to be selected
-// 1. Select("column1","column2","column3")
-// 2. Select()
+// Select set the columns to be selected
 func (b *Builder) Select(columns ...interface{}) *Builder {
 	b.Components[TYPE_COLUMN] = struct{}{}
 
 	for i := 0; i < len(columns); i++ {
-		if c, ok := columns[i].(string); ok {
-			b.Columns = append(b.Columns, c)
-		} else if mf, ok := columns[i].(map[string]func(builder *Builder)); ok {
-			for as, q := range mf {
-				b.SelectSub(q, as)
+		switch columnType := columns[i].(type) {
+		case string:
+			b.Columns = append(b.Columns, columnType)
+		case map[string]interface{}:
+			for as, q := range columnType {
+				switch q.(type) {
+				case func(builder *Builder):
+					b.SelectSub(q, as)
+				case *Builder:
+					b.SelectSub(q, as)
+				case Expression:
+					b.AddSelect(q)
+				case string:
+					b.Columns = append(b.Columns, q)
+				default:
+					panic(errors.New("unsupported type for select"))
+				}
 			}
-		} else if mb, ok := columns[i].(map[string]*Builder); ok {
-			for as, q := range mb {
-				b.SelectSub(q, as)
-			}
-		} else if raw, ok := columns[i].(Expression); ok {
-			b.AddSelect(raw)
+		case Expression:
+			b.AddSelect(columnType)
 		}
 	}
 	return b
@@ -366,14 +387,15 @@ func (b *Builder) AddSelect(columns ...interface{}) *Builder {
 	b.Components[TYPE_COLUMN] = struct{}{}
 
 	for i := 0; i < len(columns); i++ {
-		if str, ok := columns[i].(string); ok {
-			b.Columns = append(b.Columns, str)
-		} else if m, ok := columns[i].(map[string]interface{}); ok {
-			for as, q := range m {
+		switch columnType := columns[i].(type) {
+		case string:
+			b.Columns = append(b.Columns, columnType)
+		case map[string]interface{}:
+			for as, q := range columnType {
 				b.SelectSub(q, as)
 			}
-		} else if e, ok := columns[i].(Expression); ok {
-			b.Columns = append(b.Columns, e)
+		case Expression:
+			b.Columns = append(b.Columns, columnType)
 		}
 	}
 	return b
@@ -394,7 +416,7 @@ func (b *Builder) CreateSub(query interface{}) (string, []interface{}) {
 	if bT, ok := query.(*Builder); ok {
 		builder = bT
 	} else if function, ok := query.(func(builder *Builder)); ok {
-		builder = CloneBuilder(b)
+		builder = CloneBuilderWithTable(b)
 		function(builder)
 	} else if str, ok := query.(string); ok {
 		return b.ParseSub(str)
@@ -420,9 +442,9 @@ func (b *Builder) ParseSub(query interface{}) (string, []interface{}) {
 ToSql Get the SQL representation of the query.
 */
 func (b *Builder) ToSql() string {
-
+	b.ApplyQueryCallbacks()
 	if len(b.PreparedSql) > 0 {
-		return b.PreparedSql
+		b.PreparedSql = ""
 	}
 	return b.Grammar.CompileSelect()
 }
@@ -624,7 +646,7 @@ func (b *Builder) RightJoinWhere(table, firstColumn, joinOperator, secondColumn 
 	return b.joinWhere(table, firstColumn, joinOperator, secondColumn, JOIN_TYPE_RIGHT)
 }
 func NewJoin(builder *Builder, joinType string, table interface{}) *Builder {
-	cb := CloneBuilder(builder)
+	cb := CloneBuilderWithTable(builder)
 	cb.JoinBuilder = true
 	cb.JoinType = joinType
 	cb.JoinTable = table
@@ -916,7 +938,8 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 	var operator string
 	var value interface{}
 	var boolean = BOOLEAN_AND
-	if clousure, ok := params[0].(func(builder *Builder)); ok {
+	switch condition := params[0].(type) {
+	case func(builder *Builder):
 		var boolean string
 		if paramsLength > 1 {
 			boolean = params[1].(string)
@@ -924,18 +947,19 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 			boolean = BOOLEAN_AND
 		}
 		//clousure
-		cb := CloneBuilder(b)
-		clousure(cb)
+		cb := CloneBuilderWithTable(b)
+		condition(cb)
 		return b.AddNestedWhereQuery(cb, boolean)
-	} else if where, ok := params[0].(Where); ok {
-		b.Wheres = append(b.Wheres, where)
+	case Where:
+		b.Wheres = append(b.Wheres, condition)
 		b.Components[TYPE_WHERE] = struct{}{}
 		return b
-	} else if wheres, ok := params[0].([]Where); ok {
-		b.Wheres = append(b.Wheres, wheres...)
+
+	case []Where:
+		b.Wheres = append(b.Wheres, condition...)
 		b.Components[TYPE_WHERE] = struct{}{}
 		return b
-	} else if e, ok := params[0].(Expression); ok {
+	case Expression:
 		if paramsLength > 1 {
 			boolean = params[1].(string)
 		} else {
@@ -943,18 +967,18 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		}
 		b.Wheres = append(b.Wheres, Where{
 			Type:    CONDITION_TYPE_RAW,
-			RawSql:  e,
+			RawSql:  condition,
 			Boolean: boolean,
 		})
 		b.Components[TYPE_WHERE] = struct{}{}
 		return b
-	} else if m, ok := params[0].(map[string]interface{}); ok {
+	case map[string]interface{}:
 		boolean = BOOLEAN_AND
 		if paramsLength > 1 {
 			boolean = params[1].(string)
 		}
-		cb := CloneBuilder(b)
-		for k, v := range m {
+		cb := CloneBuilderWithTable(b)
+		for k, v := range condition {
 			cb.Where(k, v)
 		}
 		return b.AddNestedWhereQuery(cb, boolean)
@@ -1234,15 +1258,16 @@ func (b *Builder) WhereNull(column interface{}, params ...interface{}) *Builder 
 		not = params[1].(bool)
 	}
 	b.Components[TYPE_WHERE] = struct{}{}
-	if single, ok := column.(string); ok {
+	switch columnTemp := column.(type) {
+	case string:
 		b.Wheres = append(b.Wheres, Where{
 			Type:    CONDITION_TYPE_NULL,
-			Column:  single,
+			Column:  columnTemp,
 			Boolean: boolean,
 			Not:     not,
 		})
-	} else if slice, ok := column.([]interface{}); ok {
-		for _, i := range slice {
+	case []interface{}:
+		for _, i := range columnTemp {
 			b.Wheres = append(b.Wheres, Where{
 				Type:    CONDITION_TYPE_NULL,
 				Column:  i.(string),
@@ -1250,8 +1275,8 @@ func (b *Builder) WhereNull(column interface{}, params ...interface{}) *Builder 
 				Not:     not,
 			})
 		}
-	} else if slice, ok := column.([]string); ok {
-		for _, i := range slice {
+	case []string:
+		for _, i := range columnTemp {
 			b.Wheres = append(b.Wheres, Where{
 				Type:    CONDITION_TYPE_NULL,
 				Column:  i,
@@ -1475,10 +1500,12 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	if paramsLength == 1 {
 		params = append(params, BOOLEAN_AND)
 	}
-	cb := CloneBuilder(b)
+	cb := CloneBuilderWithTable(b)
 	switch params[0].(type) {
 	case Where:
 		cb.Wheres = append(cb.Wheres, params[0].(Where))
+	case []Where:
+		cb.Wheres = append(cb.Wheres, params[0].([]Where)...)
 	case [][]interface{}:
 		tp := params[0].([][]interface{})
 		for i := 0; i < len(tp); i++ {
@@ -1506,7 +1533,7 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 	return b
 }
 func (b *Builder) WhereSub(column string, operator string, value func(builder *Builder), boolean string) *Builder {
-	cb := CloneBuilder(b)
+	cb := CloneBuilderWithTable(b)
 	value(cb)
 	b.Wheres = append(b.Wheres, Where{
 		Type:     CONDITION_TYPE_SUB,
@@ -1525,7 +1552,7 @@ func (b *Builder) WhereSub(column string, operator string, value func(builder *B
 // 2. WhereExists(cb,"and")
 // 3. WhereExists(cb)
 func (b *Builder) WhereExists(cb func(builder *Builder), params ...interface{}) *Builder {
-	newBuilder := CloneBuilder(b)
+	newBuilder := CloneBuilderWithTable(b)
 	cb(newBuilder)
 	boolean := BOOLEAN_AND
 	not := false
@@ -1901,8 +1928,18 @@ func (b *Builder) Rollback() error {
 Find Execute a query for a single record by ID.
 */
 func (b *Builder) Find(dest interface{}, params interface{}) (result sql.Result, err error) {
-	b.WhereKey(params)
 	d := reflect.Indirect(reflect.ValueOf(dest))
+	if b.Model == nil {
+		eleType := d.Type()
+		if eleType.Kind() == reflect.Slice {
+			eleType = eleType.Elem()
+		}
+		if eleType.Kind() == reflect.Map {
+			return b.Where("id", params).First(dest)
+		}
+		b.Model = GetParsedModel(eleType)
+	}
+	b.WhereKey(params)
 	if d.Type().Kind() == reflect.Slice {
 		return b.Get(dest)
 	} else {
@@ -1946,26 +1983,49 @@ func (b *Builder) SetModel(model interface{}) *Builder {
 }
 
 /*
-RunSelect Run the query as a "select" statement against the connection.
+RunSelect run the query as a "select" statement against the connection.
 */
 func (b *Builder) RunSelect() (result sql.Result, err error) {
-	if b.Tx != nil {
-		result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
-	} else {
-		result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
-	}
-	if err != nil {
+	result, err = b.Run(b.ToSql(), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
+		} else {
+			result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
+		}
 		return
-	}
+	})
+
 	d := reflect.TypeOf(b.Dest).Elem()
 	if d.Kind() == reflect.Slice {
 		d = d.Elem()
 	}
-	if b.Model != nil && b.Model.IsEloquent && d.Kind() == reflect.Struct {
+	if result != nil && b.Model != nil && b.Model.IsEloquent && d.Kind() == reflect.Struct {
 		c, _ := result.RowsAffected()
 		BatchSync(b.Dest, c > 0)
 	}
 	return
+}
+func (b *Builder) GetConnection() IConnection {
+	if b.Tx != nil {
+		return b.Tx
+	}
+	return b.Connection
+}
+func (b *Builder) Run(query string, bindings []interface{}, callback func() (result sql.Result, err error)) (result sql.Result, err error) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			return
+		}
+	}()
+	start := time.Now()
+	result, err = callback()
+	b.logQuery(query, bindings, time.Since(start), result)
+	return
+
 }
 func (b *Builder) WithPivot(columns ...string) *Builder {
 	b.Pivots = append(b.Pivots, columns...)
@@ -1975,16 +2035,23 @@ func (b *Builder) WithPivot(columns ...string) *Builder {
 /*
 Exists Determine if any rows exist for the current query.
 */
-func (b *Builder) Exists() (exists bool) {
-	b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists)
-	return exists
+func (b *Builder) Exists() (exists bool, err error) {
+	_, err = b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 /*
 DoesntExist Determine if no rows exist for the current query.
 */
-func (b *Builder) DoesntExist() bool {
-	return !b.Exists()
+func (b *Builder) DoesntExist() (notExists bool, err error) {
+	e, err := b.Exists()
+	if err != nil {
+		return false, err
+	}
+	return !e, nil
 }
 
 /*
@@ -2120,32 +2187,32 @@ func PrepareInsertValues(values interface{}) []map[string]interface{} {
 Insert new records into the database.
 */
 func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
-	var start = time.Now()
 	items := PrepareInsertValues(values)
 	if b.FromTable == nil {
 		b.Model = GetParsedModel(values)
 		b.From(b.Model.Table)
 		b.Connection = Eloquent.Connection(b.Model.ConnectionName)
 		b.Grammar.SetTablePrefix(Eloquent.Configs[b.Model.ConnectionName].Prefix)
-
 	}
-	b.Grammar.CompileInsert(items)
-
-	if b.Tx != nil {
-		result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
-	}
-
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileInsert(items), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
 }
 
 /*
 InsertGetId Insert a new record and get the value of the primary key.
 */
 func (b *Builder) InsertGetId(values interface{}) (int64, error) {
-
+	b.ApplyQueryCallbacks()
 	insert, err := b.Insert(values)
 	if err != nil {
 		return 0, err
@@ -2158,34 +2225,136 @@ func (b *Builder) InsertGetId(values interface{}) (int64, error) {
 InsertOrIgnore Insert a new record and get the value of the primary key.
 */
 func (b *Builder) InsertOrIgnore(values interface{}) (result sql.Result, err error) {
-
-	var start = time.Now()
 	items := PrepareInsertValues(values)
-	b.Grammar.CompileInsertOrIgnore(items)
-
-	if b.Tx != nil {
-		result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+	if b.FromTable == nil {
+		b.Model = GetParsedModel(values)
+		b.From(b.Model.Table)
+		b.Connection = Eloquent.Connection(b.Model.ConnectionName)
+		b.Grammar.SetTablePrefix(Eloquent.Configs[b.Model.ConnectionName].Prefix)
 	}
-
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileInsertOrIgnore(items), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
 }
 func (b *Builder) Update(v map[string]interface{}) (result sql.Result, err error) {
-	var start = time.Now()
-	b.Grammar.CompileUpdate(v)
-	if b.Tx != nil {
-		result, err = b.Tx.Update(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Update(b.PreparedSql, b.GetBindings())
-	}
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileUpdate(v), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Update(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Update(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
 }
-func (b *Builder) UpdateOrInsert(n int) interface{} {
 
-	return 1
+/*
+UpdateOrInsert insert or update a record matching the attributes, and fill it with values.
+*/
+func (b *Builder) UpdateOrInsert(conditions map[string]interface{}, values map[string]interface{}) (updated bool, err error) {
+	exist, err := b.Where(conditions).Exists()
+	if err != nil {
+		return
+	}
+	if !exist {
+		for k, v := range values {
+			conditions[k] = v
+		}
+		b.Reset(TYPE_WHERE)
+		_, err = b.Insert(conditions)
+		if err != nil {
+			return
+		}
+		return false, nil
+	} else {
+		_, err = b.Limit(1).Update(values)
+		if err != nil {
+			return
+		}
+		return true, nil
+	}
+}
+
+/*
+UpdateOrCreate Create or update a record matching the attributes, and fill it with values.
+*/
+func (b *Builder) UpdateOrCreate(target interface{}, conditions, values map[string]interface{}) (updated bool, err error) {
+	rows, err := b.SetModel(target).Where(conditions).First(target)
+	if err != nil {
+		return
+	}
+	c, _ := rows.RowsAffected()
+	if c == 1 {
+		err = Fill(target, values)
+	} else {
+		err = Fill(target, conditions, values)
+	}
+	if err != nil {
+		return
+	}
+	_, err = Eloquent.Save(target)
+	if err != nil {
+		return
+	}
+	return c == 1, nil
+
+}
+
+/*
+Upsert Insert new records or update the existing one
+*/
+func (b *Builder) Upsert() {
+
+}
+
+/*
+FirstOrNew get the first record matching the attributes or instantiate it.
+*/
+func (b *Builder) FirstOrNew(target interface{}, conditions ...map[string]interface{}) (found bool, err error) {
+	res, err := b.SetModel(target).Where(conditions[0]).First(target)
+	c, err := res.RowsAffected()
+	found = c == 1
+	if !found {
+		err = Fill(target, conditions...)
+		if err != nil {
+			return
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
+/*
+FirstOrCreate get the first record matching the attributes or create it.
+*/
+func (b *Builder) FirstOrCreate(target interface{}, conditions ...map[string]interface{}) (found bool, err error) {
+	res, err := b.SetModel(target).Where(conditions[0]).First(target)
+	c, err := res.RowsAffected()
+	found = c == 1
+	if !found {
+		err = Fill(target, conditions...)
+		if err != nil {
+			return
+		}
+		_, err = Eloquent.Save(target)
+		if err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
 }
 
 /*
@@ -2223,24 +2392,35 @@ func (b *Builder) Increment(column string, amount int, extra ...map[string]inter
 
 	return b.Update(update)
 }
-func (b *Builder) InRandomOrder() {
 
+/*
+InRandomOrder Put the query's results in random order.
+*/
+func (b *Builder) InRandomOrder(seed string) *Builder {
+	return b.OrderByRaw(b.Grammar.CompileRandom(seed), []interface{}{})
 }
 
 /*
 Delete Delete records from the database.
 //TODO: Delete(1) Delete(1,2,3) Delete([]interface{}{1,2,3})
 */
-func (b *Builder) Delete() (result sql.Result, err error) {
-	var start = time.Now()
-	b.Grammar.CompileDelete()
-	if b.Tx != nil {
-		result, err = b.Tx.Delete(b.PreparedSql, b.GetBindings())
-	} else {
-		result, err = b.Connection.Delete(b.PreparedSql, b.GetBindings())
+func (b *Builder) Delete(id ...interface{}) (result sql.Result, err error) {
+	if len(id) > 0 {
+		b.Where("id", id[0])
 	}
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
-	return result, err
+	b.ApplyQueryCallbacks()
+	return b.Run(b.Grammar.CompileDelete(), b.GetBindings(), func() (result sql.Result, err error) {
+		if b.Pretending {
+			return
+		}
+		if b.Tx != nil {
+			result, err = b.Tx.Delete(b.PreparedSql, b.GetBindings())
+		} else {
+			result, err = b.Connection.Delete(b.PreparedSql, b.GetBindings())
+		}
+		return
+	})
+
 }
 func (b *Builder) Raw() *sql.DB {
 	return b.Connection.GetDB()
@@ -2311,6 +2491,7 @@ func (b *Builder) logQuery(query string, bindings []interface{}, elapsed time.Du
 Get Execute the query as a "select" statement.
 */
 func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Result, err error) {
+	b.ApplyGlobalScores()
 	if b.FromTable == nil {
 		b.Model = GetParsedModel(dest)
 		b.From(b.Model.Table)
@@ -2321,7 +2502,6 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 	if len(columns) > 0 {
 		b.Select(columns...)
 	}
-	var start = time.Now()
 	b.Dest = dest
 	b.DestReflectValue = reflect.ValueOf(dest)
 	if len(b.EagerLoad) == 0 {
@@ -2333,7 +2513,6 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) (result sql.Resu
 		}
 	}
 	result, err = b.RunSelect()
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	if err == nil && len(b.EagerLoad) > 0 && result.(ScanResult).Count > 0 {
 		rb := RelationBuilder{
 			Builder: b,
@@ -2419,6 +2598,46 @@ func (b *Builder) ApplyQueryCallbacks() {
 	}
 	b.QueryCallBacks = nil
 }
+func (b *Builder) ApplyGlobalScores() {
+	if b.Model != nil && len(b.Model.GlobalScopes) > 0 {
+		for name, scopeFunc := range b.Model.GlobalScopes {
+			if _, removed := b.RemovedScopes[name]; !removed {
+				b.callScope(scopeFunc)
+			}
+		}
+	}
+}
+func (b *Builder) callScope(scope ScopeFunc) *Builder {
+	originalWhereCount := len(b.Wheres)
+	scope(b)
+	if len(b.Wheres) > originalWhereCount {
+		b.addNewWheresWithInGroup(originalWhereCount)
+	}
+	return b
+}
+func (b *Builder) addNewWheresWithInGroup(count int) *Builder {
+	wheres := b.Wheres
+	b.Wheres = nil
+	b.groupWhereSliceForScope(wheres[0:count])
+	b.groupWhereSliceForScope(wheres[count:])
+	return b
+}
+func (b *Builder) groupWhereSliceForScope(wheres []Where) *Builder {
+
+	index := 0
+	for i, where := range wheres {
+		if where.Boolean == BOOLEAN_OR {
+			index = i
+			break
+		}
+	}
+	if index > 0 {
+		b.WhereNested(wheres, wheres[0].Boolean)
+	} else {
+		b.Where(wheres)
+	}
+	return b
+}
 
 /*
 Paginate Paginate the given query into a simple paginator.
@@ -2495,5 +2714,149 @@ func (b *Builder) Scopes(scopes ...func(builder *Builder) *Builder) *Builder {
 	for _, scope := range scopes {
 		scope(b)
 	}
+	return b
+}
+func (b *Builder) WithOutGlobalScopes(names ...string) *Builder {
+	if len(names) == 0 {
+		//remove all
+		for name, _ := range b.Model.GlobalScopes {
+			b.RemovedScopes[name] = struct{}{}
+		}
+	} else {
+		for _, name := range names {
+			b.RemovedScopes[name] = struct{}{}
+		}
+	}
+
+	return b
+}
+
+func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest interface{}) error) (err error) {
+	if len(b.Orders) == 0 {
+		panic(errors.New("must specify an orderby clause when using this method"))
+	}
+	var page int64 = 1
+	var count int64 = 0
+	tempDest := reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type()).Interface()
+	get, err := b.ForPage(1, chunkSize).Get(tempDest)
+	if err != nil {
+		return
+	}
+	count, _ = get.RowsAffected()
+	for count > 0 {
+		err = callback(tempDest)
+		if err != nil {
+			return
+		}
+		if count != chunkSize {
+			break
+		} else {
+			page++
+			tempDest = reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type()).Interface()
+			get, err = b.ForPage(page, chunkSize).Get(tempDest)
+			if err != nil {
+				return err
+			}
+			count, _ = get.RowsAffected()
+		}
+	}
+	return nil
+}
+func (b *Builder) ChunkById(dest interface{}, chunkSize int64, callback func(dest interface{}) error, extra ...string) (err error) {
+	eleType := reflect.TypeOf(dest).Elem().Elem()
+	if eleType.Kind() == reflect.Ptr {
+		eleType = eleType.Elem()
+	}
+
+	isMap := eleType.Kind() == reflect.Map
+	var column string
+	var item *Model
+
+	if isMap {
+		column = extra[0]
+	} else {
+		item = GetParsedModel(dest)
+		column = item.PrimaryKey.ColumnName
+	}
+
+	page := int64(1)
+	count := int64(0)
+	tempDest := reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type())
+	nb := Clone(b)
+	get, err := nb.ForPage(1, chunkSize).OrderBy(column).Get(tempDest.Interface())
+	if err != nil {
+		return
+	}
+	count, _ = get.RowsAffected()
+	for count > 0 {
+		err = callback(tempDest.Interface())
+		if err != nil {
+			return
+		}
+		if count != chunkSize {
+			break
+		} else {
+			page++
+			nb = Clone(b)
+			lastEle := tempDest.Elem().Index(tempDest.Elem().Len() - 1)
+			var lastId interface{}
+			if isMap {
+				lastId = lastEle.MapIndex(reflect.ValueOf(column)).Interface()
+			} else {
+				lastId = lastEle.Field(item.PrimaryKey.Index).Interface()
+			}
+			tempDest = reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type())
+			get, err = nb.Limit(int(chunkSize)).Where(column, ">", lastId).OrderBy(column).Get(tempDest.Interface())
+			if err != nil {
+				return err
+			}
+			count, _ = get.RowsAffected()
+		}
+	}
+	return nil
+}
+func (b *Builder) Pretend() *Builder {
+	b.Pretending = true
+	return b
+}
+
+/*
+Implode concatenate values of a given column as a string.
+*/
+func (b *Builder) Implode(column string, glue ...string) (string, error) {
+	var dest []string
+	_, err := b.Pluck(&dest, column)
+	if err != nil {
+		return "", nil
+	}
+	var sep string
+	if len(glue) == 0 {
+		sep = ""
+	} else {
+		sep = glue[0]
+	}
+
+	return strings.Join(dest, sep), nil
+}
+
+/*
+WhereRowValues Adds a where condition using row values.
+*/
+func (b *Builder) WhereRowValues(columns []string, operator string, values []interface{}, params ...string) *Builder {
+	if len(columns) != len(values) {
+		panic(errors.New("argements number mismatch"))
+	}
+	var boolean = BOOLEAN_AND
+	if len(params) == 1 {
+		boolean = params[0]
+	}
+	b.Components[TYPE_WHERE] = struct{}{}
+	b.Wheres = append(b.Wheres, Where{
+		Type:     CONDITION_TYPE_ROW_VALUES,
+		Operator: operator,
+		Columns:  columns,
+		Values:   values,
+		Boolean:  boolean,
+	})
 	return b
 }

@@ -53,9 +53,13 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	if config.ParseTime {
 		params = append(params, "parseTime=true")
 	}
-
-	openStr := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", config.Username, config.Password, config.Host, config.Port, config.Database, strings.Join(params, "&"))
-	db, err := sql.Open(DriverMysql, openStr)
+	var dsn string
+	if len(config.Dsn) > 0 {
+		dsn = config.Dsn
+	} else {
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", config.Username, config.Password, config.Host, config.Port, config.Database, strings.Join(params, "&"))
+	}
+	db, err := sql.Open(DriverMysql, dsn)
 	if err != nil {
 		panic(err.Error())
 	}

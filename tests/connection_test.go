@@ -1,8 +1,9 @@
 package tests
 
 import (
-	goeloquent "github.com/glitterlip/go-eloquent"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 )
 
@@ -98,6 +99,15 @@ func TestSingleConnectionNotCreatedUntilNeeded(t *testing.T) {
 	assert.Equal(t, 1, len(DB.Connections))
 	_, ok := DB.Connections["chat"]
 	assert.False(t, ok)
+}
+func TestDSNConfig(t *testing.T) {
+	DB.AddConfig("test", &goeloquent.DBConfig{
+		Driver: "mysql",
+		Dsn:    os.Getenv("GOELOQUENT_TEST_DEFAULT_DSN"),
+	})
+	conn := DB.Connection("test")
+	err := conn.DB.Ping()
+	assert.Nil(t, err)
 }
 
 //TODO: testCustomConnectorsCanBeResolvedViaContainer

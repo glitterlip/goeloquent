@@ -131,16 +131,8 @@ func (dm *DatabaseManager) Save(modelP interface{}) (res sql.Result, err error) 
 	if parsed.IsEloquent {
 		ininted := !model.Field(parsed.PivotFieldIndex[0]).IsZero()
 		if ininted {
-			t := model.Field(parsed.PivotFieldIndex[0])
-			tempRes := t.MethodByName("Save").Call([]reflect.Value{})
-			if !tempRes[0].IsNil() {
-				res = tempRes[0].Interface().(sql.Result)
-			}
-			if tempRes[1].IsNil() {
-				return
-			}
-			err = tempRes[1].Interface().(error)
-			return
+			t := model.Field(parsed.PivotFieldIndex[0]).Interface().(*EloquentModel)
+			return t.Save()
 		} else {
 			return InitModel(modelP).Create()
 		}

@@ -2,7 +2,7 @@ package tests
 
 import (
 	"fmt"
-	goeloquent "github.com/glitterlip/go-eloquent"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"strings"

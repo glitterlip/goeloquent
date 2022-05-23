@@ -62,6 +62,7 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 		}
 	}
 	b.PreparedSql = b.PreSql.String()
+	b.PreSql.Reset()
 	return b.PreparedSql
 }
 
@@ -81,7 +82,7 @@ func (m *MysqlGrammar) CompileDelete() string {
 		b.PreSql.WriteString(m.CompileComponentLimitNum())
 	}
 	m.GetBuilder().PreparedSql = m.GetBuilder().PreSql.String()
-
+	b.PreSql.Reset()
 	return m.GetBuilder().PreparedSql
 }
 
@@ -110,11 +111,14 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 	}
 	b.PreSql.WriteString(m.CompileComponentWheres())
 	m.GetBuilder().PreparedSql = b.PreSql.String()
+	b.PreSql.Reset()
 	return m.GetBuilder().PreparedSql
 }
 
 func (m *MysqlGrammar) CompileSelect() string {
 	b := m.GetBuilder()
+	b.PreparedSql = ""
+	b.PreSql = strings.Builder{}
 	if _, ok := b.Components[TYPE_COLUMN]; !ok || len(b.Columns) == 0 {
 		b.Components[TYPE_COLUMN] = struct{}{}
 		b.Columns = append(b.Columns, "*")
@@ -125,7 +129,8 @@ func (m *MysqlGrammar) CompileSelect() string {
 		}
 	}
 	b.PreparedSql = b.PreSql.String()
-	return b.PreSql.String()
+	b.PreSql.Reset()
+	return b.PreparedSql
 }
 
 func (m *MysqlGrammar) CompileExists() string {
@@ -263,7 +268,7 @@ func (m *MysqlGrammar) CompileComponentWheres() string {
 			builder.WriteString(m.Wrap(w.Column))
 			builder.WriteString(" " + w.Operator + " ")
 			builder.WriteString("(")
-			cb := CloneBuilder(m.GetBuilder())
+			cb := CloneBuilderWithTable(m.GetBuilder())
 
 			if clousure, ok := w.Value.(func(builder *Builder)); ok {
 				clousure(cb)
@@ -357,6 +362,12 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 		}
 		sqlBuilder.WriteString("exists ")
 		sqlBuilder.WriteString(fmt.Sprintf("(%s)", w.Query.ToSql()))
+	case CONDITION_TYPE_ROW_VALUES:
+		var columns []interface{}
+		for _, column := range w.Columns {
+			columns = append(columns, column)
+		}
+		sqlBuilder.WriteString(fmt.Sprintf("(%s) %s (%s)", m.columnize(columns), w.Operator, m.parameter(w.Values...)))
 
 	default:
 		panic("where type not Found")
@@ -548,4 +559,11 @@ func (m *MysqlGrammar) WrapValue(value string) string {
 		return fmt.Sprintf("`%s`", strings.ReplaceAll(value, "`", "``"))
 	}
 	return value
+}
+
+/*
+CompileRandom Compile the random statement into SQL.
+*/
+func (m *MysqlGrammar) CompileRandom(seed string) string {
+	return fmt.Sprintf("RAND(%s)", seed)
 }

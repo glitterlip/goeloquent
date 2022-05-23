@@ -28,5 +28,7 @@ type IGrammar interface {
 	CompileComponentWheres() string
 
 	CompileComponentJoins() string
+
+	CompileRandom(seed string) string
 	//Wrap(value string, b *query.Builder) string
 }
