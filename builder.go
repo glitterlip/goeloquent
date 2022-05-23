@@ -938,7 +938,8 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 	var operator string
 	var value interface{}
 	var boolean = BOOLEAN_AND
-	if clousure, ok := params[0].(func(builder *Builder)); ok {
+	switch condition := params[0].(type) {
+	case func(builder *Builder):
 		var boolean string
 		if paramsLength > 1 {
 			boolean = params[1].(string)
@@ -947,17 +948,18 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		}
 		//clousure
 		cb := CloneBuilderWithTable(b)
-		clousure(cb)
+		condition(cb)
 		return b.AddNestedWhereQuery(cb, boolean)
-	} else if where, ok := params[0].(Where); ok {
-		b.Wheres = append(b.Wheres, where)
+	case Where:
+		b.Wheres = append(b.Wheres, condition)
 		b.Components[TYPE_WHERE] = struct{}{}
 		return b
-	} else if wheres, ok := params[0].([]Where); ok {
-		b.Wheres = append(b.Wheres, wheres...)
+
+	case []Where:
+		b.Wheres = append(b.Wheres, condition...)
 		b.Components[TYPE_WHERE] = struct{}{}
 		return b
-	} else if e, ok := params[0].(Expression); ok {
+	case Expression:
 		if paramsLength > 1 {
 			boolean = params[1].(string)
 		} else {
@@ -965,18 +967,18 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		}
 		b.Wheres = append(b.Wheres, Where{
 			Type:    CONDITION_TYPE_RAW,
-			RawSql:  e,
+			RawSql:  condition,
 			Boolean: boolean,
 		})
 		b.Components[TYPE_WHERE] = struct{}{}
 		return b
-	} else if m, ok := params[0].(map[string]interface{}); ok {
+	case map[string]interface{}:
 		boolean = BOOLEAN_AND
 		if paramsLength > 1 {
 			boolean = params[1].(string)
 		}
 		cb := CloneBuilderWithTable(b)
-		for k, v := range m {
+		for k, v := range condition {
 			cb.Where(k, v)
 		}
 		return b.AddNestedWhereQuery(cb, boolean)
@@ -1256,15 +1258,16 @@ func (b *Builder) WhereNull(column interface{}, params ...interface{}) *Builder 
 		not = params[1].(bool)
 	}
 	b.Components[TYPE_WHERE] = struct{}{}
-	if single, ok := column.(string); ok {
+	switch columnTemp := column.(type) {
+	case string:
 		b.Wheres = append(b.Wheres, Where{
 			Type:    CONDITION_TYPE_NULL,
-			Column:  single,
+			Column:  columnTemp,
 			Boolean: boolean,
 			Not:     not,
 		})
-	} else if slice, ok := column.([]interface{}); ok {
-		for _, i := range slice {
+	case []interface{}:
+		for _, i := range columnTemp {
 			b.Wheres = append(b.Wheres, Where{
 				Type:    CONDITION_TYPE_NULL,
 				Column:  i.(string),
@@ -1272,8 +1275,8 @@ func (b *Builder) WhereNull(column interface{}, params ...interface{}) *Builder 
 				Not:     not,
 			})
 		}
-	} else if slice, ok := column.([]string); ok {
-		for _, i := range slice {
+	case []string:
+		for _, i := range columnTemp {
 			b.Wheres = append(b.Wheres, Where{
 				Type:    CONDITION_TYPE_NULL,
 				Column:  i,
