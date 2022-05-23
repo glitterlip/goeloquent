@@ -14,6 +14,9 @@ import (
 
 func GetBuilder() *goeloquent.Builder {
 	c := DB.Connection("default")
+	DB.SetLogger(func(log goeloquent.Log) {
+		fmt.Println(log)
+	})
 	builder := goeloquent.NewBuilder(c)
 	builder.Grammar = &goeloquent.MysqlGrammar{}
 	builder.Grammar.SetTablePrefix(c.Config.Prefix)
@@ -1458,6 +1461,23 @@ func TestBase(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, "user-0,user-1", implode2)
 
+		//testfindmap
+		var m = make(map[string]interface{})
+		b7 := DB.Query()
+		b7.From("users").Find(&m, 3)
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b7.ToSql())
+		assert.Equal(t, int64(2), m["age"])
+		assert.Equal(t, int64(3), m["id"])
+
+		//testgetmap
+		var ms []map[string]interface{}
+		b8 := DB.Query()
+		b8.From("users").Where("id", "<", 10).Limit(2).Get(&ms, "id", "name")
+		assert.Equal(t, "select `id`, `name` from `users` where `id` < ? limit 2", b8.ToSql())
+		assert.Equal(t, len(ms), 2)
+		for _, mt := range ms {
+			mt["name"] = fmt.Sprintf("user-%d", mt["id"].(int64)-1)
+		}
 	})
 
 }
@@ -1724,7 +1744,6 @@ func TestFirstOrCreate(t *testing.T) {
 //TODO: testUpdateMethodWithJoins
 //TODO: testUpdateMethodWithJoinsOnMySql
 //TODO: testUpdateMethodRespectsRaw
-//TODO: testUpdateOrInsertMethod
 //TODO: testUpdateOrInsertMethodWorksWithEmptyUpdateValues
 //TODO: testDeleteWithJoinMethod
 //TODO: testTruncateMethod
