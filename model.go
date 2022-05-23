@@ -382,6 +382,7 @@ func BatchSync(models interface{}, exists ...bool) {
 }
 
 type EloquentModel struct {
+	IsBooted      bool                      `json:"-"` //model is booted
 	Origin        map[string]interface{}    `json:"-"` //store original attribute that get from database or default
 	Changes       map[string]interface{}    `json:"-"` //store changes attribute after save to database
 	ModelPointer  reflect.Value             `json:"-"` //model pointer points to the model hold this
