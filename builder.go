@@ -1928,16 +1928,22 @@ func (b *Builder) Rollback() error {
 Find Execute a query for a single record by ID.
 */
 func (b *Builder) Find(dest interface{}, params interface{}) (result sql.Result, err error) {
-	if b.Model != nil {
-		b.WhereKey(params)
-		d := reflect.Indirect(reflect.ValueOf(dest))
-		if d.Type().Kind() == reflect.Slice {
-			return b.Get(dest)
-		} else {
-			return b.First(dest)
+	d := reflect.Indirect(reflect.ValueOf(dest))
+	if b.Model == nil {
+		eleType := d.Type()
+		if eleType.Kind() == reflect.Slice {
+			eleType = eleType.Elem()
 		}
+		if eleType.Kind() == reflect.Map {
+			return b.Where("id", params).First(dest)
+		}
+		b.Model = GetParsedModel(eleType)
+	}
+	b.WhereKey(params)
+	if d.Type().Kind() == reflect.Slice {
+		return b.Get(dest)
 	} else {
-		return b.Where("id", params).First(dest)
+		return b.First(dest)
 	}
 }
 
