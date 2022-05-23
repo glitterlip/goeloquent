@@ -393,7 +393,6 @@ type EloquentModel struct {
 	OnlyColumns   map[string]interface{}    `json:"-"` //only update/save these columns
 	ExceptColumns map[string]interface{}    `json:"-"` //exclude update/save there columns
 	Tx            *Transaction              `json:"-"` //use same transaction
-	Booted        bool                      `json:"-"` //model is booted
 
 }
 
