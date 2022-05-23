@@ -24,10 +24,51 @@ DB.Table("users").Find(&user,1)
 DB.Table("users").Where("name","john").First(&user)
 DB.Table("users").Where("name","john").FirstOrCreate(&user)
 
+//Column/Aggeregate
+var age int
+DB.Table("users").Where("id","=",20).Value(&age,"age")
+DB.Table("users").Max(&age,"age")
+var salary int
+DB.Table("user").Where("age",">=",30).Avg(&salary,"salary")
+
+//Find record to map
+var m = make(map[string]interface{})
+DB.Query().From("users").Find(&m,3)
+var ms []map[string]interface{}
+DB.Query().From("users").Get(&ms)
+
 //Pagination
 var users []User
 DB.Model(&User{}).Where("id", ">", 10).Where("id", "<", 28).Paginate(&users, 10, 1)
 
+//Chunk/ChunkById
+var total int
+totalP := &total
+DB.Table("users").OrderBy("id").Chunk(&[]User{}, 10, func(dest interface{}) error {
+    us := dest.(*[]User)
+    for _, user := range *us {
+        assert.Equal(t, user.UserName, sql.NullString{
+            String: fmt.Sprintf("user-%d", user.Age),
+            Valid:  true,
+        })
+        *totalP++
+    }
+    return nil
+})
+
+var total int
+totalP := &total
+DB.Table("users").ChunkById(&[]User{}, 10, func(dest interface{}) error {
+    us := dest.(*[]User)
+    for _, user := range *us {
+        assert.Equal(t, user.UserName, sql.NullString{
+            String: fmt.Sprintf("user-%d", user.Age),
+            Valid:  true,
+        })
+        *totalP++
+    }
+    return nil
+})
 //Query clause 
 DB.Where("name","john@apple.com").OrWhere("email","john@apple.com").First(&user)
 
