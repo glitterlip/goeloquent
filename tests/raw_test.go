@@ -21,12 +21,60 @@ func TestRawMethods(t *testing.T) {
 		c, _ = insert.RowsAffected()
 		assert.Equal(t, int64(2), c)
 
-		//test select
+		//test select map
 		r, err := DB.Select("select * from users limit ? ", []interface{}{1}, &row)
 		c, err = r.RowsAffected()
 		assert.Nil(t, err)
 		assert.Equal(t, "Alice", string(row["name"].([]uint8)))
 		assert.Equal(t, int64(1), c)
+
+		var rows []map[string]interface{}
+		r, err = DB.Select("select * from users ", nil, &rows)
+		c, err = r.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(3), c)
+
+		//test select struct
+		type User struct {
+			Id   int64
+			Name string
+			Age  int
+		}
+		type MappingUser struct {
+			Id       int64  `goelo:"column:id"`
+			UserName string `goelo:"column:name"`
+			RealAge  int    `goelo:"column:age"`
+		}
+		var user User
+		var mapUser MappingUser
+		res, err := DB.Select("select * from users order by id asc limit ?", []interface{}{1}, &user)
+		c, _ = res.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), c)
+		assert.Equal(t, int64(1), user.Id)
+		assert.Equal(t, 33, user.Age)
+		assert.Equal(t, "Alice", user.Name)
+
+		res, err = DB.Select("select * from users order by id asc limit ? offset 1", []interface{}{1}, &mapUser)
+		c, _ = res.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), c)
+		assert.Equal(t, int64(2), mapUser.Id)
+		assert.Equal(t, 12, mapUser.RealAge)
+		assert.Equal(t, "John", mapUser.UserName)
+
+		//select map of struct
+		var us []User
+		res, err = DB.Select("select * from users order by id asc limit ?", []interface{}{2}, &us)
+		c, _ = res.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(2), c)
+		assert.Equal(t, int64(1), us[0].Id)
+		assert.Equal(t, int64(2), us[1].Id)
+		assert.Equal(t, 33, us[0].Age)
+		assert.Equal(t, 12, us[1].Age)
+		assert.Equal(t, "Alice", us[0].Name)
+		assert.Equal(t, "John", us[1].Name)
 
 		//test update
 		u, err := DB.Update("update users set age = 18 where age < 18 ", []interface{}{})
