@@ -1935,6 +1935,10 @@ func (b *Builder) Find(dest interface{}, params interface{}) (result sql.Result,
 			eleType = eleType.Elem()
 		}
 		if eleType.Kind() == reflect.Map {
+			pt := reflect.TypeOf(params)
+			if pt.Kind() == reflect.Slice {
+				return b.WhereIn("id", params).Get(dest)
+			}
 			return b.Where("id", params).First(dest)
 		}
 		b.Model = GetParsedModel(eleType)

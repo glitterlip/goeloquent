@@ -1478,6 +1478,17 @@ func TestBase(t *testing.T) {
 		for _, mt := range ms {
 			mt["name"] = fmt.Sprintf("user-%d", mt["id"].(int64)-1)
 		}
+
+		//test findmany
+		var users []map[string]interface{}
+		b9 := DB.Query()
+		rows, err = b9.From("users").Find(&users, []interface{}{1, 2, 3, 4})
+		c, _ = rows.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(4), c)
+		assert.Equal(t, user["id"], int64(1))
+		assert.Equal(t, "select * from `users` where `id` in (?,?,?,?)", b9.PreparedSql)
+
 	})
 
 }
