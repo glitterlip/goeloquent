@@ -1280,6 +1280,13 @@ func TestPaginate(t *testing.T) {
 		for _, u := range users1 {
 			assert.True(t, u.Id > 13)
 		}
+		//test paginate slice map
+		var uSlice []map[string]interface{}
+		p, err := DB.Table("user").Where("id", ">", 13).Paginate(&uSlice, 5, 2)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(37), p.Total)
+		assert.Equal(t, int64(2), p.CurrentPage)
+		assert.Equal(t, 5, len(users1))
 
 	})
 
