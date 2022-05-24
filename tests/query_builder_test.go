@@ -630,6 +630,62 @@ func TestJoins(t *testing.T) {
 	ShouldEqual(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`id` or `contacts`.`deleted_at` is not null", b8)
 
 }
+func TestJoinScan(t *testing.T) {
+	//test join struct
+	c, d := CreateRelationTables()
+	type UserWithAddress struct {
+		Id       int64
+		Age      int
+		Name     string
+		Country  string
+		Province string `goelo:"column:state"`
+		City     string
+		Address  string `goelo:"column:detail"`
+	}
+	RunWithDB(c, d, func() {
+		var u UserWithAddress
+		user, err := DB.Insert("insert into user (name,age) values ('Alex',18)", nil)
+		assert.Nil(t, err)
+		uid, _ := user.LastInsertId()
+		add, err := DB.Insert("insert into address (user_id,country,state,city,detail) values (?,?,'IL','Chicago','2609 S Halsted St')", []interface{}{uid, 1})
+		assert.Nil(t, err)
+		addId, err := add.LastInsertId()
+		assert.Greater(t, addId, int64(0))
+
+		b1 := DB.Query()
+		_, err = b1.From("user").Select("user.id as id", "user.age as age", "user.name as name").
+			AddSelect("address.country as country", "address.state as state", "address.city as city", "address.detail as detail").
+			Join("address", "user.id", "address.user_id").First(&u)
+		assert.Nil(t, err)
+		assert.ObjectsAreEqualValues(u, UserWithAddress{
+			Id:       1,
+			Age:      18,
+			Name:     "Alex",
+			Country:  "1",
+			Province: "IL",
+			City:     "Chicage",
+			Address:  "2609 S Halsted St",
+		})
+		joinMap := make(map[string]interface{})
+		_, err = DB.Query().From("user").Select("user.*").
+			AddSelect("address.*").
+			Join("address", "user.id", "address.user_id").First(&joinMap)
+		assert.Nil(t, err)
+		assert.Equal(t, u.City, string((joinMap["city"]).([]byte)))
+		assert.Equal(t, u.Name, string((joinMap["name"]).([]byte)))
+		assert.Equal(t, u.Address, string((joinMap["detail"]).([]byte)))
+
+		//test where query
+		joinMap = make(map[string]interface{})
+		_, err = DB.Query().From("user").Select("user.*").Where("user.id", uid).
+			AddSelect("address.*").
+			Join("address", "user.id", "address.user_id").First(&joinMap)
+		assert.Nil(t, err)
+		assert.Equal(t, u.City, string((joinMap["city"]).([]byte)))
+		assert.Equal(t, u.Name, string((joinMap["name"]).([]byte)))
+		assert.Equal(t, u.Address, string((joinMap["detail"]).([]byte)))
+	})
+}
 func TestJoinIn(t *testing.T) {
 	//testJoinWhereIn
 	b9 := GetBuilder().Select().From("users").Join("contacts", func(clasuse *goeloquent.Builder) {
