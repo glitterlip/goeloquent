@@ -54,6 +54,9 @@ func TestSelect(t *testing.T) {
 	b2.From("users").Get(&users)
 	assert.Equal(t, "select * from `users`", b2.ToSql())
 	//testselectraw
+	b3 := GetBuilder()
+	b3.From("orders").SelectRaw("price * ? as price_with_tax", []interface{}{1.1})
+	assert.Equal(t, "select price * ? as price_with_tax from `orders`", b3.ToSql())
 }
 
 func TestBasicSelectWithColumns(t *testing.T) {
