@@ -43,7 +43,7 @@ func TestRawMethods(t *testing.T) {
 		type MappingUser struct {
 			Id       int64  `goelo:"column:id"`
 			UserName string `goelo:"column:name"`
-			RealAge  int    `goelo:"column:age"`
+			Age      int
 		}
 		var user User
 		var mapUser MappingUser
@@ -60,10 +60,10 @@ func TestRawMethods(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, int64(1), c)
 		assert.Equal(t, int64(2), mapUser.Id)
-		assert.Equal(t, 12, mapUser.RealAge)
+		assert.Equal(t, 12, mapUser.Age)
 		assert.Equal(t, "John", mapUser.UserName)
 
-		//select map of struct
+		//select slice of struct
 		var us []User
 		res, err = DB.Select("select * from users order by id asc limit ?", []interface{}{2}, &us)
 		c, _ = res.RowsAffected()
