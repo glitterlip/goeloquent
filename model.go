@@ -272,6 +272,11 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 				//todo case defaultvalue,case updateable,insertable
 			}
 		}
+	} else {
+		//maybe only a few fileds has goelo tag
+		modelField.ColumnName = ToSnakeCase(field.Name)
+		m.FieldsByDbName[modelField.ColumnName] = modelField
+		m.DbFields = append(m.DbFields, modelField.ColumnName)
 	}
 	//if  { ignored tag
 	m.Fields = append(m.Fields, modelField)
