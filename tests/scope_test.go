@@ -9,6 +9,9 @@ import (
 func ScopeFunc(builder *goeloquent.Builder) *goeloquent.Builder {
 	return builder.OrderBy("id", "desc")
 }
+func AgeScope(builder *goeloquent.Builder) *goeloquent.Builder {
+	return builder.Where("age", ">", 18)
+}
 func TestQueryScopes(t *testing.T) {
 	b := DB.Query()
 	var us []UserT
@@ -16,7 +19,9 @@ func TestQueryScopes(t *testing.T) {
 		return b.Where("age", 18)
 	}, ScopeFunc).Get(&us)
 	assert.Equal(t, "select * from `users` where `age` = ? order by `id` desc", b.ToSql())
-
+	b1 := DB.Query()
+	b1.Select().From("users").Scopes(AgeScope, ScopeFunc).Get(&us)
+	assert.Equal(t, "select * from `users` where `age` > ? order by `id` desc", b1.ToSql())
 }
 
 type Tag1 struct {
