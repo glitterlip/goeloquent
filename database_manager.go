@@ -141,13 +141,15 @@ func (dm *DatabaseManager) Save(modelP interface{}) (res sql.Result, err error) 
 	}
 	return
 }
-func (dm *DatabaseManager) Init(modelP interface{}) {
+func (dm *DatabaseManager) Boot(modelP interface{}) *EloquentModel {
 	parsed := GetParsedModel(modelP)
 	model := reflect.Indirect(reflect.ValueOf(modelP))
 	if parsed.IsEloquent {
 		ininted := !model.Field(parsed.PivotFieldIndex[0]).IsZero()
 		if !ininted {
-			InitModel(modelP)
+			return InitModel(modelP)
 		}
+		return model.Field(parsed.PivotFieldIndex[0]).Interface().(*EloquentModel)
 	}
+	return nil
 }

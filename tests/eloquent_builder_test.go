@@ -311,8 +311,8 @@ func TestEvents(t *testing.T) {
 		var image Image
 		u1.UserName = "Alice"
 		u2.UserName = "Bob"
-		DB.Init(&u1)
-		DB.Init(&u2)
+		DB.Boot(&u1)
+		DB.Boot(&u2)
 		u1.Mute(goeloquent.EventALL)
 		u2.Mute(goeloquent.EventSaving)
 		DB.Save(&u1)
