@@ -120,7 +120,7 @@ const (
 	CONDITION_TYPE_YEAR           = "year"
 	CONDITION_TYPE_CLOSURE        = "closure" //todo
 	CONDITION_TYPE_NESTED         = "nested"
-	CONDITION_TYPE_SUB            = "subquery" //todo
+	CONDITION_TYPE_SUB            = "subquery"
 	CONDITION_TYPE_EXIST          = "exist"
 	CONDITION_TYPE_NOT_EXIST      = "not exist"
 	CONDITION_TYPE_ROW_VALUES     = "rowValues"
