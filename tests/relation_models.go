@@ -173,7 +173,7 @@ type Address struct {
 }
 
 func (a *Address) UserRelation() *goeloquent.RelationBuilder {
-	rb := a.BelongsTo(a, &Address{}, "id", "post_id")
+	rb := a.BelongsTo(a, &Address{}, "id", "user_id")
 	rb.EnableLogQuery()
 	return rb
 }
