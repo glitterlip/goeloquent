@@ -90,6 +90,7 @@ type Builder struct {
 	JoinTable        interface{}
 	UseWrite         bool //TODO:
 	QueryCallBacks   []func(builder *Builder)
+	PivotMapping     map[string]interface{}
 	RemovedScopes    map[string]struct{}
 }
 
@@ -1995,9 +1996,9 @@ func (b *Builder) RunSelect() (result sql.Result, err error) {
 			return
 		}
 		if b.Tx != nil {
-			result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
+			result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.PivotMapping)
 		} else {
-			result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest)
+			result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.PivotMapping)
 		}
 		return
 	})
@@ -2040,7 +2041,7 @@ func (b *Builder) WithPivot(columns ...string) *Builder {
 Exists Determine if any rows exist for the current query.
 */
 func (b *Builder) Exists() (exists bool, err error) {
-	_, err = b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists)
+	_, err = b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists, nil)
 	if err != nil {
 		return false, err
 	}
@@ -2862,5 +2863,13 @@ func (b *Builder) WhereRowValues(columns []string, operator string, values []int
 		Values:   values,
 		Boolean:  boolean,
 	})
+	return b
+}
+func (b *Builder) Mapping(mapping map[string]interface{}) *Builder {
+	m := make(map[string]interface{})
+	for k, v := range mapping {
+		m[PivotAlias+k] = v
+	}
+	b.PivotMapping = m
 	return b
 }
