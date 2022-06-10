@@ -36,14 +36,14 @@ func TestRawMethods(t *testing.T) {
 
 		//test select struct
 		type User struct {
-			Id   int64
-			Name string
-			Age  int
+			Id   int64  `goelo:"column:id"`
+			Name string `goelo:"column:name"`
+			Age  int    `goelo:"column:age"`
 		}
 		type MappingUser struct {
 			Id       int64  `goelo:"column:id"`
 			UserName string `goelo:"column:name"`
-			Age      int
+			Age      int    `goelo:"column:age"`
 		}
 		var user User
 		var mapUser MappingUser
