@@ -98,9 +98,7 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 				scanArgs[i] = v.Field(f.Index).Addr().Interface()
 			} else if strings.Contains(column, PivotAlias) {
 				//process user's withpivot column
-				if !needProcessPivot {
-					needProcessPivot = true
-				}
+				needProcessPivot = true
 				pivotColumnMap[column] = i
 				//check if user defined a datetype mapping
 				if t, ok := mapping[column]; ok {
@@ -110,6 +108,7 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 				}
 			} else if strings.Contains(column, ormPivotAlias) {
 				//process orm pivot keys as string
+				needProcessPivot = true
 				pivotColumnMap[column] = i
 				var ts string
 				scanArgs[i] = &ts
@@ -126,6 +125,8 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 			for columnName, index := range pivotColumnMap {
 				if strings.Contains(columnName, ormPivotAlias) {
 					t[columnName] = *scanArgs[index].(*string)
+					t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
+
 				}
 				if strings.Contains(columnName, PivotAlias) {
 					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
@@ -164,9 +165,7 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 				scanArgs[i] = v.Field(f.Index).Addr().Interface()
 			} else if strings.Contains(column, PivotAlias) {
 				//process user's withpivot column
-				if !needProcessPivot {
-					needProcessPivot = true
-				}
+				needProcessPivot = true
 				pivotColumnMap[column] = i
 				//check if user defined a datetype mapping
 				if t, ok := mapping[column]; ok {
@@ -176,6 +175,7 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 				}
 			} else if strings.Contains(column, ormPivotAlias) {
 				//process orm pivot keys as string
+				needProcessPivot = true
 				pivotColumnMap[column] = i
 				var ts string
 				scanArgs[i] = &ts
@@ -192,6 +192,7 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 			for columnName, index := range pivotColumnMap {
 				if strings.Contains(columnName, ormPivotAlias) {
 					t[columnName] = *scanArgs[index].(*string)
+					t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
 				}
 				if strings.Contains(columnName, PivotAlias) {
 					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
