@@ -255,7 +255,7 @@ CREATE TABLE "tag" (
   PRIMARY KEY ("tid") USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE "tagables" (
-  "id" int(10) unsigned zerofill NOT NULL AUTO_INCREMENT,
+  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
   "tag_id" int(11) NOT NULL,
   "tagable_id" int(11) DEFAULT NULL,
   "status" int(10) unsigned NOT NULL DEFAULT '0',
