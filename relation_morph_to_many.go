@@ -1,7 +1,6 @@
 package goeloquent
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 )
@@ -36,8 +35,8 @@ func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivot
 	relatedModel := GetParsedModel(related)
 	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedKey, "=", relatedModel.Table+"."+relation.RelatedKey)
 	b.Select(relatedModel.Table + "." + "*")
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotParentKey, PivotAlias, relation.PivotParentKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, ormPivotAlias, relation.PivotRelatedKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotParentKey, ormPivotAlias, relation.PivotParentKey))
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
 	b.Where(relation.PivotParentKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
@@ -89,14 +88,14 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotKey := PivotAlias + relation.PivotParentKey
+	pivotKey := ormPivotAlias + relation.PivotParentKey
 	if !relatedResults.IsValid() || relatedResults.IsNil() {
 		return
 	}
 	for i := 0; i < relatedResults.Len(); i++ {
 		result := relatedResults.Index(i)
-		pivotMap := result.FieldByIndex(relatedModel.PivotFieldIndex).Interface().(map[string]sql.NullString)
-		groupKey := reflect.ValueOf(pivotMap[pivotKey].String)
+		pivotMap := result.FieldByIndex(relatedModel.PivotFieldIndex).Interface().(map[string]interface{})
+		groupKey := reflect.ValueOf(pivotMap[pivotKey].(string))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
 			existed = reflect.New(slice.Type()).Elem()

@@ -1,13 +1,13 @@
 package goeloquent
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 )
 
 var (
-	PivotAlias = "goelo_pivot_"
+	PivotAlias    = "goelo_pivot_"     //used for user
+	ormPivotAlias = "goelo_orm_pivot_" //used for orm to avoid confict with user's withpivot column
 )
 
 // BelongsToManyRelation for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
@@ -39,8 +39,8 @@ func (m *EloquentModel) BelongsToMany(self interface{}, related interface{}, piv
 	relatedModel := GetParsedModel(related)
 	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedKey, "=", relatedModel.Table+"."+relation.RelatedKey)
 	b.Select(relatedModel.Table + "." + "*")
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, PivotAlias, relation.PivotSelfKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, ormPivotAlias, relation.PivotSelfKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, ormPivotAlias, relation.PivotRelatedKey))
 	selfModel := GetParsedModel(self)
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
 	b.Where(relation.PivotSelfKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
@@ -86,15 +86,15 @@ func MatchBelongsToMany(models interface{}, related interface{}, relation *Belon
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotSelfKey := PivotAlias + relation.PivotSelfKey
+	pivotSelfKey := ormPivotAlias + relation.PivotSelfKey
 	if !relatedModels.IsValid() || relatedModels.IsNil() {
 		return
 	}
 	for i := 0; i < relatedModels.Len(); i++ {
 		relatedModel := relatedModels.Index(i)
 		eloquentModelPtr := relatedModel.FieldByIndex(parsedRelatedModel.PivotFieldIndex[0:1])
-		pivotMap := eloquentModelPtr.Elem().FieldByIndex(parsedRelatedModel.PivotFieldIndex[1:2]).Interface().(map[string]sql.NullString)
-		groupKey := reflect.ValueOf(pivotMap[pivotSelfKey].String)
+		pivotMap := eloquentModelPtr.Elem().FieldByIndex(parsedRelatedModel.PivotFieldIndex[1:2]).Interface().(map[string]interface{})
+		groupKey := reflect.ValueOf(pivotMap[pivotSelfKey].(string))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
 			existed = reflect.New(slice.Type()).Elem()

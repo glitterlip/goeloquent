@@ -80,7 +80,7 @@ func (dm *DatabaseManager) Model(model ...interface{}) *Builder {
 }
 func (dm *DatabaseManager) Select(query string, bindings []interface{}, dest interface{}) (sql.Result, error) {
 	ic := dm.Connections["default"]
-	return (*ic).Select(query, bindings, dest)
+	return (*ic).Select(query, bindings, dest, nil)
 }
 func (dm *DatabaseManager) Insert(query string, bindings []interface{}) (sql.Result, error) {
 	ic := dm.Connections["default"]

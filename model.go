@@ -388,17 +388,17 @@ func BatchSync(models interface{}, exists ...bool) {
 }
 
 type EloquentModel struct {
-	IsBooted      bool                      `json:"-"` //model is booted
-	Origin        map[string]interface{}    `json:"-"` //store original attribute that get from database or default
-	Changes       map[string]interface{}    `json:"-"` //store changes attribute after save to database
-	ModelPointer  reflect.Value             `json:"-"` //model pointer points to the model hold this
-	Pivot         map[string]sql.NullString `json:"-"` //pivot relation table attribute //TODO: field type mapping
-	Exists        bool                      `json:"-"` //indicate whether the model is get from database or newly created and not store to db yet
-	Related       reflect.Value             `json:"-"` //when call save/create on relationship ,this holds the related key
-	Muted         string                    `json:"-"` //mute events
-	OnlyColumns   map[string]interface{}    `json:"-"` //only update/save these columns
-	ExceptColumns map[string]interface{}    `json:"-"` //exclude update/save there columns
-	Tx            *Transaction              `json:"-"` //use same transaction
+	IsBooted      bool                   `json:"-"` //model is booted
+	Origin        map[string]interface{} `json:"-"` //store original attribute that get from database or default
+	Changes       map[string]interface{} `json:"-"` //store changes attribute after save to database
+	ModelPointer  reflect.Value          `json:"-"` //model pointer points to the model hold this
+	Pivot         map[string]interface{} `json:"-"` //pivot relation table attribute //TODO: field type mapping
+	Exists        bool                   `json:"-"` //indicate whether the model is get from database or newly created and not store to db yet
+	Related       reflect.Value          `json:"-"` //when call save/create on relationship ,this holds the related key
+	Muted         string                 `json:"-"` //mute events
+	OnlyColumns   map[string]interface{} `json:"-"` //only update/save these columns
+	ExceptColumns map[string]interface{} `json:"-"` //exclude update/save there columns
+	Tx            *Transaction           `json:"-"` //use same transaction
 
 }
 
@@ -432,7 +432,7 @@ func NewEloquentModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	m.ModelPointer = reflect.ValueOf(modelPointer)
 	m.Origin = make(map[string]interface{}, 4)
 	m.Changes = make(map[string]interface{}, 4)
-	m.Pivot = make(map[string]sql.NullString, 0)
+	m.Pivot = make(map[string]interface{}, 0)
 	if len(exists) == 0 {
 		exists = []bool{false}
 	}
