@@ -634,12 +634,12 @@ func TestJoinScan(t *testing.T) {
 	//test join struct
 	c, d := CreateRelationTables()
 	type UserWithAddress struct {
-		Id       int64
-		Age      int
-		Name     string
-		Country  string
-		Province string `goelo:"column:state"`
-		City     string
+		Id       int64  `goelo:"column:id"`
+		Age      int    `goelo:"column:age"`
+		Name     string `goelo:"column:name"`
+		Country  string `goelo:"column:country"`
+		Province string `goelo:"column:province"`
+		City     string `goelo:"column:city"`
 		Address  string `goelo:"column:detail"`
 	}
 	RunWithDB(c, d, func() {
