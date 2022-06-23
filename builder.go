@@ -2584,6 +2584,10 @@ func (b *Builder) EnableLogQuery() *Builder {
 	b.LoggingQueries = true
 	return b
 }
+func (b *Builder) DisableLogQuery() *Builder {
+	b.LoggingQueries = false
+	return b
+}
 
 /*BeforeQuery
 Register a closure to be invoked before the query is executed.
