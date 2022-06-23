@@ -90,7 +90,7 @@ type Builder struct {
 	JoinTable        interface{}
 	UseWrite         bool //TODO:
 	QueryCallBacks   []func(builder *Builder)
-	PivotMapping     map[string]interface{}
+	DataMapping      map[string]interface{}
 	RemovedScopes    map[string]struct{}
 }
 
@@ -1996,9 +1996,9 @@ func (b *Builder) RunSelect() (result sql.Result, err error) {
 			return
 		}
 		if b.Tx != nil {
-			result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.PivotMapping)
+			result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.DataMapping)
 		} else {
-			result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.PivotMapping)
+			result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.DataMapping)
 		}
 		return
 	})
@@ -2870,6 +2870,6 @@ func (b *Builder) Mapping(mapping map[string]interface{}) *Builder {
 	for k, v := range mapping {
 		m[PivotAlias+k] = v
 	}
-	b.PivotMapping = m
+	b.DataMapping = m
 	return b
 }
