@@ -69,6 +69,7 @@ func scanMapSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 		for i, column := range columns {
 			element[column] = reflect.ValueOf(scanArgs[i]).Elem().Interface()
 		}
+		//TODO: mapping support
 		realDest.Set(reflect.Append(realDest, reflect.ValueOf(element)))
 	}
 	return
