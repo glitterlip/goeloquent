@@ -58,23 +58,27 @@ func TestMorphToMany(t *testing.T) {
 		_, err := DB.Table("tagables").Insert(ts)
 		assert.Nil(t, err)
 		//test find
-		DB.Model(&p1).With("Tags").WithPivot("tagable_id", "tagable_type", "tag_id", "status").WherePivot("status", 1).Find(&pp1, p1.ID)
+		mapping := map[string]interface{}{
+			"status": int(0),
+			"tag_id": int(0), //test conflict with orm
+		}
+		DB.Model(&p1).With("Tags").WithPivot("tagable_id", "tagable_type", "tag_id", "status").WherePivot("status", 1).Mapping(mapping).Find(&pp1, p1.ID)
 		assert.Greater(t, len(pp1.Tags), 0)
 		for _, tag := range pp1.Tags {
-			assert.Equal(t, tag.Pivot["status"].String, "1")
-			assert.Equal(t, tag.Pivot["tagable_id"].String, strconv.Itoa(int(pp1.ID)))
-			assert.Equal(t, tag.Pivot["tag_id"].String, strconv.Itoa(int(tag.ID)))
+			assert.Equal(t, tag.Pivot["status"].(int), 1)
+			assert.Equal(t, tag.Pivot["tagable_id"].(int64), pp1.ID)
+			assert.Equal(t, tag.Pivot["tag_id"].(int), int(tag.ID))
 		}
 		//test get
-		result, err := DB.Model(&Post{}).With("Tags").WithPivot("status").WhereIn("pid", []int64{p1.ID, p2.ID}).Get(&ps)
+		result, err := DB.Model(&Post{}).With("Tags").WithPivot("status").WhereIn("pid", []int64{p1.ID, p2.ID}).Mapping(mapping).Get(&ps)
 		assert.Nil(t, err)
 		count, _ := result.RowsAffected()
 		assert.Equal(t, int64(2), count)
 		for _, p := range ps {
 			for _, tag := range p.Tags {
-				assert.Contains(t, []string{"0", "1"}, tag.Pivot["status"].String)
-				assert.Equal(t, tag.Pivot["tagable_id"].String, strconv.Itoa(int(p.ID)))
-				assert.Equal(t, tag.Pivot["tag_id"].String, strconv.Itoa(int(tag.ID)))
+				assert.Contains(t, []int{0, 1}, tag.Pivot["status"].(int))
+				assert.Equal(t, tag.Pivot["goelo_orm_pivot_tagable_id"].(string), strconv.Itoa(int(p.ID)))
+				assert.Equal(t, tag.Pivot["goelo_orm_pivot_tag_id"].(string), strconv.Itoa(int(tag.ID)))
 			}
 		}
 		//test not find
@@ -87,12 +91,12 @@ func TestMorphToMany(t *testing.T) {
 		var lazy Post
 		var lazyTags []Tag
 		DB.Model(&p1).Find(&lazy, p1.ID)
-		lazy.TagsRelation().WithPivot("status").WherePivot("status", 1).Get(&lazyTags)
+		lazy.TagsRelation().WithPivot("status").WherePivot("status", 1).Mapping(mapping).Get(&lazyTags)
 		assert.Greater(t, len(lazyTags), 0)
 		for _, tag := range lazyTags {
-			assert.Equal(t, tag.Pivot["status"].String, "1")
-			assert.Equal(t, tag.Pivot["tagable_id"].String, strconv.Itoa(int(lazy.ID)))
-			assert.Equal(t, tag.Pivot["tag_id"].String, strconv.Itoa(int(tag.ID)))
+			assert.Equal(t, tag.Pivot["status"].(int), 1)
+			assert.Equal(t, tag.Pivot["goelo_orm_pivot_tagable_id"].(string), strconv.Itoa(int(lazy.ID)))
+			assert.Equal(t, tag.Pivot["goelo_orm_pivot_tag_id"].(string), strconv.Itoa(int(tag.ID)))
 		}
 	})
 	//TODO: test create update

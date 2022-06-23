@@ -18,7 +18,7 @@ func (ScanResult) LastInsertId() (int64, error) {
 func (v ScanResult) RowsAffected() (int64, error) {
 	return int64(v.Count), nil
 }
-func ScanAll(rows *sql.Rows, dest interface{}) (result ScanResult) {
+func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	if realDest.Kind() == reflect.Slice {
 		slice := realDest.Type()
@@ -26,16 +26,16 @@ func ScanAll(rows *sql.Rows, dest interface{}) (result ScanResult) {
 		if sliceItem.Kind() == reflect.Map {
 			return scanMapSlice(rows, dest)
 		} else if sliceItem.Kind() == reflect.Struct {
-			return scanStructSlice(rows, dest)
+			return scanStructSlice(rows, dest, mapping)
 		} else if sliceItem.Kind() == reflect.Ptr {
 			if sliceItem.Elem().Kind() == reflect.Struct {
-				return scanStructSlice(rows, dest)
+				return scanStructSlice(rows, dest, mapping)
 			}
 		} else {
 			return scanValues(rows, dest)
 		}
 	} else if _, ok := dest.(*reflect.Value); ok {
-		return scanRelations(rows, dest)
+		return scanRelations(rows, dest, mapping)
 	} else if realDest.Kind() == reflect.Struct {
 		return scanStruct(rows, dest)
 	} else if realDest.Kind() == reflect.Map {
@@ -73,7 +73,7 @@ func scanMapSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 	}
 	return
 }
-func scanStructSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
+func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	columns, _ := rows.Columns()
 	slice := realDest.Type()
@@ -96,16 +96,24 @@ func scanStructSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 		for i, column := range columns {
 			if f, ok := model.FieldsByDbName[column]; ok {
 				scanArgs[i] = v.Field(f.Index).Addr().Interface()
-			} else {
-				if strings.Contains(column, "goelo_pivot_") {
-					if !needProcessPivot {
-						needProcessPivot = true
-					}
-					pivotColumnMap[column] = i
-					scanArgs[i] = new(sql.NullString)
+			} else if strings.Contains(column, PivotAlias) {
+				//process user's withpivot column
+				needProcessPivot = true
+				pivotColumnMap[column] = i
+				//check if user defined a datetype mapping
+				if t, ok := mapping[column]; ok {
+					scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
 				} else {
 					scanArgs[i] = new(interface{})
 				}
+			} else if strings.Contains(column, ormPivotAlias) {
+				//process orm pivot keys as string
+				needProcessPivot = true
+				pivotColumnMap[column] = i
+				var ts string
+				scanArgs[i] = &ts
+			} else {
+				scanArgs[i] = new(interface{})
 			}
 		}
 		err := rows.Scan(scanArgs...)
@@ -113,10 +121,16 @@ func scanStructSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 			panic(err.Error())
 		}
 		if needProcessPivot {
-			t := make(map[string]sql.NullString, 2)
+			t := make(map[string]interface{}, 2)
 			for columnName, index := range pivotColumnMap {
-				t[columnName] = *(scanArgs[index].(*sql.NullString))
-				t[strings.Replace(columnName, "goelo_pivot_", "", 1)] = *(scanArgs[index].(*sql.NullString))
+				if strings.Contains(columnName, ormPivotAlias) {
+					t[columnName] = *scanArgs[index].(*string)
+					t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
+
+				}
+				if strings.Contains(columnName, PivotAlias) {
+					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
+				}
 			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
@@ -131,7 +145,7 @@ func scanStructSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 	}
 	return
 }
-func scanRelations(rows *sql.Rows, dest interface{}) (result ScanResult) {
+func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
 	columns, _ := rows.Columns()
 	destValue := dest.(*reflect.Value)
 	//relation reflect results
@@ -149,12 +163,22 @@ func scanRelations(rows *sql.Rows, dest interface{}) (result ScanResult) {
 		for i, column := range columns {
 			if f, ok := model.FieldsByDbName[column]; ok {
 				scanArgs[i] = v.Field(f.Index).Addr().Interface()
-			} else if strings.Contains(column, "goelo_pivot_") {
-				if !needProcessPivot {
-					needProcessPivot = true
-				}
+			} else if strings.Contains(column, PivotAlias) {
+				//process user's withpivot column
+				needProcessPivot = true
 				pivotColumnMap[column] = i
-				scanArgs[i] = new(sql.NullString)
+				//check if user defined a datetype mapping
+				if t, ok := mapping[column]; ok {
+					scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
+				} else {
+					scanArgs[i] = new(interface{})
+				}
+			} else if strings.Contains(column, ormPivotAlias) {
+				//process orm pivot keys as string
+				needProcessPivot = true
+				pivotColumnMap[column] = i
+				var ts string
+				scanArgs[i] = &ts
 			} else {
 				scanArgs[i] = new(interface{})
 			}
@@ -164,10 +188,15 @@ func scanRelations(rows *sql.Rows, dest interface{}) (result ScanResult) {
 			panic(err.Error())
 		}
 		if needProcessPivot {
-			t := make(map[string]sql.NullString, 2)
+			t := make(map[string]interface{}, 2)
 			for columnName, index := range pivotColumnMap {
-				t[columnName] = *(scanArgs[index].(*sql.NullString))
-				t[strings.Replace(columnName, "goelo_pivot_", "", 1)] = *(scanArgs[index].(*sql.NullString))
+				if strings.Contains(columnName, ormPivotAlias) {
+					t[columnName] = *scanArgs[index].(*string)
+					t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
+				}
+				if strings.Contains(columnName, PivotAlias) {
+					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
+				}
 			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)

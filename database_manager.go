@@ -80,7 +80,7 @@ func (dm *DatabaseManager) Model(model ...interface{}) *Builder {
 }
 func (dm *DatabaseManager) Select(query string, bindings []interface{}, dest interface{}) (sql.Result, error) {
 	ic := dm.Connections["default"]
-	return (*ic).Select(query, bindings, dest)
+	return (*ic).Select(query, bindings, dest, nil)
 }
 func (dm *DatabaseManager) Insert(query string, bindings []interface{}) (sql.Result, error) {
 	ic := dm.Connections["default"]
@@ -141,13 +141,15 @@ func (dm *DatabaseManager) Save(modelP interface{}) (res sql.Result, err error) 
 	}
 	return
 }
-func (dm *DatabaseManager) Init(modelP interface{}) {
+func (dm *DatabaseManager) Boot(modelP interface{}) *EloquentModel {
 	parsed := GetParsedModel(modelP)
 	model := reflect.Indirect(reflect.ValueOf(modelP))
 	if parsed.IsEloquent {
 		ininted := !model.Field(parsed.PivotFieldIndex[0]).IsZero()
 		if !ininted {
-			InitModel(modelP)
+			return InitModel(modelP)
 		}
+		return model.Field(parsed.PivotFieldIndex[0]).Interface().(*EloquentModel)
 	}
+	return nil
 }

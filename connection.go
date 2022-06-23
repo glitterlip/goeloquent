@@ -15,7 +15,7 @@ type Connection struct {
 
 type IConnection interface {
 	Insert(query string, bindings []interface{}) (result sql.Result, err error)
-	Select(query string, bindings []interface{}, dest interface{}) (result sql.Result, err error)
+	Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result sql.Result, err error)
 	Update(query string, bindings []interface{}) (result sql.Result, err error)
 	Delete(query string, bindings []interface{}) (result sql.Result, err error)
 	AffectingStatement(query string, bindings []interface{}) (result sql.Result, err error)
@@ -34,7 +34,7 @@ type ITransaction interface {
 	Transaction(closure TxClosure) (interface{}, error)
 }
 
-func (c *Connection) Select(query string, bindings []interface{}, dest interface{}) (result sql.Result, err error) {
+func (c *Connection) Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result sql.Result, err error) {
 	var stmt *sql.Stmt
 	var rows *sql.Rows
 	stmt, err = c.DB.Prepare(query)
@@ -48,7 +48,7 @@ func (c *Connection) Select(query string, bindings []interface{}, dest interface
 	}
 	defer rows.Close()
 
-	return ScanAll(rows, dest), nil
+	return ScanAll(rows, dest, mapping), nil
 }
 
 func (c *Connection) BeginTransaction() (*Transaction, error) {

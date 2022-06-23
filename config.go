@@ -20,7 +20,7 @@ type DBConfig struct {
 	Collation       string
 	UnixSocket      string
 	MultiStatements bool
-	Dsn             string //TODO: support dsn
+	Dsn             string
 	// pgsql
 	Sslmode   string
 	TLS       string

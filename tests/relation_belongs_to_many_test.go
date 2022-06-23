@@ -85,11 +85,18 @@ func TestBelongsToMany(t *testing.T) {
 		})
 
 		//test find
-		DB.Model(&u1).With("Friends").WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "friend_id", "additional").Find(&uu1, u1.Id)
+		mapping := map[string]interface{}{
+			"status":     0,
+			"user_id":    0,
+			"friend_id":  0,
+			"additional": "",
+		}
+		_, err := DB.Model(&u1).With("Friends").WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "friend_id", "additional").Mapping(mapping).Find(&uu1, u1.Id)
+		assert.Nil(t, err)
 		assert.Equal(t, 2, len(uu1.Friends))
 		for _, friend := range uu1.Friends {
-			assert.Equal(t, friend.Pivot["status"].String, strconv.Itoa(FriendStatusNormal))
-			assert.Equal(t, friend.Pivot["user_id"].String, strconv.Itoa(int(u1.Id)))
+			assert.Equal(t, friend.Pivot["status"].(int), int(FriendStatusNormal))
+			assert.Equal(t, friend.Pivot["user_id"].(int), int(u1.Id))
 		}
 		//test get
 		result, err := DB.Model(&u1).With("Friends").WhereIn("id", []int64{u1.Id, u2.Id}).Get(&us)
@@ -99,7 +106,7 @@ func TestBelongsToMany(t *testing.T) {
 		assert.Equal(t, int64(2), count)
 		for _, u := range us {
 			for _, friend := range u.Friends {
-				assert.Equal(t, friend.Pivot["user_id"].String, strconv.Itoa(int(u.Id)))
+				assert.Equal(t, friend.Pivot["user_id"].(string), strconv.Itoa(int(u.Id)))
 			}
 		}
 		//test not find
@@ -112,11 +119,11 @@ func TestBelongsToMany(t *testing.T) {
 		var lazy UserT
 		var lazyUser []UserT
 		DB.Model(&u1).Find(&lazy, u1.Id)
-		lazy.FriendsRelation().WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "additional").Get(&lazyUser)
+		lazy.FriendsRelation().WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "additional").Mapping(mapping).Get(&lazyUser)
 		assert.Equal(t, 2, len(lazyUser))
 		for _, friend := range lazy.Friends {
-			assert.Equal(t, friend.Pivot["status"].String, strconv.Itoa(FriendStatusNormal))
-			assert.Equal(t, friend.Pivot["user_id"].String, strconv.Itoa(int(lazy.Id)))
+			assert.Equal(t, friend.Pivot["status"].(string), strconv.Itoa(FriendStatusNormal))
+			assert.Equal(t, friend.Pivot["user_id"].(string), strconv.Itoa(int(lazy.Id)))
 		}
 	})
 	//TODO: test create update

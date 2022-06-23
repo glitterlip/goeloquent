@@ -54,6 +54,9 @@ func TestSelect(t *testing.T) {
 	b2.From("users").Get(&users)
 	assert.Equal(t, "select * from `users`", b2.ToSql())
 	//testselectraw
+	b3 := GetBuilder()
+	b3.From("orders").SelectRaw("price * ? as price_with_tax", []interface{}{1.1})
+	assert.Equal(t, "select price * ? as price_with_tax from `orders`", b3.ToSql())
 }
 
 func TestBasicSelectWithColumns(t *testing.T) {
@@ -626,6 +629,62 @@ func TestJoins(t *testing.T) {
 	})
 	ShouldEqual(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`id` or `contacts`.`deleted_at` is not null", b8)
 
+}
+func TestJoinScan(t *testing.T) {
+	//test join struct
+	c, d := CreateRelationTables()
+	type UserWithAddress struct {
+		Id       int64  `goelo:"column:id"`
+		Age      int    `goelo:"column:age"`
+		Name     string `goelo:"column:name"`
+		Country  string `goelo:"column:country"`
+		Province string `goelo:"column:province"`
+		City     string `goelo:"column:city"`
+		Address  string `goelo:"column:detail"`
+	}
+	RunWithDB(c, d, func() {
+		var u UserWithAddress
+		user, err := DB.Insert("insert into user (name,age) values ('Alex',18)", nil)
+		assert.Nil(t, err)
+		uid, _ := user.LastInsertId()
+		add, err := DB.Insert("insert into address (user_id,country,state,city,detail) values (?,?,'IL','Chicago','2609 S Halsted St')", []interface{}{uid, 1})
+		assert.Nil(t, err)
+		addId, err := add.LastInsertId()
+		assert.Greater(t, addId, int64(0))
+
+		b1 := DB.Query()
+		_, err = b1.From("user").Select("user.id as id", "user.age as age", "user.name as name").
+			AddSelect("address.country as country", "address.state as state", "address.city as city", "address.detail as detail").
+			Join("address", "user.id", "address.user_id").First(&u)
+		assert.Nil(t, err)
+		assert.ObjectsAreEqualValues(u, UserWithAddress{
+			Id:       1,
+			Age:      18,
+			Name:     "Alex",
+			Country:  "1",
+			Province: "IL",
+			City:     "Chicage",
+			Address:  "2609 S Halsted St",
+		})
+		joinMap := make(map[string]interface{})
+		_, err = DB.Query().From("user").Select("user.*").
+			AddSelect("address.*").
+			Join("address", "user.id", "address.user_id").First(&joinMap)
+		assert.Nil(t, err)
+		assert.Equal(t, u.City, string((joinMap["city"]).([]byte)))
+		assert.Equal(t, u.Name, string((joinMap["name"]).([]byte)))
+		assert.Equal(t, u.Address, string((joinMap["detail"]).([]byte)))
+
+		//test where query
+		joinMap = make(map[string]interface{})
+		_, err = DB.Query().From("user").Select("user.*").Where("user.id", uid).
+			AddSelect("address.*").
+			Join("address", "user.id", "address.user_id").First(&joinMap)
+		assert.Nil(t, err)
+		assert.Equal(t, u.City, string((joinMap["city"]).([]byte)))
+		assert.Equal(t, u.Name, string((joinMap["name"]).([]byte)))
+		assert.Equal(t, u.Address, string((joinMap["detail"]).([]byte)))
+	})
 }
 func TestJoinIn(t *testing.T) {
 	//testJoinWhereIn
@@ -1221,6 +1280,13 @@ func TestPaginate(t *testing.T) {
 		for _, u := range users1 {
 			assert.True(t, u.Id > 13)
 		}
+		//test paginate slice map
+		var uSlice []map[string]interface{}
+		p, err := DB.Table("user").Where("id", ">", 13).Paginate(&uSlice, 5, 2)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(37), p.Total)
+		assert.Equal(t, int64(2), p.CurrentPage)
+		assert.Equal(t, 5, len(users1))
 
 	})
 
@@ -1478,6 +1544,17 @@ func TestBase(t *testing.T) {
 		for _, mt := range ms {
 			mt["name"] = fmt.Sprintf("user-%d", mt["id"].(int64)-1)
 		}
+
+		//test findmany
+		var users []map[string]interface{}
+		b9 := DB.Query()
+		rows, err = b9.From("users").Find(&users, []interface{}{1, 2, 3, 4})
+		c, _ = rows.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, int64(4), c)
+		assert.Equal(t, user["id"], int64(1))
+		assert.Equal(t, "select * from `users` where `id` in (?,?,?,?)", b9.PreparedSql)
+
 	})
 
 }

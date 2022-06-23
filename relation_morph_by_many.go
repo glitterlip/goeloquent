@@ -1,7 +1,6 @@
 package goeloquent
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 )
@@ -35,9 +34,9 @@ func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivot
 	modelMorphName := GetMorphMap(relatedModel.Name)
 	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedKey, "=", relatedModel.Table+"."+relation.RelatedKey)
 	b.Select(relatedModel.Table + "." + "*")
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, PivotAlias, relation.PivotRelatedKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, PivotAlias, relation.PivotSelfKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotTypeColumn, PivotAlias, relation.PivotTypeColumn))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, ormPivotAlias, relation.PivotRelatedKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, ormPivotAlias, relation.PivotSelfKey))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotTypeColumn, ormPivotAlias, relation.PivotTypeColumn))
 	selfDirect := reflect.Indirect(reflect.ValueOf(self))
 	b.Where(relation.PivotSelfKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
 	b.Where(pivotTypeColumn, modelMorphName)
@@ -87,14 +86,14 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotKey := PivotAlias + relation.PivotSelfKey
+	pivotKey := ormPivotAlias + relation.PivotSelfKey
 	if !relatedResults.IsValid() || relatedResults.IsNil() {
 		return
 	}
 	for i := 0; i < relatedResults.Len(); i++ {
 		result := relatedResults.Index(i)
-		pivotMap := result.FieldByIndex(relatedModel.PivotFieldIndex).Interface().(map[string]sql.NullString)
-		groupKey := reflect.ValueOf(pivotMap[pivotKey].String)
+		pivotMap := result.FieldByIndex(relatedModel.PivotFieldIndex).Interface().(map[string]interface{})
+		groupKey := reflect.ValueOf(pivotMap[pivotKey].(string))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
 			existed = reflect.New(slice.Type()).Elem()

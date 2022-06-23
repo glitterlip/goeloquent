@@ -19,7 +19,7 @@ func (t *Transaction) Table(tableName string) *Builder {
 	return builder
 }
 
-func (t *Transaction) Select(query string, bindings []interface{}, dest interface{}) (result sql.Result, err error) {
+func (t *Transaction) Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result sql.Result, err error) {
 	var stmt *sql.Stmt
 	var rows *sql.Rows
 	stmt, err = t.Tx.Prepare(query)
@@ -34,7 +34,7 @@ func (t *Transaction) Select(query string, bindings []interface{}, dest interfac
 
 	defer rows.Close()
 
-	return ScanAll(rows, dest), nil
+	return ScanAll(rows, dest, mapping), nil
 }
 func (t *Transaction) AffectingStatement(query string, bindings []interface{}) (result sql.Result, err error) {
 

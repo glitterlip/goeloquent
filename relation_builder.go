@@ -89,6 +89,7 @@ func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, re
 			builder.Relation.AddEagerConstraints(models)
 			builder.LoadPivotColumns(r.Builder.Pivots...)
 			builder.LoadPivotWheres(r.Builder.PivotWheres...)
+			builder.PivotMapping = r.Builder.PivotMapping
 			//dynamic constraints
 			builder = constraints(builder)
 			//copy conn/tx to new builder

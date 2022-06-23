@@ -1,10 +1,10 @@
 package tests
 
 import (
-	"fmt"
 	_ "fmt"
 	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 	"testing"
 )
 
@@ -98,8 +98,8 @@ func TestMorphedByMany(t *testing.T) {
 		//test find
 		DB.Model(&t1).With("Posts").Find(&tt1, t1.ID)
 		for _, post := range tt1.Posts {
-			assert.Equal(t, post.Pivot["tagable_id"].String, fmt.Sprintf("%d", post.ID))
-			assert.Equal(t, post.Pivot["tagable_type"].String, "post")
+			assert.Equal(t, post.Pivot["goelo_orm_pivot_tagable_id"].(string), strconv.Itoa(int(post.ID)))
+			assert.Equal(t, post.Pivot["goelo_orm_pivot_tagable_type"].(string), "post")
 		}
 		//test get
 		result, err := DB.Model(&Tag{}).With("Images").WhereIn("tid", []int64{t1.ID, t2.ID}).WherePivot("status", 1).WithPivot("status", "tagable_id").Get(&ts)
@@ -111,7 +111,7 @@ func TestMorphedByMany(t *testing.T) {
 		for _, tag := range ts {
 			assert.True(t, len(tag.Images) > 0)
 			for _, image := range tag.Images {
-				assert.Equal(t, image.Pivot["tagable_id"].String, fmt.Sprintf("%d", image.ID))
+				assert.Equal(t, image.Pivot["tagable_id"].(int64), image.ID)
 			}
 		}
 		//test not find
@@ -127,9 +127,9 @@ func TestMorphedByMany(t *testing.T) {
 		lazy.ImagesRelation().Get(&lazyImages)
 		assert.Equal(t, 2, len(lazyImages))
 		for _, image := range lazyImages {
-			assert.Equal(t, image.Pivot["tag_id"].String, fmt.Sprintf("%d", t2.ID))
-			assert.Equal(t, image.Pivot["tagable_id"].String, fmt.Sprintf("%d", image.ID))
-			assert.Equal(t, image.Pivot["tagable_type"].String, "images")
+			assert.Equal(t, image.Pivot["goelo_orm_pivot_tag_id"].(string), strconv.Itoa(int(t2.ID)))
+			assert.Equal(t, image.Pivot["goelo_orm_pivot_tagable_id"].(string), strconv.Itoa(int(image.ID)))
+			assert.Equal(t, image.Pivot["goelo_orm_pivot_tagable_type"].(string), "images")
 		}
 	})
 	//TODO: test create update
