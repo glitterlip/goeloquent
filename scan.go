@@ -24,7 +24,7 @@ func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 		slice := realDest.Type()
 		sliceItem := slice.Elem()
 		if sliceItem.Kind() == reflect.Map {
-			return scanMapSlice(rows, dest)
+			return scanMapSlice(rows, dest, mapping)
 		} else if sliceItem.Kind() == reflect.Struct {
 			return scanStructSlice(rows, dest, mapping)
 		} else if sliceItem.Kind() == reflect.Ptr {
@@ -39,7 +39,7 @@ func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 	} else if realDest.Kind() == reflect.Struct {
 		return scanStruct(rows, dest)
 	} else if realDest.Kind() == reflect.Map {
-		return scanMap(rows, dest)
+		return scanMap(rows, dest, mapping)
 	} else {
 		for rows.Next() {
 			result.Count++
@@ -52,15 +52,19 @@ func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 	return
 }
 
-func scanMapSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
+func scanMapSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
 	columns, _ := rows.Columns()
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
 		scanArgs := make([]interface{}, len(columns))
 		element := make(map[string]interface{})
 		result.Count++
-		for i, _ := range columns {
-			scanArgs[i] = new(interface{})
+		for i, column := range columns {
+			if _, ok := mapping[PivotAlias+column]; ok {
+				scanArgs[i] = mapping[PivotAlias+column]
+			} else {
+				scanArgs[i] = new(interface{})
+			}
 		}
 		err := rows.Scan(scanArgs...)
 		if err != nil {
@@ -69,7 +73,6 @@ func scanMapSlice(rows *sql.Rows, dest interface{}) (result ScanResult) {
 		for i, column := range columns {
 			element[column] = reflect.ValueOf(scanArgs[i]).Elem().Interface()
 		}
-		//TODO: mapping support
 		realDest.Set(reflect.Append(realDest, reflect.ValueOf(element)))
 	}
 	return
@@ -237,14 +240,18 @@ func scanStruct(rows *sql.Rows, dest interface{}) (result ScanResult) {
 	}
 	return
 }
-func scanMap(rows *sql.Rows, dest interface{}) (result ScanResult) {
+func scanMap(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
 	columns, _ := rows.Columns()
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	scanArgs := make([]interface{}, len(columns))
 	for rows.Next() {
 		result.Count++
-		for i, _ := range columns {
-			scanArgs[i] = new(interface{})
+		for i, column := range columns {
+			if _, ok := mapping[PivotAlias+column]; ok {
+				scanArgs[i] = mapping[PivotAlias+column]
+			} else {
+				scanArgs[i] = new(interface{})
+			}
 		}
 		err := rows.Scan(scanArgs...)
 		if err != nil {

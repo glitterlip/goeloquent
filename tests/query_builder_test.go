@@ -1375,7 +1375,6 @@ func TestChunkById(t *testing.T) {
 		c, _ := result.RowsAffected()
 		assert.Equal(t, int64(len(ts)), c)
 		var total int
-		totalP := &total
 		err = DB.Table("users").ChunkById(&[]User{}, 10, func(dest interface{}) error {
 			us := dest.(*[]User)
 			for _, user := range *us {
@@ -1383,24 +1382,24 @@ func TestChunkById(t *testing.T) {
 					String: fmt.Sprintf("user-%d", user.Age),
 					Valid:  true,
 				})
-				*totalP++
+				total++
 			}
 			return nil
 		})
 		assert.Nil(t, err)
-		assert.Equal(t, 50, *totalP)
+		assert.Equal(t, 50, total)
 
-		*totalP = 0
+		total = 0
 		err = DB.Table("users").OrderBy("id").ChunkById(&[]map[string]interface{}{}, 10, func(dest interface{}) error {
 			us := dest.(*[]map[string]interface{})
 			for _, user := range *us {
 				assert.Equal(t, string(user["name"].([]uint8)), fmt.Sprintf("user-%d", user["age"]))
-				*totalP++
+				total++
 			}
 			return nil
 		}, "id")
 		assert.Nil(t, err)
-		assert.Equal(t, 50, *totalP)
+		assert.Equal(t, 50, total)
 	})
 	//testChunkCanBeStoppedByReturningError
 	RunWithDB(createUsers, dropUsers, func() {
@@ -1530,19 +1529,30 @@ func TestBase(t *testing.T) {
 		//testfindmap
 		var m = make(map[string]interface{})
 		b7 := DB.Query()
-		b7.From("users").Find(&m, 3)
+		a := int64(0)
+		b := ""
+		b7.From("users").Mapping(map[string]interface{}{
+			"id":   &a,
+			"age":  &a,
+			"name": &b,
+		}).Find(&m, 3)
 		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b7.ToSql())
 		assert.Equal(t, int64(2), m["age"])
-		assert.Equal(t, int64(3), m["id"])
+		assert.Equal(t, int64(2), m["id"])
+		assert.Equal(t, "user-2", m["name"])
 
 		//testgetmap
 		var ms []map[string]interface{}
 		b8 := DB.Query()
-		b8.From("users").Where("id", "<", 10).Limit(2).Get(&ms, "id", "name")
+		b8.From("users").Where("id", "<", 10).Limit(2).Mapping(map[string]interface{}{
+			"id":   &a,
+			"name": &b,
+		}).Get(&ms, "id", "name")
 		assert.Equal(t, "select `id`, `name` from `users` where `id` < ? limit 2", b8.ToSql())
-		assert.Equal(t, len(ms), 2)
+		assert.Equal(t, 2, len(ms))
 		for _, mt := range ms {
-			mt["name"] = fmt.Sprintf("user-%d", mt["id"].(int64)-1)
+			assert.Equal(t, fmt.Sprintf("user-%d", mt["id"].(int64)-1), mt["name"])
+			assert.IsType(t, a, mt["id"])
 		}
 
 		//test findmany
