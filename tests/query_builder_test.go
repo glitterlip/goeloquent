@@ -1805,6 +1805,41 @@ func TestFirstOrCreate(t *testing.T) {
 
 	})
 }
+func TestCloneBuilder(t *testing.T) {
+
+	b := GetBuilder()
+	b.Table("users").Select("email").AddSelect(goeloquent.Raw("DATE(created_at)")).
+		Where("id", ">", 1).OrWhereIn("role", []interface{}{"ADMIN", "MANAGER", "OWNER"}).WherePivot("model_has_roles.status", 1).
+		Only("id", "name").Limit(5).Offset(7).OrderByDesc("level").DisableLogQuery()
+
+	newB := b.Clone()
+	assert.Equal(t, b.TableAlias, newB.TableAlias)
+	assert.Equal(t, b.FromTable, newB.FromTable)
+	assert.Equal(t, b.LimitNum, newB.LimitNum)
+	assert.Equal(t, b.OffsetNum, newB.OffsetNum)
+	assert.Equal(t, b.LoggingQueries, newB.LoggingQueries)
+	for i, _ := range b.Columns {
+		assert.Equal(t, b.Columns[i], newB.Columns[i])
+	}
+	for k, bindings := range b.Bindings {
+		for i, binding := range bindings {
+			assert.Equal(t, binding, newB.Bindings[k][i])
+		}
+	}
+	for i, _ := range b.OnlyColumns {
+		assert.Equal(t, b.OnlyColumns[i], newB.OnlyColumns[i])
+	}
+	for i, _ := range b.Wheres {
+		assert.EqualValues(t, b.Wheres[i], newB.Wheres[i])
+	}
+	for i, _ := range b.PivotWheres {
+		assert.EqualValues(t, b.PivotWheres[i], newB.PivotWheres[i])
+
+	}
+	for i, _ := range b.Orders {
+		assert.EqualValues(t, b.Orders[i], newB.Orders[i])
+	}
+}
 
 //pending
 //TODO: testJsonWhereNullMysql
