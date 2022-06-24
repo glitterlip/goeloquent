@@ -283,7 +283,7 @@ func Clone(original *Builder) *Builder {
 		JoinTable:        original.JoinTable,
 	}
 	for key, _ := range original.Bindings {
-		copy(newBuilder.Bindings[key], newBuilder.Bindings[key])
+		copy(newBuilder.Bindings[key], original.Bindings[key])
 	}
 	copy(newBuilder.Wheres, original.Wheres)
 	copy(newBuilder.Aggregates, original.Aggregates)
