@@ -275,7 +275,7 @@ func Clone(original *Builder) *Builder {
 		DestReflectValue: original.DestReflectValue,
 		EagerLoad:        original.EagerLoad,
 		Pivots:           make([]string, len(original.Pivots)),
-		PivotWheres:      make([]Where, len(original.Wheres)),
+		PivotWheres:      make([]Where, len(original.PivotWheres)),
 		OnlyColumns:      make(map[string]interface{}, len(original.OnlyColumns)),
 		ExceptColumns:    make(map[string]interface{}, len(original.ExceptColumns)),
 		JoinBuilder:      original.JoinBuilder,
