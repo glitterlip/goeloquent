@@ -283,6 +283,7 @@ func Clone(original *Builder) *Builder {
 		JoinTable:        original.JoinTable,
 	}
 	for key, _ := range original.Bindings {
+		original.Bindings[key] = make([]interface{}, len(newBuilder.Bindings[key]))
 		copy(newBuilder.Bindings[key], original.Bindings[key])
 	}
 	copy(newBuilder.Wheres, original.Wheres)
