@@ -33,7 +33,7 @@ func TestRawMethods(t *testing.T) {
 		c, err = r.RowsAffected()
 		assert.Nil(t, err)
 		assert.Equal(t, int64(3), c)
-
+		DB.ParsedModelsMap.Delete("github.com/glitterlip/goeloquent/tests.User")
 		//test select struct
 		type User struct {
 			Id   int64  `goelo:"column:id"`

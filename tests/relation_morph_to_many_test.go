@@ -59,8 +59,9 @@ func TestMorphToMany(t *testing.T) {
 		assert.Nil(t, err)
 		//test find
 		mapping := map[string]interface{}{
-			"status": int(0),
-			"tag_id": int(0), //test conflict with orm
+			"status":     int(0),
+			"tag_id":     int(0), //test conflict with orm
+			"tagable_id": int64(0),
 		}
 		DB.Model(&p1).With("Tags").WithPivot("tagable_id", "tagable_type", "tag_id", "status").WherePivot("status", 1).Mapping(mapping).Find(&pp1, p1.ID)
 		assert.Greater(t, len(pp1.Tags), 0)
