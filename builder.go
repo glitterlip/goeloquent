@@ -2065,7 +2065,6 @@ Aggregate Execute an aggregate function on the database.
 
 */
 func (b *Builder) Aggregate(dest interface{}, fn string, column ...string) (result sql.Result, err error) {
-	var start = time.Now()
 	b.Dest = dest
 	if column == nil {
 		column = append(column, "*")
@@ -2076,7 +2075,6 @@ func (b *Builder) Aggregate(dest interface{}, fn string, column ...string) (resu
 	})
 	b.Components[TYPE_AGGREGRATE] = struct{}{}
 	result, err = b.RunSelect()
-	b.logQuery(b.PreparedSql, b.GetBindings(), time.Since(start), result)
 	return
 }
 
