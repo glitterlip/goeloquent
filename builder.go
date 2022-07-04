@@ -2651,6 +2651,10 @@ func (b *Builder) groupWhereSliceForScope(wheres []Where) *Builder {
 
 /*
 Paginate Paginate the given query into a simple paginator.
+items should be a pointer of slice
+perPage is the page size
+currentPage starts from 1
+columns is the database table fileds to be selected,default is *
 */
 func (b *Builder) Paginate(items interface{}, perPage, currentPage int64, columns ...interface{}) (*Paginator, error) {
 	if len(b.Groups) > 0 || len(b.Havings) > 0 {
