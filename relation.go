@@ -73,15 +73,10 @@ func NewRelationBaseBuilder(related interface{}) *Builder {
 		connectionName = c.ConnectionName()
 	}
 	connection := Eloquent.Connection(connectionName)
-	baseBuilder := Builder{
-		Connection: connection,
-		Components: make(map[string]struct{}),
-		Grammar:    &MysqlGrammar{},
-		EagerLoad:  make(map[string]func(builder *RelationBuilder) *RelationBuilder),
-		Bindings:   make(map[string][]interface{}),
-	}
-	p := &baseBuilder
+	baseBuilder := NewBuilder(connection)
+	baseBuilder.Grammar = &MysqlGrammar{}
 	baseBuilder.SetModel(related)
-	baseBuilder.Grammar.SetBuilder(p)
-	return &baseBuilder
+	baseBuilder.Grammar.SetTablePrefix(connection.Config.Prefix)
+	baseBuilder.Grammar.SetBuilder(baseBuilder)
+	return baseBuilder
 }
