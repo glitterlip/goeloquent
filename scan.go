@@ -37,7 +37,7 @@ func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 	} else if _, ok := dest.(*reflect.Value); ok {
 		return scanRelations(rows, dest, mapping)
 	} else if realDest.Kind() == reflect.Struct {
-		return scanStruct(rows, dest)
+		return scanStruct(rows, dest, mapping)
 	} else if realDest.Kind() == reflect.Map {
 		return scanMap(rows, dest, mapping)
 	} else {
@@ -211,7 +211,7 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 	}
 	return
 }
-func scanStruct(rows *sql.Rows, dest interface{}) (result ScanResult) {
+func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	model := GetParsedModel(dest)
 	columns, _ := rows.Columns()
@@ -223,7 +223,11 @@ func scanStruct(rows *sql.Rows, dest interface{}) (result ScanResult) {
 		result.Count++
 		for i, column := range columns {
 			if f, ok := model.FieldsByDbName[column]; ok {
-				scanArgs[i] = v.Field(f.Index).Addr().Interface()
+				if t, ok := mapping[column]; ok {
+					scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
+				} else {
+					scanArgs[i] = v.Field(f.Index).Addr().Interface()
+				}
 			} else {
 				scanArgs[i] = new(interface{})
 			}
