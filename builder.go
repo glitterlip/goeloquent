@@ -2022,9 +2022,16 @@ func (b *Builder) GetConnection() IConnection {
 }
 func (b *Builder) Run(query string, bindings []interface{}, callback func() (result sql.Result, err error)) (result sql.Result, err error) {
 	defer func() {
-		err := recover()
-		if err != nil {
-			return
+		catchedErr := recover()
+		if catchedErr != nil {
+			switch catchedErr.(type) {
+			case string:
+				err = errors.New(catchedErr.(string))
+			case error:
+				err = catchedErr.(error)
+			default:
+				err = errors.New("unknown panic")
+			}
 		}
 	}()
 	start := time.Now()
