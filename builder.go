@@ -2887,3 +2887,10 @@ func (b *Builder) Mapping(mapping map[string]interface{}) *Builder {
 	b.DataMapping = m
 	return b
 }
+func (b *Builder) Macro(name string, params ...interface{}) *Builder {
+	if macro, ok := Eloquent.RegisteredMacros[name]; ok {
+		return macro(b, params...)
+	} else {
+		panic(errors.New(fmt.Sprintf("macro:%s not exist", name)))
+	}
+}

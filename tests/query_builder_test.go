@@ -1841,6 +1841,34 @@ func TestCloneBuilder(t *testing.T) {
 	}
 }
 
+func TestMacros(t *testing.T) {
+	DB.RegistMacroMap(map[string]goeloquent.MacroFunc{
+		"test": func(builder *goeloquent.Builder, params ...interface{}) *goeloquent.Builder {
+			return builder.From("tests")
+		},
+		"testParams": func(builder *goeloquent.Builder, params ...interface{}) *goeloquent.Builder {
+			name := params[0].(string)
+			return builder.Where("name", name)
+		},
+	})
+	b := GetBuilder()
+	b.Macro("test")
+	assert.Equal(t, "tests", b.FromTable)
+	//with params
+	b1 := GetBuilder()
+	b1.Macro("testParams", "Bob")
+	assert.Equal(t, b1.Wheres[0].Value.(string), "Bob")
+	assert.Equal(t, b1.Wheres[0].Column, "name")
+	assert.Equal(t, b1.Wheres[0].Operator, "=")
+	//not found
+
+	assert.PanicsWithErrorf(t, "macro:missing not exist", func() {
+		b2 := GetBuilder()
+		b2.Macro("missing", []interface{}{1, "t"})
+	}, "macro:missing")
+
+}
+
 //pending
 //TODO: testJsonWhereNullMysql
 //TODO: testJsonWhereNotNullMysql

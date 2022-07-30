@@ -14,9 +14,11 @@ type DB struct {
 	RegisteredModelsMap      sync.Map
 	RegisteredMorphModelsMap sync.Map
 	RegisteredDBMap          sync.Map
+	RegisteredMacros         map[string]MacroFunc
 	ParsedModelsMap          sync.Map
 	LogFunc                  func(log Log)
 }
+type MacroFunc = func(builder *Builder, params ...interface{}) *Builder
 
 func (d *DB) SetLogger(f func(log Log)) *DB {
 	d.LogFunc = f
@@ -95,4 +97,7 @@ func (*DB) Raw(connectionName ...string) *sql.DB {
 		c := Eloquent.Connection("default")
 		return (*c).GetDB()
 	}
+}
+func (d *DB) RegistMacroMap(macroMap map[string]MacroFunc) {
+	d.RegisteredMacros = macroMap
 }
