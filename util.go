@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var str = ""
+var uint = uint64(0)
 var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
 var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 
@@ -48,4 +50,16 @@ func InterfaceToSlice(param interface{}) []interface{} {
 		panic("not slice")
 	}
 	return res
+}
+
+//StrPtr
+//return a pointer of string helper function for create mapping
+func StrPtr() *string {
+	return &str
+}
+
+//UintPtr
+//return a pointer of uint64 helper function for create mapping
+func UintPtr() *uint64 {
+	return &uint
 }
