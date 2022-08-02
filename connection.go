@@ -63,15 +63,19 @@ func (c *Connection) BeginTransaction() (*Transaction, error) {
 	}
 	return tx, nil
 }
-func (c *Connection) Transaction(closure TxClosure) (interface{}, error) {
+func (c *Connection) Transaction(closure TxClosure) (res interface{}, err error) {
 	begin, err := c.DB.Begin()
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 	defer func() {
-		if err := recover(); err != nil {
+		if result := recover(); result != nil {
+			if e, ok := result.(error); ok {
+				err = e
+			} else {
+				err = errors.New("error occurred during transaction")
+			}
 			_ = begin.Rollback()
-			panic(err)
 		} else {
 			err = begin.Commit()
 		}
