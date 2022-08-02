@@ -106,7 +106,7 @@ func TestBelongsToMany(t *testing.T) {
 		assert.Equal(t, int64(2), count)
 		for _, u := range us {
 			for _, friend := range u.Friends {
-				assert.Equal(t, friend.Pivot["user_id"].(string), strconv.Itoa(int(u.Id)))
+				assert.Equal(t, friend.Pivot["goelo_orm_pivot_user_id"].(string), strconv.Itoa(int(u.Id)))
 			}
 		}
 		//test not find
@@ -121,9 +121,9 @@ func TestBelongsToMany(t *testing.T) {
 		DB.Model(&u1).Find(&lazy, u1.Id)
 		lazy.FriendsRelation().WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "additional").Mapping(mapping).Get(&lazyUser)
 		assert.Equal(t, 2, len(lazyUser))
-		for _, friend := range lazy.Friends {
-			assert.Equal(t, friend.Pivot["status"].(string), strconv.Itoa(FriendStatusNormal))
-			assert.Equal(t, friend.Pivot["user_id"].(string), strconv.Itoa(int(lazy.Id)))
+		for _, friend := range lazyUser {
+			assert.Equal(t, friend.Pivot["status"].(int), FriendStatusNormal)
+			assert.Equal(t, friend.Pivot["user_id"].(int), int(lazy.Id))
 		}
 	})
 	//TODO: test create update

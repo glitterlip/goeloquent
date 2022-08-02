@@ -129,8 +129,7 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 			for columnName, index := range pivotColumnMap {
 				if strings.Contains(columnName, ormPivotAlias) {
 					t[columnName] = *scanArgs[index].(*string)
-					t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
-
+					//t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
 				}
 				if strings.Contains(columnName, PivotAlias) {
 					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
@@ -196,7 +195,7 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 			for columnName, index := range pivotColumnMap {
 				if strings.Contains(columnName, ormPivotAlias) {
 					t[columnName] = *scanArgs[index].(*string)
-					t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
+					//t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
 				}
 				if strings.Contains(columnName, PivotAlias) {
 					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
