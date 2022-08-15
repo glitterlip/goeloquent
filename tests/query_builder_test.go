@@ -1528,26 +1528,38 @@ func TestBase(t *testing.T) {
 
 		//testfindmap
 		var m = make(map[string]interface{})
+		var m1 = make(map[string]interface{})
 		b7 := DB.Query()
 		a := int64(0)
+		a1 := int64(0)
 		b := ""
 		b7.From("users").Mapping(map[string]interface{}{
 			"id":   &a,
-			"age":  &a,
+			"age":  &a1,
 			"name": &b,
 		}).Find(&m, 3)
 		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b7.ToSql())
 		assert.Equal(t, int64(2), m["age"])
-		assert.Equal(t, int64(2), m["id"])
+		assert.Equal(t, int64(3), m["id"])
 		assert.Equal(t, "user-2", m["name"])
-
+		b10 := DB.Query()
+		b10.From("users").Mapping(map[string]interface{}{
+			"id":   int64(0),
+			"age":  int64(0),
+			"name": "",
+		}).Find(&m1, 4)
+		assert.Equal(t, "select * from `users` where `id` = ? limit 1", b10.ToSql())
+		assert.Equal(t, int64(3), m1["age"])
+		assert.Equal(t, int64(4), m1["id"])
+		assert.Equal(t, "user-3", m1["name"])
 		//testgetmap
 		var ms []map[string]interface{}
 		b8 := DB.Query()
-		b8.From("users").Where("id", "<", 10).Limit(2).Mapping(map[string]interface{}{
-			"id":   &a,
-			"name": &b,
+		_, err = b8.From("users").Where("id", "<", 10).Limit(2).Mapping(map[string]interface{}{
+			"id":   int64(0),
+			"name": "",
 		}).Get(&ms, "id", "name")
+		assert.Nil(t, err)
 		assert.Equal(t, "select `id`, `name` from `users` where `id` < ? limit 2", b8.ToSql())
 		assert.Equal(t, 2, len(ms))
 		for _, mt := range ms {

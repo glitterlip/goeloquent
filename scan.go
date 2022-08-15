@@ -61,7 +61,11 @@ func scanMapSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface
 		result.Count++
 		for i, column := range columns {
 			if _, ok := mapping[PivotAlias+column]; ok {
-				scanArgs[i] = mapping[PivotAlias+column]
+				if reflect.ValueOf(mapping[PivotAlias+column]).Kind() != reflect.Ptr {
+					scanArgs[i] = reflect.New(reflect.TypeOf(mapping[PivotAlias+column])).Interface()
+				} else {
+					scanArgs[i] = mapping[PivotAlias+column]
+				}
 			} else {
 				scanArgs[i] = new(interface{})
 			}
@@ -251,7 +255,11 @@ func scanMap(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 		result.Count++
 		for i, column := range columns {
 			if _, ok := mapping[PivotAlias+column]; ok {
-				scanArgs[i] = mapping[PivotAlias+column]
+				if reflect.ValueOf(mapping[PivotAlias+column]).Kind() != reflect.Ptr {
+					scanArgs[i] = reflect.New(reflect.TypeOf(mapping[PivotAlias+column])).Interface()
+				} else {
+					scanArgs[i] = mapping[PivotAlias+column]
+				}
 			} else {
 				scanArgs[i] = new(interface{})
 			}
