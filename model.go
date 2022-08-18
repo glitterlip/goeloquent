@@ -167,10 +167,16 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 			if model.Fields[i].Name == "Table" && strings.Contains(model.Fields[i].Tag.Get(TagName), "TableName:") {
 				model.Table = strings.Replace(model.Fields[i].Tag.Get(TagName), "TableName:", "", 1)
 			} else {
-				if strings.Contains(model.Fields[i].Tag.Get("goelo"), "primaryKey") {
+				tag := model.Fields[i].Tag.Get(TagName)
+				if strings.Contains(tag, "primaryKey") {
 					model.PrimaryKey = model.Fields[i]
 				}
-				name := ToSnakeCase(model.Fields[i].Name)
+				var name string
+				if t := model.Fields[i].Tag.Get("column"); len(t) > 0 {
+					name = t
+				} else {
+					name = ToSnakeCase(model.Fields[i].Name)
+				}
 				model.Fields[i].ColumnName = name
 				model.FieldsByDbName[name] = model.Fields[i]
 				model.DbFields = append(model.DbFields, name)
@@ -726,6 +732,7 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 		}
 		//TODO: should update all fields or just dirty value?
 
+		//TODO: scanner/valuer pointer
 		if !model.Field(keyIndex).IsZero() {
 			attrs[key] = model.Field(keyIndex).Interface()
 		}

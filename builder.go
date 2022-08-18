@@ -986,6 +986,8 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 		return b.AddNestedWhereQuery(cb, boolean)
 	}
 	switch paramsLength {
+	case 1:
+		return b.WhereStruct(params[0])
 	case 2:
 		//assume operator is = and omitted
 		operator = "="
@@ -2196,6 +2198,7 @@ func PrepareInsertValues(values interface{}) []map[string]interface{} {
 
 /*
 Insert new records into the database.
+values can be []map[string]interface{},map[string]interface{},struct,pointer of struct,pointer of slice of struct
 */
 func (b *Builder) Insert(values interface{}) (result sql.Result, err error) {
 	items := PrepareInsertValues(values)
@@ -2877,6 +2880,14 @@ func (b *Builder) WhereRowValues(columns []string, operator string, values []int
 		Values:   values,
 		Boolean:  boolean,
 	})
+	return b
+}
+
+/*
+WhereStruct used for bind request data to struct
+*/
+func (b *Builder) WhereStruct(structPointer interface{}) *Builder {
+	b.Where(ExtractStruct(structPointer))
 	return b
 }
 func (b *Builder) Mapping(mapping map[string]interface{}) *Builder {

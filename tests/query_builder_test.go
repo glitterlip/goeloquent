@@ -1880,6 +1880,32 @@ func TestMacros(t *testing.T) {
 	}, "macro:missing")
 
 }
+func TestWhereStruct(t *testing.T) {
+	b := GetBuilder()
+
+	type OrderQueryParams struct {
+		VendorId      int64  `form:"pid" validate:"required|int" `
+		ChannelType   int    `form:"type" validate:"required|int" `
+		VendorOrderId string `form:"out_trade_no" validate:"required" `
+		OrderDesc     string `form:"name" validate:"required" column:"name"`
+		ClientIp      string `form:"clientip" validate:"required|ip"`
+		OrderStatus   *int   `form:"order_status" column:"status"`
+	}
+	pending := 0
+	test := OrderQueryParams{
+		VendorId:      0,
+		ChannelType:   1,
+		VendorOrderId: "2208091533zcjgk",
+		OrderDesc:     "macbook",
+		ClientIp:      "192.168.0.1",
+		OrderStatus:   &pending,
+	}
+	var res = make(map[string]interface{})
+	b.Table("orders").Where(&test).First(&res)
+	assert.Equal(t, "select * from `orders` where (`vendor_order_id` = ? and `name` = ? and `client_ip` = ? and `status` = ? and `channel_type` = ?) limit 1", b.ToSql())
+	assert.Equal(t, []interface{}{"2208091533zcjgk", "macbook", "192.168.0.1", &pending, 1}, b.GetBindings())
+
+}
 
 //pending
 //TODO: testJsonWhereNullMysql
