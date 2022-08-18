@@ -137,7 +137,7 @@ func (dm *DatabaseManager) Save(modelP interface{}) (res sql.Result, err error) 
 			return InitModel(modelP).Create()
 		}
 	} else {
-
+		//TODO: save plain struct
 	}
 	return
 }

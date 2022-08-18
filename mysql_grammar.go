@@ -244,6 +244,7 @@ func (m *MysqlGrammar) CompileComponentWheres() string {
 		builder.WriteString(" where ")
 	}
 	for i, w := range m.GetBuilder().Wheres {
+		//TODO: filter columns for select
 		if i != 0 {
 			builder.WriteString(" " + w.Boolean + " ")
 		}
