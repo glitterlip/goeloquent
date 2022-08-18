@@ -9,10 +9,6 @@ import (
 	"time"
 )
 
-var (
-	EloquentName = "EloquentModel"
-)
-
 const (
 	EventSaving     = "Saving"
 	EventSaved      = "Saved"
@@ -27,6 +23,8 @@ const (
 	EventALL        = "ALL"
 	EventBooting    = "Booting"
 	EventBooted     = "Booted"
+	TagName         = "goelo"
+	EloquentName    = "EloquentModel"
 )
 
 type TableName interface {
@@ -166,8 +164,8 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 	}
 	if len(model.DbFields) == 0 {
 		for i := 0; i < len(model.Fields); i++ {
-			if model.Fields[i].Name == "Table" && strings.Contains(model.Fields[i].Tag.Get("goelo"), "TableName:") {
-				model.Table = strings.Replace(model.Fields[i].Tag.Get("goelo"), "TableName:", "", 1)
+			if model.Fields[i].Name == "Table" && strings.Contains(model.Fields[i].Tag.Get(TagName), "TableName:") {
+				model.Table = strings.Replace(model.Fields[i].Tag.Get(TagName), "TableName:", "", 1)
 			} else {
 				if strings.Contains(model.Fields[i].Tag.Get("goelo"), "primaryKey") {
 					model.PrimaryKey = model.Fields[i]
@@ -227,7 +225,7 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 		//ReflectValueOf:    nil,
 		//ValueOf:           nil,
 	}
-	tag, ok := field.Tag.Lookup("goelo")
+	tag, ok := field.Tag.Lookup(TagName)
 	if ok {
 		for _, pair := range strings.Split(tag, ";") {
 			as := strings.SplitN(pair, ":", 2)
