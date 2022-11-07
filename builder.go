@@ -281,6 +281,7 @@ func Clone(original *Builder) *Builder {
 		JoinBuilder:      original.JoinBuilder,
 		JoinType:         original.JoinType,
 		JoinTable:        original.JoinTable,
+		DataMapping:      make(map[string]interface{}),
 	}
 	for key, _ := range original.Bindings {
 		newBuilder.Bindings[key] = make([]interface{}, len(original.Bindings[key]))
@@ -307,6 +308,9 @@ func Clone(original *Builder) *Builder {
 	for _, join := range original.Joins {
 		newBuilder.Joins = append(newBuilder.Joins, join.Clone()) //TODO: add tests
 	}
+	for key, _ := range original.DataMapping {
+		newBuilder.DataMapping[key] = original.DataMapping[key]
+	}
 	newBuilder.Grammar = &MysqlGrammar{
 		Prefix:  original.Grammar.GetTablePrefix(),
 		Builder: &newBuilder,
@@ -317,7 +321,8 @@ func (b *Builder) Clone() *Builder {
 	return Clone(b)
 }
 
-/*CloneWithout
+/*
+CloneWithout
 CloneWithoutClone the query without the given properties.
 */
 func CloneWithout(original *Builder, without ...string) *Builder {
@@ -373,7 +378,7 @@ func (b *Builder) Select(columns ...interface{}) *Builder {
 	return b
 }
 
-//SelectSub Add a subselect expression to the query.
+// SelectSub Add a subselect expression to the query.
 func (b *Builder) SelectSub(query interface{}, as string) *Builder {
 	qStr, bindings := b.CreateSub(query)
 	queryStr := fmt.Sprintf("( %s ) as %s", qStr, b.Grammar.Wrap(as))
@@ -412,7 +417,7 @@ func (b *Builder) SelectRaw(expression string, bindings ...[]interface{}) *Build
 	return b
 }
 
-//CreateSub Creates a subquery and parse it.
+// CreateSub Creates a subquery and parse it.
 func (b *Builder) CreateSub(query interface{}) (string, []interface{}) {
 	var builder *Builder
 	if bT, ok := query.(*Builder); ok {
@@ -880,7 +885,7 @@ func (b *Builder) RightJoinSub(query interface{}, as string, first interface{}, 
 	return b.join(Raw(expr), first, operator, second, joinType, false)
 }
 
-//AddBinding Add a binding to the query.
+// AddBinding Add a binding to the query.
 func (b *Builder) AddBinding(value []interface{}, bindingType string) *Builder {
 	if _, ok := Bindings[bindingType]; !ok {
 		log.Panicf("invalid binding type:%s\n", bindingType)
@@ -895,7 +900,7 @@ func (b *Builder) AddBinding(value []interface{}, bindingType string) *Builder {
 	return b
 }
 
-//GetBindings Get the current query value bindings in a flattened slice.
+// GetBindings Get the current query value bindings in a flattened slice.
 func (b *Builder) GetBindings() (res []interface{}) {
 	for _, key := range BindingKeysInOrder {
 		if bindings, ok := b.Bindings[key]; ok {
@@ -1228,7 +1233,7 @@ func (b *Builder) OrWhereIn(params ...interface{}) *Builder {
 	return b.WhereIn(params...)
 }
 
-//column values [ boolean ]
+// column values [ boolean ]
 func (b *Builder) WhereNotIn(params ...interface{}) *Builder {
 	params = append(params, BOOLEAN_AND, true)
 	return b.WhereIn(params...)
@@ -1245,10 +1250,11 @@ func (b *Builder) OrWhereNotIn(params ...interface{}) *Builder {
 
 /*
 WhereNull Add a "where null" clause to the query.
-   params takes in below order:
-   1. column string
-   2. boolean string in [2]string{"and","or"}
-   3. type string "not"
+
+	params takes in below order:
+	1. column string
+	2. boolean string in [2]string{"and","or"}
+	3. type string "not"
 */
 func (b *Builder) WhereNull(column interface{}, params ...interface{}) *Builder {
 	paramsLength := len(params)
@@ -1331,11 +1337,10 @@ func (b *Builder) OrWhereNotNull(column interface{}) *Builder {
 /*
 WhereBetween Add a where between statement to the query.
 
-   params takes in below order:
-   1. WhereBetween(column string,values []interface{"min","max"})
-   2. WhereBetween(column string,values []interface{"min","max"},"and/or")
-   3. WhereBetween(column string,values []interface{"min","max","and/or",true/false})
-
+	params takes in below order:
+	1. WhereBetween(column string,values []interface{"min","max"})
+	2. WhereBetween(column string,values []interface{"min","max"},"and/or")
+	3. WhereBetween(column string,values []interface{"min","max","and/or",true/false})
 */
 func (b *Builder) WhereBetween(params ...interface{}) *Builder {
 	paramsLength := len(params)
@@ -1416,9 +1421,9 @@ func (b *Builder) WhereBetweenColumns(column string, values []interface{}, param
 	return b
 }
 
-//AddTimeBasedWhere Add a time based (year, month, day, time) statement to the query.
-//params order : timefuncionname column operator value boolean
-//minimum : timefuncionname column value
+// AddTimeBasedWhere Add a time based (year, month, day, time) statement to the query.
+// params order : timefuncionname column operator value boolean
+// minimum : timefuncionname column value
 func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 	paramsLength := len(params)
 	var timeType = params[0]
@@ -1474,7 +1479,7 @@ func (b *Builder) AddTimeBasedWhere(params ...interface{}) *Builder {
 	return b
 }
 
-//column operator value boolean
+// column operator value boolean
 func (b *Builder) WhereDate(params ...interface{}) *Builder {
 	p := append([]interface{}{CONDITION_TYPE_DATE}, params...)
 	return b.AddTimeBasedWhere(p...)
@@ -1551,7 +1556,7 @@ func (b *Builder) WhereSub(column string, operator string, value func(builder *B
 	return b
 }
 
-//WhereExists Add an exists clause to the query.
+// WhereExists Add an exists clause to the query.
 // 1. WhereExists(cb,"and",false)
 // 2. WhereExists(cb,"and")
 // 3. WhereExists(cb)
@@ -1906,7 +1911,7 @@ func (b *Builder) WhereModel(model interface{}) *Builder {
 	return b
 }
 
-//AddNestedWhereQuery Add another query builder as a nested where to the query builder.
+// AddNestedWhereQuery Add another query builder as a nested where to the query builder.
 func (b *Builder) AddNestedWhereQuery(builder *Builder, boolean string) *Builder {
 
 	if len(builder.Wheres) > 0 {
@@ -1963,7 +1968,7 @@ func (b *Builder) First(dest interface{}, columns ...interface{}) (result sql.Re
 	return b.Get(dest, columns...)
 }
 
-//parameter model should either be a model pointer or a reflect.Type
+// parameter model should either be a model pointer or a reflect.Type
 func (b *Builder) SetModel(model interface{}) *Builder {
 	if model != nil {
 		b.Model = GetParsedModel(model)
@@ -2071,7 +2076,6 @@ func (b *Builder) DoesntExist() (notExists bool, err error) {
 
 /*
 Aggregate Execute an aggregate function on the database.
-
 */
 func (b *Builder) Aggregate(dest interface{}, fn string, column ...string) (result sql.Result, err error) {
 	b.Dest = dest
@@ -2546,9 +2550,8 @@ func (b *Builder) Pluck(dest interface{}, params string) (sql.Result, error) {
 /*
 When Apply the callback if the given "value" is truthy.
 
-	1. When(true,func(builder *Builder))
-	2. When(true,func(builder *Builder),func(builder *Builder)) //with default callback
-
+ 1. When(true,func(builder *Builder))
+ 2. When(true,func(builder *Builder),func(builder *Builder)) //with default callback
 */
 func (b *Builder) When(boolean bool, cb ...func(builder *Builder)) *Builder {
 	if boolean {
@@ -2563,7 +2566,8 @@ func (b *Builder) Value(dest interface{}, column string) (sql.Result, error) {
 	return b.First(dest, column)
 }
 
-/*Reset
+/*
+Reset
 reset bindings and components
 */
 func (b *Builder) Reset(targets ...string) *Builder {
@@ -2598,7 +2602,8 @@ func (b *Builder) DisableLogQuery() *Builder {
 	return b
 }
 
-/*BeforeQuery
+/*
+BeforeQuery
 Register a closure to be invoked before the query is executed.
 */
 func (b *Builder) BeforeQuery(func(builder *Builder)) *Builder {
@@ -2606,9 +2611,9 @@ func (b *Builder) BeforeQuery(func(builder *Builder)) *Builder {
 	return b
 }
 
-/*ApplyQueryCallbacks
+/*
+ApplyQueryCallbacks
 Invoke the "before query" modification callbacks.
-
 */
 func (b *Builder) ApplyQueryCallbacks() {
 	for _, callBack := range b.QueryCallBacks {
