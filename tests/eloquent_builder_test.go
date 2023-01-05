@@ -264,7 +264,7 @@ func TestEvents(t *testing.T) {
 		assert.Equal(t, "wrong id", err.Error())
 		u4.UserName = "Frank"
 		DB.Save(&u4)
-		_, err = DB.Model().Where("author_id", u4.Id).First(&post, u4.Id)
+		_, err = DB.Model().Where("author_id", u4.Id).First(&post)
 		assert.Nil(t, err)
 		assert.Equal(t, post.AuthorId, u4.Id)
 	})
