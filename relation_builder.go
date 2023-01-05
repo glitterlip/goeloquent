@@ -69,6 +69,9 @@ func (r *RelationBuilder) LoadPivotWheres(pivotWheres ...Where) {
 	}
 }
 func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, relationName string, constraints func(*RelationBuilder) *RelationBuilder) {
+	if pos := strings.Index(relationName, ":"); pos != -1 {
+		relationName = relationName[0:pos]
+	}
 	if relationMethod, ok := model.Relations[relationName]; ok {
 		var params []reflect.Value
 		builderI := relationMethod.Call(params)[0].Interface()

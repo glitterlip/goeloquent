@@ -373,6 +373,13 @@ func (b *Builder) Select(columns ...interface{}) *Builder {
 			}
 		case Expression:
 			b.AddSelect(columnType)
+		case []string:
+			cols := columns[i].([]string)
+			for _, col := range cols {
+				b.Columns = append(b.Columns, col)
+			}
+		default:
+			panic(errors.New("unsupported type for select"))
 		}
 	}
 	return b
@@ -2445,21 +2452,37 @@ func (b *Builder) Raw() *sql.DB {
 }
 
 func (b *Builder) With(relations ...interface{}) *Builder {
-	var name string
+	var name, relationName string
 	var res = make(map[string]func(*RelationBuilder) *RelationBuilder)
 	for _, relation := range relations {
 		switch relation.(type) {
 		case string:
 			name = relation.(string)
-			res = b.addNestedWiths(name, res)
-			res[name] = func(builder *RelationBuilder) *RelationBuilder {
+			if pos := strings.Index(name, ":"); pos != -1 {
+				relationName = name[0:pos]
+			} else {
+				relationName = name
+			}
+			res = b.addNestedWiths(relationName, res)
+			res[relationName] = func(builder *RelationBuilder) *RelationBuilder {
+				if pos := strings.Index(name, ":"); pos != -1 {
+					builder.Select(strings.Split(name[pos+1:], ","))
+				}
 				return builder
 			}
 		case []string:
 			for _, r := range relation.([]string) {
 				name = r
-				res = b.addNestedWiths(name, res)
-				res[name] = func(builder *RelationBuilder) *RelationBuilder {
+				if pos := strings.Index(name, ":"); pos != -1 {
+					relationName = name[0:pos]
+				} else {
+					relationName = name
+				}
+				res = b.addNestedWiths(relationName, res)
+				res[relationName] = func(builder *RelationBuilder) *RelationBuilder {
+					if pos := strings.Index(name, ":"); pos != -1 {
+						builder.Select(strings.Split(name[pos+1:], ","))
+					}
 					return builder
 				}
 			}
@@ -2760,7 +2783,7 @@ func (b *Builder) WithOutGlobalScopes(names ...string) *Builder {
 
 func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest interface{}) error) (err error) {
 	if len(b.Orders) == 0 {
-		panic(errors.New("must specify an orderby clause when using this method"))
+		panic(errors.New("must specify an orderby clause when using Chunk method"))
 	}
 	var page int64 = 1
 	var count int64 = 0
@@ -2800,7 +2823,15 @@ func (b *Builder) ChunkById(dest interface{}, chunkSize int64, callback func(des
 	var item *Model
 
 	if isMap {
-		column = extra[0]
+		if extra == nil || len(extra) == 0 {
+			if len(b.Orders) == 0 {
+				panic(errors.New("must specify an orderby clause when using ChunkById method"))
+			} else {
+				column = b.Orders[0].Column
+			}
+		} else {
+			column = extra[0]
+		}
 	} else {
 		item = GetParsedModel(dest)
 		column = item.PrimaryKey.ColumnName
