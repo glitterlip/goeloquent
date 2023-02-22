@@ -2340,8 +2340,24 @@ func (b *Builder) UpdateOrCreate(target interface{}, conditions, values map[stri
 /*
 Upsert Insert new records or update the existing one
 */
-func (b *Builder) Upsert() {
-
+func (b *Builder) Upsert(values interface{}, uniqueColumns []string, updateColumns interface{}) (result sql.Result, err error) {
+	items := PrepareInsertValues(values)
+	if b.FromTable == nil {
+		b.Model = GetParsedModel(values)
+		b.From(b.Model.Table)
+		b.Connection = Eloquent.Connection(b.Model.ConnectionName)
+		b.Grammar.SetTablePrefix(Eloquent.Configs[b.Model.ConnectionName].Prefix)
+	}
+	b.ApplyQueryCallbacks()
+	b.PreparedSql = b.Grammar.CompileUpsert(items, uniqueColumns, updateColumns)
+	if b.Pretending {
+		return
+	}
+	if b.Tx != nil {
+		return b.Tx.AffectingStatement(b.PreparedSql, b.GetBindings())
+	} else {
+		return b.Connection.AffectingStatement(b.PreparedSql, b.GetBindings())
+	}
 }
 
 /*

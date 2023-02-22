@@ -44,10 +44,10 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 	}
 	columnLength := len(columns)
 	b.PreSql.WriteString(m.columnize(columnizeVars))
-	b.PreSql.WriteString(") values")
+	b.PreSql.WriteString(") values ")
 
 	for k, v := range values {
-		b.PreSql.WriteString(" (")
+		b.PreSql.WriteString("(")
 		for i, key := range columns {
 			b.PreSql.WriteString(m.parameter(v[key]))
 			b.AddBinding([]interface{}{v[key]}, TYPE_INSERT)
