@@ -232,7 +232,7 @@ func (m *MysqlGrammar) CompileComponentJoins() string {
 	return builder.String()
 }
 
-//	db.Query("select * from `groups` where `id` in (?,?,?,?)", []interface{}{7,"8","9","10"}...)
+// db.Query("select * from `groups` where `id` in (?,?,?,?)", []interface{}{7,"8","9","10"}...)
 func (m *MysqlGrammar) CompileComponentWheres() string {
 	if len(m.GetBuilder().Wheres) == 0 {
 		return ""
@@ -554,7 +554,7 @@ func (m *MysqlGrammar) WrapTable(tableName interface{}) string {
 }
 
 // table => `table`
-// t1"t2 => `t1``t2`
+// t1"t2 => `t1“t2`
 func (m *MysqlGrammar) WrapValue(value string) string {
 	if value != "*" {
 		return fmt.Sprintf("`%s`", strings.ReplaceAll(value, "`", "``"))
@@ -567,4 +567,28 @@ CompileRandom Compile the random statement into SQL.
 */
 func (m *MysqlGrammar) CompileRandom(seed string) string {
 	return fmt.Sprintf("RAND(%s)", seed)
+}
+func (m *MysqlGrammar) CompileUpsert(values []map[string]interface{}, uniqueColumns []string, updateColumns interface{}) string {
+	sql := m.CompileInsert(values)
+	sql = sql + " on duplicate key update "
+
+	var columns []string
+	switch t := updateColumns.(type) {
+	case nil:
+		for s, _ := range values[0] {
+			columns = append(columns, fmt.Sprintf("%s = values(%s)", m.Wrap(s), m.Wrap(s)))
+		}
+	case []string:
+		for _, column := range updateColumns.([]string) {
+			columns = append(columns, fmt.Sprintf("%s = values(%s)", m.Wrap(column), m.Wrap(column)))
+		}
+	case map[string]interface{}:
+		for c, column := range updateColumns.(map[string]interface{}) {
+			columns = append(columns, fmt.Sprintf("%s = %s, ", m.Wrap(c), m.parameter(column)))
+		}
+	default:
+		panic(fmt.Sprintf("wrong type:%v", t))
+	}
+
+	return sql + strings.Join(columns, ", ")
 }

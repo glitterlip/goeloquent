@@ -31,4 +31,6 @@ type IGrammar interface {
 
 	CompileRandom(seed string) string
 	//Wrap(value string, b *query.Builder) string
+
+	CompileUpsert([]map[string]interface{}, []string, interface{}) string
 }
