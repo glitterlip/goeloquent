@@ -75,7 +75,7 @@ func TestBasicSelectWithColumns(t *testing.T) {
 	assert.Equal(t, "select `id`, `name` from `users` as `u`", b2.PreparedSql)
 }
 
-//TODO:testBasicSelectUseWritePdo
+// TODO:testBasicSelectUseWritePdo
 func TestWrap(t *testing.T) {
 	//testAliasWrappingAsWholeConstant
 	b := GetBuilder()
@@ -546,7 +546,7 @@ func TestLimiAndOffsets(t *testing.T) {
 
 }
 
-//TODO:testHavingFollowedBySelectGet
+// TODO:testHavingFollowedBySelectGet
 func TestForPage(t *testing.T) {
 	//testForPage
 	ShouldEqual(t, "select * from `users` limit 15 offset 15", GetBuilder().Select().From("users").ForPage(2, 15))
@@ -1906,6 +1906,41 @@ func TestWhereStruct(t *testing.T) {
 	assert.Equal(t, []interface{}{"2208091533zcjgk", "macbook", "192.168.0.1", &pending, 1}, b.GetBindings())
 
 }
+func TestUpsertMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Upsert([]map[string]interface{}{
+		{
+			"email": "foo",
+			"name":  "bar",
+		},
+		{
+			"name":  "bar2",
+			"email": "foo2",
+		},
+	},
+		[]string{"email"}, nil,
+	)
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?), (?, ?) on duplicate key update `email` = values(`email`), `name` = values(`name`)", b.PreparedSql)
+	assert.Equal(t, []interface{}{"foo", "bar", "foo2", "bar2"}, b.GetBindings())
+
+}
+func TestUpsertMethodWithUpdateColumns(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Upsert([]map[string]interface{}{
+		{
+			"email": "foo",
+			"name":  "bar",
+		},
+		{
+			"name":  "bar2",
+			"email": "foo2",
+		},
+	},
+		[]string{"email"}, []string{"name"},
+	)
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?), (?, ?) on duplicate key update `name` = values(`name`)", b.PreparedSql)
+	assert.Equal(t, []interface{}{"foo", "bar", "foo2", "bar2"}, b.GetBindings())
+}
 
 //pending
 //TODO: testJsonWhereNullMysql
@@ -1927,8 +1962,7 @@ func TestWhereStruct(t *testing.T) {
 //TODO: testInsertUsingInvalidSubquery
 //TODO: testInsertGetIdMethodRemovesExpressions
 //TODO: testInsertGetIdWithEmptyValues
-//TODO: testUpsertMethod
-//TODO: testUpsertMethodWithUpdateColumns
+
 //TODO: testUpdateMethodWithJoins
 //TODO: testUpdateMethodWithJoinsOnMySql
 //TODO: testUpdateMethodRespectsRaw
