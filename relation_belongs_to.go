@@ -6,9 +6,9 @@ import (
 )
 
 // BelongsToRelation for better understanding,rename the parameters. parent prefix represent for current model, related represent for related model
-//for example we have user and phone table
-//for phone  parentkey is phone table id column,relatedkey is user table id column,parentRelatedKey is phone table user_id column
-//the goal is to find phones' user
+// for example we have user and phone table
+// for phone  parentkey is phone table id column,relatedkey is user table id column,parentRelatedKey is phone table user_id column
+// the goal is to find phones' user
 type BelongsToRelation struct {
 	Relation
 	SelfKey    string
@@ -17,6 +17,25 @@ type BelongsToRelation struct {
 	Builder    *Builder
 }
 
+/*
+BelongsTo is a relation that can be used to retrieve the related model of a one-to-one relation.
+For example
+creditdards table
+id  user_id  number
+2   4        123456789
+
+	type CreditCard struct{
+		...
+		User     User `goelo:"BelongsTo:UserRelation"`
+		...
+	}
+
+	func (c *CreditCard) UserRelation() *goeloquent.RelationBuilder {
+		return c.BelongsTo(c, &User{}, "user_id", "id")
+	}
+
+DB.Model(&CreditCard{}).With("User").Get(&creditCards)
+*/
 func (m *EloquentModel) BelongsTo(self interface{}, related interface{}, selfKey string, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := BelongsToRelation{
@@ -61,7 +80,7 @@ func (r *BelongsToRelation) AddEagerConstraints(parentModels interface{}) {
 	r.Builder.WhereIn(r.RelatedKey, parentModelRelatedKeys)
 }
 
-//parentModel.ParentRelatedKey = relatedModel.RelatedKey
+// parentModel.ParentRelatedKey = relatedModel.RelatedKey
 func MatchBelongsTo(models interface{}, related interface{}, relation *BelongsToRelation) {
 	relatedModels := related.(reflect.Value)
 	parsedRelatedModel := GetParsedModel(relation.Related)

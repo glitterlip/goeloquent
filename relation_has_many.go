@@ -6,8 +6,8 @@ import (
 )
 
 // HasManyRelation for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
-//for example we have user,address table
-//for user model hasmanyaddress relation parentkey => user table id column,relatedkey => address table id column,relatedparentkey => address table user_id column
+// for example we have user,address table
+// for user model hasmanyaddress relation parentkey => user table id column,relatedkey => address table id column,relatedparentkey => address table user_id column
 type HasManyRelation struct {
 	Relation
 	ReleatedKey string
@@ -15,6 +15,27 @@ type HasManyRelation struct {
 	Builder     *Builder
 }
 
+/*
+HasMany is a relation that can be used to retrieve the related model of a one-to-many relation.
+For example
+address table
+id  user_id  address
+2   4        USA
+3   4        EU
+4   4        JP
+
+	type User struct{
+		...
+		Addresses     []Address `goelo:"HasMany:AddressesRelation"`
+		...
+	}
+
+	func (u *User) AddressesRelation() *goeloquent.RelationBuilder {
+		return u.HasMany(u, &Address{}, "id", "user_id")
+	}
+
+DB.Model(&User{}).With("Addresses").Get(&users)
+*/
 func (m *EloquentModel) HasMany(self interface{}, related interface{}, selfKey, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := HasManyRelation{

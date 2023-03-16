@@ -11,8 +11,8 @@ var (
 )
 
 // BelongsToManyRelation for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
-//for example we have user , role ,user_has_role table
-//for role model parentkey => role table id column,relatedkey => user table id column,pivotrelatedkey => user_has_role table user_id column,pivotparentkey => user_has_role table role_id column
+// for example we have user , role ,user_has_role table
+// for role model parentkey => role table id column,relatedkey => user table id column,pivotrelatedkey => user_has_role table user_id column,pivotparentkey => user_has_role table role_id column
 type BelongsToManyRelation struct {
 	Relation
 	PivotTable      string
@@ -26,6 +26,25 @@ type BelongsToManyRelation struct {
 	Builder         *Builder
 }
 
+/*
+BelongsToMany is a relation that can be used to retrieve the related model of a many-to-many relation.
+For example
+user_has_role table
+id  user_id  role_id
+2   4        1
+
+	type Role struct{
+		...
+		Users     []User `goelo:"BelongsToMany:UsersRelation"`
+		...
+	}
+
+	func (r *Role) UsersRelation() *goeloquent.RelationBuilder {
+		return r.BelongsToMany(r, &User{}, "user_has_role", "role_id", "user_id", "id", "id")
+	}
+
+DB.Model(&Role{}).With("Users").Get(&users)
+*/
 func (m *EloquentModel) BelongsToMany(self interface{}, related interface{}, pivotTable, pivotSelfKey, pivotRelatedKey, selfKey, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := BelongsToManyRelation{

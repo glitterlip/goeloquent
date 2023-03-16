@@ -20,6 +20,29 @@ type MorphToResult struct {
 func (m *MorphToResult) GetMorph() {
 
 }
+
+/*
+MorphTo is a relation that can be used to retrieve the parent model of a polymorphic relation.
+For example
+images table
+id  imageable_id  imageable_type path
+2   1             User    	/path/to/image
+3   2             Post   	/path/to/image
+
+	type Image struct{
+		...
+		Imageable     interface{} `goelo:"MorphTo:ImageableRelation"`
+
+		...
+	}
+
+	func (i *Image) ImageableRelation() *goeloquent.RelationBuilder {
+		return i.MorphTo(i, "imageable_id", "id", "imageable_type")
+	}
+
+DB.Model(&Image{}).Where("imageable_type","User").With("Imageable").First(&image)
+var user = image.Imageable.(User)
+*/
 func (m *EloquentModel) MorphTo(self interface{}, selfRelatedKey, relatedKey, parentRelatedType string) *RelationBuilder {
 
 	builder := NewRelationBaseBuilder(nil)

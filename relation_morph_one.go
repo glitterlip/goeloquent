@@ -14,6 +14,26 @@ type MorphOneRelation struct {
 	MorphType         string
 }
 
+/*
+MorphOne is a relation that can be used to retrieve the parent model of a polymorphic relation.
+For example
+images table
+id  imageable_id  imageable_type path
+2   1             User    	/path/to/image
+3   2             User   	/path/to/image
+
+	type User struct{
+		...
+		LatestImage     Image `goelo:"MorphOne:LatestImagelation"`
+		...
+	}
+
+	func (u *User) LatestImageRelation() *goeloquent.RelationBuilder {
+		return u.MorphOne(u, &Image{}, "imageable_id", "id", "imageable_type")
+	}
+
+DB.Model(&User{}).Where("id",1).With("LatestImage").First(&user)
+*/
 func (m *EloquentModel) MorphOne(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, selfKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphOneRelation{

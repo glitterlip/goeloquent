@@ -6,8 +6,8 @@ import (
 )
 
 // HasOneRelation HasOne for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
-//for example we have user and phone table
-//for user model parentkey => user table id column,relatedkey => phone table id column,relatedparentkey => phone table user_id column
+// for example we have user and phone table
+// for user model parentkey => user table id column,relatedkey => phone table id column,relatedparentkey => phone table user_id column
 type HasOneRelation struct {
 	Relation
 	RelatedKey string
@@ -15,6 +15,25 @@ type HasOneRelation struct {
 	Builder    *Builder
 }
 
+/*
+HasOne is a relation that can be used to retrieve the related model of a one-to-one relation.
+For example
+creditdards table
+id  user_id  number
+2   4        123456789
+
+	type User struct{
+		...
+		CreditCard     CreditCard `goelo:"HasOne:CreditCardRelation"`
+		...
+	}
+
+	func (u *User) CreditCardRelation() *goeloquent.RelationBuilder {
+		return u.HasOne(u, &CreditCard{}, "id", "user_id")
+	}
+
+DB.Model(&User{}).With("CreditCard").Get(&users)
+*/
 func (m *EloquentModel) HasOne(self interface{}, related interface{}, selfKey, relatedKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := HasOneRelation{

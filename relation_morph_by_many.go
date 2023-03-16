@@ -6,8 +6,8 @@ import (
 )
 
 // MorphByManyRelation  for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
-//for example we have post,tag and tagable table
-//for tag model parentkey => user table id column,relatedkey => phone table id column,relatedparentkey => phone table user_id column
+// for example we have post,tag and tagable table
+// for tag model parentkey => user table id column,relatedkey => phone table id column,relatedparentkey => phone table user_id column
 type MorphByManyRelation struct {
 	Relation
 	PivotTable      string
@@ -19,6 +19,31 @@ type MorphByManyRelation struct {
 	PivotTypeColumn string
 }
 
+/*
+MorphByMany is a relation that can be used to retrieve the related model of a polymorphic many-to-many relation.
+For example
+tagable table
+id  tag_id  tagable_id  tagable_type
+2   4        1           post
+3   4        2           image
+
+	type Tag struct{
+		...
+		Posts     []Post `goelo:"MorphByMany:PostsRelation"`
+		Images    []Image `goelo:"MorphByMany:ImagesRelation"`
+		...
+	}
+
+	func (t *Tag) PostsRelation() *goeloquent.RelationBuilder {
+		return t.MorphByMany(t, &Post{}, "tagable", "tag_id", "tagable_id", "id", "id","tagable_type")
+	}
+
+	func (t *Tag) ImagesRelation() *goeloquent.RelationBuilder {
+		return t.MorphByMany(t, &Image{}, "tagable", "tag_id", "tagable_id", "id", "id","tagable_type")
+	}
+
+DB.Model(&Tag{}).With("Posts","Images").Get(&tags)
+*/
 func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivotSelfKey, pivotRelatedKey, selfKey, relatedKey, pivotTypeColumn string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphByManyRelation{

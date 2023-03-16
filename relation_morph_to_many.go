@@ -16,6 +16,26 @@ type MorphToManyRelation struct {
 	MorphType       string
 }
 
+/*
+MorphToMany is a relation that can be used to retrieve the related model of a many-to-many relation.
+For example
+tagables table
+id  tag_id  tagable_id  tagable_type
+2   4        1           post
+3   4        2           image
+
+	type Post struct{
+		...
+		Tags     []Tag `goelo:"MorphToMany:TagsRelation"`
+		...
+	}
+
+	func (p *Post) TagsRelation() *goeloquent.RelationBuilder {
+		return p.MorphToMany(p, &Tag{}, "tagable", "tag_id","tagable_id",  "id", "id","tagable_type")
+	}
+
+DB.Model(&Post{}).With("Tags").Get(&posts)
+*/
 func (m *EloquentModel) MorphToMany(self, related interface{}, pivotTable, pivotRelatedKey, pivotSelfKey, selfKey, relatedKey, morphType string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphToManyRelation{

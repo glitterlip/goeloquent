@@ -14,6 +14,28 @@ type MorphManyRelation struct {
 	MorphType        string
 }
 
+/*
+MorphMany is a relation that can be used to retrieve the parent model of a polymorphic relation.
+For example
+images table
+id  imageable_id  imageable_type path
+2   1             User    	/path/to/image
+3   2             User   	/path/to/image
+4   1             Post   	/path/to/image
+5   1             Post   	/path/to/image
+
+	type Post struct{
+		...
+		Images     []Image `goelo:"MorphMany:ImagesRelation"`
+		...
+	}
+
+	func (p *Post) ImagesRelation() *goeloquent.RelationBuilder {
+		return p.MorphMany(p, &Image{}, "imageable_id", "id", "imageable_type")
+	}
+
+DB.Model(&Post{}).Where("id",1).With("Images").First(&post)
+*/
 func (m *EloquentModel) MorphMany(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, selfKey string) *RelationBuilder {
 	b := NewRelationBaseBuilder(related)
 	relation := MorphManyRelation{
