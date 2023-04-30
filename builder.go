@@ -2063,11 +2063,19 @@ func (b *Builder) WithPivot(columns ...string) *Builder {
 Exists Determine if any rows exist for the current query.
 */
 func (b *Builder) Exists() (exists bool, err error) {
-	_, err = b.Connection.Select(b.Grammar.CompileExists(), b.GetBindings(), &exists, nil)
+
+	var count int
+	_, err = b.Run(b.Grammar.CompileExists(), b.GetBindings(), func() (result sql.Result, err error) {
+		result, err = b.GetConnection().Select(b.PreparedSql, b.GetBindings(), &count, nil)
+		return
+	})
 	if err != nil {
 		return false, err
 	}
-	return exists, nil
+	if count > 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 /*
