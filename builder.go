@@ -2011,9 +2011,9 @@ func (b *Builder) RunSelect() (result sql.Result, err error) {
 			return
 		}
 		if b.Tx != nil {
-			result, err = b.Tx.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.DataMapping)
+			result, err = b.Tx.Select(b.PreparedSql, b.GetBindings(), b.Dest, b.DataMapping)
 		} else {
-			result, err = b.Connection.Select(b.Grammar.CompileSelect(), b.GetBindings(), b.Dest, b.DataMapping)
+			result, err = b.Connection.Select(b.PreparedSql, b.GetBindings(), b.Dest, b.DataMapping)
 		}
 		return
 	})
