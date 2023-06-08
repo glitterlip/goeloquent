@@ -53,20 +53,9 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	if config.ParseTime {
 		params = append(params, "parseTime=true")
 	}
-	var dsn string
-	if len(config.Dsn) > 0 {
-		dsn = config.Dsn
-	} else {
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", config.Username, config.Password, config.Host, config.Port, config.Database, strings.Join(params, "&"))
-	}
-	db, err := sql.Open(DriverMysql, dsn)
-	if err != nil {
-		panic(err.Error())
-	}
-	err = db.Ping()
-	if err != nil {
-		panic(err)
-	}
+
+	db := c.CreateConnection(c.GetDsn(config))
+
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)
 	db.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Second)
@@ -75,4 +64,41 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 		DB:     db,
 		Config: config,
 	}
+
+}
+func (c MysqlConnector) CreateConnection(dsn string) *sql.DB {
+	db, err := sql.Open(string(DriverMysql), dsn)
+	if err != nil {
+		panic(err.Error())
+	}
+	err = db.Ping()
+	if err != nil {
+		panic(err.Error())
+	}
+	return db
+}
+func (c MysqlConnector) ConfigureIsolationLevel(db *sql.DB, config DBConfig) {
+	if len(config.IsolationLevel) > 0 {
+		db.Exec("SET SESSION TRANSACTION ISOLATION LEVEL " + config.IsolationLevel)
+	}
+}
+func (c MysqlConnector) ConfigureMode(db *sql.DB, config DBConfig) {
+	if len(config.Mode) > 0 {
+		db.Exec("SET SESSION sql_mode = '" + config.Mode + "'")
+	} else if config.Strict {
+		db.Exec("set session sql_mode='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
+	}
+}
+
+func (c MysqlConnector) GetDsn(config *DBConfig) string {
+	var dsn string
+	if len(config.Dsn) > 0 {
+		dsn = config.Dsn
+	} else {
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", config.Username, config.Password, config.Host, config.Port, config.Database, strings.Join(params, "&"))
+		if len(config.DsnExtraString) > 0 {
+			dsn = dsn + "&" + config.DsnExtraString
+		}
+	}
+	return dsn
 }

@@ -1,9 +1,16 @@
 package goeloquent
 
+type Driver string
+
+const (
+	DriverMysql Driver = "mysql"
+)
+
 type DBConfig struct {
-	Driver string
-	//ReadHost  []string
-	//WriteHost []string
+	Driver          Driver
+	Name            string
+	ReadHost        []string
+	WriteHost       []string
 	Host            string
 	Port            string
 	Database        string
@@ -21,6 +28,10 @@ type DBConfig struct {
 	UnixSocket      string
 	MultiStatements bool
 	Dsn             string
+	DsnExtraString  string
+	Strict          bool
+	Mode            string
+	IsolationLevel  string
 	// pgsql
 	Sslmode   string
 	TLS       string
