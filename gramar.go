@@ -1,13 +1,15 @@
 package goeloquent
 
+import "github.com/glitterlip/goeloquent/query"
+
 type IGrammar interface {
 	SetTablePrefix(prefix string)
 
 	GetTablePrefix() string
 
-	SetBuilder(builder *Builder)
+	SetBuilder(builder *query.Builder)
 
-	GetBuilder() *Builder
+	GetBuilder() *query.Builder
 
 	CompileInsert([]map[string]interface{}) string
 

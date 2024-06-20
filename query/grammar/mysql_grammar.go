@@ -1,14 +1,16 @@
-package goeloquent
+package grammar
 
 import (
 	"errors"
 	"fmt"
+	"github.com/glitterlip/goeloquent"
+	"github.com/glitterlip/goeloquent/query"
 	"strings"
 )
 
 type MysqlGrammar struct {
 	Prefix  string
-	Builder *Builder
+	Builder *query.Builder
 }
 
 func (m *MysqlGrammar) SetTablePrefix(prefix string) {
@@ -19,11 +21,11 @@ func (m *MysqlGrammar) GetTablePrefix() string {
 	return m.Prefix
 }
 
-func (m *MysqlGrammar) SetBuilder(builder *Builder) {
+func (m *MysqlGrammar) SetBuilder(builder *query.Builder) {
 	m.Builder = builder
 }
 
-func (m *MysqlGrammar) GetBuilder() *Builder {
+func (m *MysqlGrammar) GetBuilder() *query.Builder {
 	return m.Builder
 }
 
@@ -50,7 +52,7 @@ func (m *MysqlGrammar) CompileInsert(values []map[string]interface{}) string {
 		b.PreSql.WriteString("(")
 		for i, key := range columns {
 			b.PreSql.WriteString(m.parameter(v[key]))
-			b.AddBinding([]interface{}{v[key]}, TYPE_INSERT)
+			b.AddBinding([]interface{}{v[key]}, goeloquent.TYPE_INSERT)
 			if i != columnLength-1 {
 				b.PreSql.WriteString(", ")
 			} else {
@@ -98,8 +100,8 @@ func (m *MysqlGrammar) CompileUpdate(value map[string]interface{}) string {
 		if (b.OnlyColumns == nil && b.ExceptColumns == nil) || b.FileterColumn(k) {
 			b.PreSql.WriteString(m.Wrap(k))
 			b.PreSql.WriteString(" = ")
-			b.AddBinding([]interface{}{v}, TYPE_UPDATE)
-			if e, ok := v.(Expression); ok {
+			b.AddBinding([]interface{}{v}, goeloquent.TYPE_UPDATE)
+			if e, ok := v.(goeloquent.Expression); ok {
 				b.PreSql.WriteString(string(e))
 			} else {
 				b.PreSql.WriteString(m.parameter(v))
@@ -119,11 +121,11 @@ func (m *MysqlGrammar) CompileSelect() string {
 	b := m.GetBuilder()
 	b.PreparedSql = ""
 	b.PreSql = strings.Builder{}
-	if _, ok := b.Components[TYPE_COLUMN]; !ok || len(b.Columns) == 0 {
-		b.Components[TYPE_COLUMN] = struct{}{}
+	if _, ok := b.Components[goeloquent.TYPE_COLUMN]; !ok || len(b.Columns) == 0 {
+		b.Components[goeloquent.TYPE_COLUMN] = struct{}{}
 		b.Columns = append(b.Columns, "*")
 	}
-	for _, componentName := range SelectComponents {
+	for _, componentName := range query.SelectComponents {
 		if _, ok := b.Components[componentName]; ok {
 			b.PreSql.WriteString(m.compileComponent(componentName))
 		}
@@ -141,28 +143,28 @@ func (m *MysqlGrammar) CompileExists() string {
 
 func (m *MysqlGrammar) compileComponent(componentName string) string {
 	switch componentName {
-	case TYPE_AGGREGRATE:
+	case goeloquent.TYPE_AGGREGRATE:
 		return m.CompileComponentAggregate()
-	case TYPE_COLUMN:
+	case goeloquent.TYPE_COLUMN:
 		return m.CompileComponentColumns()
-	case TYPE_FROM:
+	case goeloquent.TYPE_FROM:
 		return m.CompileComponentFromTable()
-	case TYPE_JOIN:
+	case goeloquent.TYPE_JOIN:
 		return m.CompileComponentJoins()
-	case TYPE_WHERE:
+	case goeloquent.TYPE_WHERE:
 		return m.CompileComponentWheres()
-	case TYPE_GROUP_BY:
+	case goeloquent.TYPE_GROUP_BY:
 		return m.CompileComponentGroups()
-	case TYPE_HAVING:
+	case goeloquent.TYPE_HAVING:
 		return m.CompileComponentHavings()
-	case TYPE_ORDER:
+	case goeloquent.TYPE_ORDER:
 		return m.CompileComponentOrders()
-	case TYPE_LIMIT:
+	case goeloquent.TYPE_LIMIT:
 		return m.CompileComponentLimitNum()
-	case TYPE_OFFSET:
+	case goeloquent.TYPE_OFFSET:
 		return m.CompileComponentOffsetNum()
 	case "unions":
-	case TYPE_LOCK:
+	case goeloquent.TYPE_LOCK:
 		return m.CompileLock()
 	}
 	return ""
@@ -248,9 +250,9 @@ func (m *MysqlGrammar) CompileComponentWheres() string {
 		if i != 0 {
 			builder.WriteString(" " + w.Boolean + " ")
 		}
-		if w.Type == CONDITION_TYPE_NESTED {
+		if w.Type == goeloquent.CONDITION_TYPE_NESTED {
 			builder.WriteString("(")
-			cloneBuilder := w.Value.(*Builder)
+			cloneBuilder := w.Value.(*query.Builder)
 			for j := 0; j < len(cloneBuilder.Wheres); j++ {
 				nestedWhere := cloneBuilder.Wheres[j]
 				if j != 0 {
@@ -265,13 +267,13 @@ func (m *MysqlGrammar) CompileComponentWheres() string {
 				builder.WriteString(nestedSql)
 			}
 			builder.WriteString(")")
-		} else if w.Type == CONDITION_TYPE_SUB {
+		} else if w.Type == goeloquent.CONDITION_TYPE_SUB {
 			builder.WriteString(m.Wrap(w.Column))
 			builder.WriteString(" " + w.Operator + " ")
 			builder.WriteString("(")
-			cb := CloneBuilderWithTable(m.GetBuilder())
+			cb := goeloquent.CloneBuilderWithTable(m.GetBuilder())
 
-			if clousure, ok := w.Value.(func(builder *Builder)); ok {
+			if clousure, ok := w.Value.(func(builder *query.Builder)); ok {
 				clousure(cb)
 				sql := cb.Grammar.CompileSelect()
 				builder.WriteString(sql)
@@ -285,14 +287,14 @@ func (m *MysqlGrammar) CompileComponentWheres() string {
 	}
 	return builder.String()
 }
-func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
+func (m *MysqlGrammar) CompileWhere(w query.Where) (sql string) {
 	var sqlBuilder strings.Builder
 	switch w.Type {
-	case CONDITION_TYPE_BASIC:
+	case goeloquent.CONDITION_TYPE_BASIC:
 		sqlBuilder.WriteString(m.Wrap(w.Column))
 		sqlBuilder.WriteString(" " + w.Operator + " ")
 		sqlBuilder.WriteString(m.parameter(w.Value))
-	case CONDITION_TYPE_BETWEEN:
+	case goeloquent.CONDITION_TYPE_BETWEEN:
 		sqlBuilder.WriteString(m.Wrap(w.Column))
 		if w.Not {
 			sqlBuilder.WriteString(" not between ")
@@ -302,7 +304,7 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 		sqlBuilder.WriteString(m.parameter(w.Values[0]))
 		sqlBuilder.WriteString(" and ")
 		sqlBuilder.WriteString(m.parameter(w.Values[1]))
-	case CONDITION_TYPE_BETWEEN_COLUMN:
+	case goeloquent.CONDITION_TYPE_BETWEEN_COLUMN:
 		sqlBuilder.WriteString(m.Wrap(w.Column))
 		if w.Not {
 			sqlBuilder.WriteString(" not between ")
@@ -312,7 +314,7 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 		sqlBuilder.WriteString(m.Wrap(w.Values[0]))
 		sqlBuilder.WriteString(" and ")
 		sqlBuilder.WriteString(m.Wrap(w.Values[1]))
-	case CONDITION_TYPE_IN:
+	case goeloquent.CONDITION_TYPE_IN:
 		if len(w.Values) == 0 {
 			if w.Not {
 				sqlBuilder.WriteString("1 = 1")
@@ -330,7 +332,7 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 			sqlBuilder.WriteString(")")
 		}
 
-	case CONDITION_TYPE_DATE, CONDITION_TYPE_TIME, CONDITION_TYPE_DAY, CONDITION_TYPE_MONTH, CONDITION_TYPE_YEAR:
+	case goeloquent.CONDITION_TYPE_DATE, goeloquent.CONDITION_TYPE_TIME, goeloquent.CONDITION_TYPE_DAY, goeloquent.CONDITION_TYPE_MONTH, goeloquent.CONDITION_TYPE_YEAR:
 		sqlBuilder.WriteString(w.Type)
 		sqlBuilder.WriteString("(")
 		sqlBuilder.WriteString(m.Wrap(w.Column))
@@ -338,37 +340,38 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 		sqlBuilder.WriteString(w.Operator)
 		sqlBuilder.WriteString(" ")
 		sqlBuilder.WriteString(m.parameter(w.Value))
-	case CONDITION_TYPE_NULL:
+	case goeloquent.CONDITION_TYPE_NULL:
 		sqlBuilder.WriteString(m.Wrap(w.Column))
 		sqlBuilder.WriteString(" is ")
 		if w.Not {
 			sqlBuilder.WriteString("not ")
 		}
 		sqlBuilder.WriteString("null")
-	case CONDITION_TYPE_COLUMN:
+	case goeloquent.CONDITION_TYPE_COLUMN:
 		sqlBuilder.WriteString(m.Wrap(w.FirstColumn))
 		sqlBuilder.WriteString(" ")
 		sqlBuilder.WriteString(w.Operator)
 		sqlBuilder.WriteString(" ")
 		sqlBuilder.WriteString(m.Wrap(w.SecondColumn))
-	case CONDITION_TYPE_RAW:
-		sqlBuilder.WriteString(string(w.RawSql.(Expression)))
-	case CONDITION_TYPE_NESTED:
+	case goeloquent.CONDITION_TYPE_RAW:
+		sqlBuilder.WriteString(string(w.RawSql.(goeloquent.Expression)))
+	case goeloquent.CONDITION_TYPE_NESTED:
 		sqlBuilder.WriteString("(")
-		sqlBuilder.WriteString(w.Value.(*Builder).Grammar.CompileComponentWheres())
+		sqlBuilder.WriteString(w.Value.(*query.Builder).Grammar.CompileComponentWheres())
 		sqlBuilder.WriteString(") ")
-	case CONDITION_TYPE_EXIST:
+	case goeloquent.CONDITION_TYPE_EXIST:
 		if w.Not {
 			sqlBuilder.WriteString("not ")
 		}
 		sqlBuilder.WriteString("exists ")
 		sqlBuilder.WriteString(fmt.Sprintf("(%s)", w.Query.ToSql()))
-	case CONDITION_TYPE_ROW_VALUES:
+	case goeloquent.CONDITION_TYPE_ROW_VALUES:
 		var columns []interface{}
 		for _, column := range w.Columns {
 			columns = append(columns, column)
 		}
 		sqlBuilder.WriteString(fmt.Sprintf("(%s) %s (%s)", m.columnize(columns), w.Operator, m.parameter(w.Values...)))
+	case goeloquent.CONDITION_TYPE_JSON_CONTAINS:
 
 	default:
 		panic("where type not Found")
@@ -379,7 +382,7 @@ func (m *MysqlGrammar) CompileWhere(w Where) (sql string) {
 func (m *MysqlGrammar) parameter(values ...interface{}) string {
 	var ps []string
 	for _, value := range values {
-		if expre, ok := value.(Expression); ok {
+		if expre, ok := value.(goeloquent.Expression); ok {
 			ps = append(ps, string(expre))
 		} else {
 			ps = append(ps, "?")
@@ -401,19 +404,19 @@ func (m *MysqlGrammar) CompileComponentHavings() string {
 		if i != 0 {
 			builder.WriteString(" " + having.HavingBoolean + " ")
 		}
-		if having.HavingType == CONDITION_TYPE_BASIC {
+		if having.HavingType == goeloquent.CONDITION_TYPE_BASIC {
 			builder.WriteString(m.Wrap(having.HavingColumn))
 			builder.WriteString(" ")
 			builder.WriteString(having.HavingOperator)
 			builder.WriteString(" ")
 			builder.WriteString(m.parameter(having.HavingValue))
-		} else if having.HavingType == CONDITION_TYPE_RAW {
-			builder.WriteString(string(having.RawSql.(Expression)))
-		} else if having.HavingType == CONDITION_TYPE_BETWEEN {
+		} else if having.HavingType == goeloquent.CONDITION_TYPE_RAW {
+			builder.WriteString(string(having.RawSql.(goeloquent.Expression)))
+		} else if having.HavingType == goeloquent.CONDITION_TYPE_BETWEEN {
 			vs := having.HavingValue.([]interface{})
 			builder.WriteString(m.Wrap(having.HavingColumn))
 			builder.WriteString(" ")
-			builder.WriteString(CONDITION_TYPE_BETWEEN)
+			builder.WriteString(goeloquent.CONDITION_TYPE_BETWEEN)
 			builder.WriteString(" ")
 			builder.WriteString(m.parameter(vs[0]))
 			builder.WriteString(" and ")
@@ -430,8 +433,8 @@ func (m *MysqlGrammar) CompileComponentOrders() string {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
-		if order.OrderType == CONDITION_TYPE_RAW {
-			builder.WriteString(string(order.RawSql.(Expression)))
+		if order.OrderType == goeloquent.CONDITION_TYPE_RAW {
+			builder.WriteString(string(order.RawSql.(goeloquent.Expression)))
 			continue
 		}
 		builder.WriteString(m.Wrap(order.Column))
@@ -483,7 +486,7 @@ func (m *MysqlGrammar) columnize(columns []interface{}) string {
 	for _, value := range columns {
 		if s, ok := value.(string); ok {
 			t = append(t, m.Wrap(s))
-		} else if e, ok := value.(Expression); ok {
+		} else if e, ok := value.(goeloquent.Expression); ok {
 			t = append(t, string(e))
 		}
 	}
@@ -496,7 +499,7 @@ Wrap a value in keyword identifiers.
 */
 func (m *MysqlGrammar) Wrap(value interface{}, prefixAlias ...bool) string {
 	prefix := false
-	if expr, ok := value.(Expression); ok {
+	if expr, ok := value.(goeloquent.Expression); ok {
 		return string(expr)
 	}
 	str := value.(string)
@@ -546,7 +549,7 @@ WrapTable wrap a table in keyword identifiers.
 func (m *MysqlGrammar) WrapTable(tableName interface{}) string {
 	if str, ok := tableName.(string); ok {
 		return m.Wrap(m.GetTablePrefix()+str, true)
-	} else if expr, ok := tableName.(Expression); ok {
+	} else if expr, ok := tableName.(goeloquent.Expression); ok {
 		return string(expr)
 	} else {
 		panic(errors.New("tablename type mismatch"))

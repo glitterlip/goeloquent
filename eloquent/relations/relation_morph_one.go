@@ -1,62 +1,22 @@
-package goeloquent
+package relations
 
 import (
 	"fmt"
+	"github.com/glitterlip/goeloquent/eloquent"
 	"reflect"
 )
 
 type MorphOneRelation struct {
-	Relation
-	RelatedIdColumn   string
-	ParentKey         string
-	Builder           *Builder
-	RelatedTypeColumn string
-	MorphType         string
+	eloquent.Relation
+	RelatedModelIdColumn        string
+	RelatedModelTypeColumn      string
+	SelfColumn                  string
+	RelatedModelTypeColumnValue string
 }
 
-/*
-MorphOne is a relation that can be used to retrieve the parent model of a polymorphic relation.
-For example
-images table
-id  imageable_id  imageable_type path
-2   1             User    	/path/to/image
-3   2             User   	/path/to/image
-
-	type User struct{
-		...
-		LatestImage     Image `goelo:"MorphOne:LatestImagelation"`
-		...
-	}
-
-	func (u *User) LatestImageRelation() *goeloquent.RelationBuilder {
-		return u.MorphOne(u, &Image{}, "imageable_id", "id", "imageable_type")
-	}
-
-DB.Model(&User{}).Where("id",1).With("LatestImage").First(&user)
-*/
-func (m *EloquentModel) MorphOne(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, selfKey string) *RelationBuilder {
-	b := NewRelationBaseBuilder(related)
-	relation := MorphOneRelation{
-		Relation: Relation{
-			Parent:  self,
-			Related: related,
-			Type:    RelationMorphOne,
-		},
-		RelatedIdColumn: relatedIdColumn, ParentKey: selfKey, Builder: b, RelatedTypeColumn: relatedTypeColumn,
-	}
-	selfModel := GetParsedModel(self)
-	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	relation.MorphType = GetMorphMap(selfModel.Name)
-	b.Where(relatedIdColumn, "=", selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
-	b.WhereNotNull(relatedIdColumn)
-	b.Where(relatedTypeColumn, "=", relation.MorphType)
-
-	return &RelationBuilder{Builder: b, Relation: &relation}
-
-}
 func (r *MorphOneRelation) AddEagerConstraints(models interface{}) {
-	parentParsedModel := GetParsedModel(r.Parent)
-	index := parentParsedModel.FieldsByDbName[r.ParentKey].Index
+	selfParsedModel := eloquent.GetParsedModel(r.SelfModel)
+	index := selfParsedModel.FieldsByDbName[r.SelfColumn].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -75,28 +35,33 @@ func (r *MorphOneRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Reset(TYPE_WHERE)
-	r.Builder.WhereNotNull(r.RelatedIdColumn)
-	r.Builder.Where(r.RelatedTypeColumn, r.MorphType)
-	r.Builder.WhereIn(r.RelatedIdColumn, keys)
+	r.Builder.WhereNotNull(r.RelatedModelIdColumn)
+	r.Builder.Where(r.RelatedModelTypeColumn, r.RelatedModelTypeColumnValue)
+	r.Builder.WhereIn(r.RelatedModelIdColumn, keys)
+}
+func (r *MorphOneRelation) AddConstraints() {
+	selfParsedModel := eloquent.GetParsedModel(r.SelfModel)
+	selfDirect := reflect.Indirect(reflect.ValueOf(r.SelfModel))
+	r.Builder.Where(r.RelatedModelTypeColumn, r.RelatedModelTypeColumnValue)
+	r.Builder.Where(r.RelatedModelIdColumn, "=", selfDirect.Field(selfParsedModel.FieldsByDbName[r.RelatedModelIdColumn].Index).Interface())
 }
 func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRelation) {
 	relatedModelsValue := related.(reflect.Value)
 	relatedResults := relatedModelsValue
-	relatedModel := GetParsedModel(relation.Related)
-	relatedType := reflect.ValueOf(relation.Relation.Related).Elem().Type()
+	relatedModel := eloquent.GetParsedModel(relation.RelatedModel)
+	relatedType := reflect.ValueOf(relation.Relation.RelatedModel).Elem().Type()
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	parent := GetParsedModel(relation.Parent)
-	isPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Kind() == reflect.Ptr
+	selfParsedModel := eloquent.GetParsedModel(relation.SelfModel)
+	isPtr := selfParsedModel.FieldsByStructName[relation.Relation.Name].FieldType.Kind() == reflect.Ptr
 	if !relatedResults.IsValid() || relatedResults.IsNil() {
 		return
 	}
 	if isPtr {
 		for i := 0; i < relatedResults.Len(); i++ {
 			result := relatedResults.Index(i)
-			ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedIdColumn].Index
+			ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedModelIdColumn].Index
 			groupKeyS := fmt.Sprint(result.FieldByIndex([]int{ownerKeyIndex}))
 			groupKey := reflect.ValueOf(groupKeyS)
 			existed := groupedResults.MapIndex(groupKey)
@@ -112,7 +77,7 @@ func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRe
 	} else {
 		for i := 0; i < relatedResults.Len(); i++ {
 			result := relatedResults.Index(i)
-			ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedIdColumn].Index
+			ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedModelIdColumn].Index
 			groupKeyS := fmt.Sprint(result.FieldByIndex([]int{ownerKeyIndex}))
 			groupKey := reflect.ValueOf(groupKeyS)
 			existed := groupedResults.MapIndex(groupKey)
@@ -127,8 +92,8 @@ func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRe
 	}
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
-	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelRelationFieldIndex := selfParsedModel.FieldsByStructName[relation.Relation.Name].Index
+	modelKeyFieldIndex := selfParsedModel.FieldsByDbName[relation.SelfColumn].Index
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
@@ -154,7 +119,7 @@ func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRe
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
 			if !model.Field(modelRelationFieldIndex).CanSet() {
-				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
+				panic(fmt.Sprintf("model: %s field: %s cant be set", selfParsedModel.Name, selfParsedModel.FieldsByStructName[relation.Relation.Name].Name))
 			}
 			if isPtr {
 				model.Field(modelRelationFieldIndex).Set(value.Elem().Index(0).Addr())
@@ -173,7 +138,7 @@ func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRe
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
 				if !model.Field(modelRelationFieldIndex).CanSet() {
-					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.Name].Name))
+					panic(fmt.Sprintf("model: %s field: %s cant be set", selfParsedModel.Name, selfParsedModel.FieldsByStructName[relation.Relation.Name].Name))
 				}
 				if isPtr {
 					model.Field(modelRelationFieldIndex).Set(value.Elem().Index(0).Addr())

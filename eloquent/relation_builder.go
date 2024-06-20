@@ -1,8 +1,9 @@
-package goeloquent
+package eloquent
 
 import (
-	"database/sql"
 	"fmt"
+	"github.com/glitterlip/goeloquent"
+	"github.com/glitterlip/goeloquent/query"
 	"reflect"
 	"strings"
 )
@@ -12,43 +13,7 @@ type RelationBuilder struct {
 	Relation RelationI
 }
 
-func (r *RelationBuilder) Get(dest interface{}) (result sql.Result, err error) {
-	//TODO:applyScopes
-	if _, ok := r.Relation.(*MorphToRelation); ok {
-		if reflect.Indirect(reflect.ValueOf(dest)).Type().Name() == "EloquentModel" {
-			e := dest.(*EloquentModel)
-			p := reflect.New(r.Model.ModelType)
-			e.ModelPointer = p
-			dest = p.Interface()
-		}
-	}
-	result, err = r.Builder.Get(dest)
-
-	return
-}
-func (r *RelationBuilder) EagerLoadRelations(models interface{}) {
-	//dest := r.Builder.Dest
-	//value := reflect.ValueOf(dest)
-	//get pointer value
-	//realDest := reflect.Indirect(value)
-
-	var model *Model
-	//with reflect.Value of makeslice
-	if t, ok := models.(*reflect.Value); ok {
-		sliceEleType := t.Type().Elem()
-		model = GetParsedModel(sliceEleType.PkgPath() + "." + sliceEleType.Name())
-	} else {
-		model = GetParsedModel(models)
-	}
-
-	//models = realDest.Interface()
-	for relationName, fn := range r.Builder.EagerLoad {
-		if !strings.Contains(relationName, ".") {
-			r.EagerLoadRelation(models, model, relationName, fn)
-		}
-	}
-}
-func (r *RelationBuilder) LoadPivotColumns(pivots ...string) {
+func (r *Builder) LoadPivotColumns(pivots ...string) {
 	switch relation := r.Relation.(type) {
 	case *BelongsToManyRelation:
 		WithPivots(relation.Builder, relation.PivotTable, pivots)
@@ -58,7 +23,7 @@ func (r *RelationBuilder) LoadPivotColumns(pivots ...string) {
 		WithPivots(relation.Builder, relation.PivotTable, pivots)
 	}
 }
-func (r *RelationBuilder) LoadPivotWheres(pivotWheres ...Where) {
+func (r *Builder) LoadPivotWheres(pivotWheres ...Where) {
 	switch relation := r.Relation.(type) {
 	case *BelongsToManyRelation:
 		WherePivots(relation.Builder, relation.PivotTable, pivotWheres)
@@ -68,7 +33,7 @@ func (r *RelationBuilder) LoadPivotWheres(pivotWheres ...Where) {
 		WherePivots(relation.Builder, relation.PivotTable, pivotWheres)
 	}
 }
-func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, relationName string, constraints func(*RelationBuilder) *RelationBuilder) {
+func (r *Builder) EagerLoadRelation(models interface{}, model *Model, relationName string, constraints func(*RelationBuilder) *RelationBuilder) {
 	if pos := strings.Index(relationName, ":"); pos != -1 {
 		relationName = relationName[0:pos]
 	}
@@ -105,7 +70,7 @@ func (r *RelationBuilder) EagerLoadRelation(models interface{}, model *Model, re
 		panic(fmt.Sprintf(" relation : %s for model: %s didn't return a relationbuilder ", relationName, model.Name))
 	}
 }
-func (r *RelationBuilder) GetEager(relation interface{}) interface{} {
+func (r *Builder) GetEager(relation interface{}) interface{} {
 	switch relation.(type) {
 	case *BelongsToRelation,
 		*BelongsToManyRelation,
@@ -125,7 +90,7 @@ func (r *RelationBuilder) GetEager(relation interface{}) interface{} {
 		morphto := relation.(*MorphToRelation)
 		relationResults := make(map[string]reflect.Value)
 		for key, keys := range morphto.Groups {
-			modelPointer := GetMorphDBMap(key)
+			modelPointer := goeloquent.GetMorphDBMap(key)
 			models := reflect.MakeSlice(reflect.SliceOf(modelPointer.Type()), 0, 10)
 			nb := Eloquent.Model(modelPointer.Type())
 			nb.Connection = r.Connection
@@ -140,7 +105,7 @@ func (r *RelationBuilder) GetEager(relation interface{}) interface{} {
 	}
 	return nil
 }
-func (r *RelationBuilder) Match(models interface{}, relationResults interface{}, relationI interface{}, relationName string) {
+func (r *Builder) Match(models interface{}, relationResults interface{}, relationI interface{}, relationName string) {
 
 	//results := relationResults.(*reflect.Value)
 	switch relationI.(type) {
@@ -184,7 +149,13 @@ func (r *RelationBuilder) Match(models interface{}, relationResults interface{},
 		MatchMorphByMany(models, relationResults, relation)
 	}
 }
+func (r *Builder) WithAggregate(relation []interface{}, column string, function string) *Builder {
 
+	return nil
+}
+func (r *Builder) WithCount(relation []interface{}) *Builder {
+	return r.WithAggregate(relation, "*", "count")
+}
 func WithPivots(builder *Builder, table string, columns []string) {
 	for _, pivot := range columns {
 		if strings.Contains(pivot, ".") {
@@ -196,7 +167,7 @@ func WithPivots(builder *Builder, table string, columns []string) {
 		}
 	}
 }
-func WherePivots(builder *Builder, table string, wheres []Where) {
+func WherePivots(builder *Builder, table string, wheres []query.Where) {
 	for _, where := range wheres {
 		if strings.Contains(where.Column, ".") {
 			if strings.Contains(where.Column, table) {

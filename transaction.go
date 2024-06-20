@@ -19,7 +19,7 @@ func (t *Transaction) Table(tableName string) *Builder {
 	return builder
 }
 
-func (t *Transaction) Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result sql.Result, err error) {
+func (t *Transaction) Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result Result, err error) {
 	var stmt *sql.Stmt
 	var rows *sql.Rows
 	stmt, err = t.Tx.Prepare(query)
@@ -36,7 +36,7 @@ func (t *Transaction) Select(query string, bindings []interface{}, dest interfac
 
 	return ScanAll(rows, dest, mapping), nil
 }
-func (t *Transaction) AffectingStatement(query string, bindings []interface{}) (result sql.Result, err error) {
+func (t *Transaction) AffectingStatement(query string, bindings []interface{}) (result Result, err error) {
 
 	stmt, errP := t.Tx.Prepare(query)
 	if errP != nil {
@@ -51,19 +51,19 @@ func (t *Transaction) AffectingStatement(query string, bindings []interface{}) (
 
 	return
 }
-func (t *Transaction) Insert(query string, bindings []interface{}) (sql.Result, error) {
+func (t *Transaction) Insert(query string, bindings []interface{}) (Result, error) {
 	return t.AffectingStatement(query, bindings)
 }
 
-func (t *Transaction) Update(query string, bindings []interface{}) (sql.Result, error) {
+func (t *Transaction) Update(query string, bindings []interface{}) (Result, error) {
 	return t.AffectingStatement(query, bindings)
 }
 
-func (t *Transaction) Delete(query string, bindings []interface{}) (sql.Result, error) {
+func (t *Transaction) Delete(query string, bindings []interface{}) (Result, error) {
 	return t.AffectingStatement(query, bindings)
 }
 
-func (t *Transaction) Statement(query string, bindings []interface{}) (sql.Result, error) {
+func (t *Transaction) Statement(query string, bindings []interface{}) (Result, error) {
 	return t.AffectingStatement(query, bindings)
 }
 

@@ -1,77 +1,25 @@
-package goeloquent
+package relations
 
 import (
 	"fmt"
+	"github.com/glitterlip/goeloquent/eloquent"
 	"reflect"
 )
 
-// MorphByManyRelation  for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
-// for example we have post,tag and tagable table
-// for tag model parentkey => user table id column,relatedkey => phone table id column,relatedparentkey => phone table user_id column
 type MorphByManyRelation struct {
-	Relation
-	PivotTable      string
-	PivotSelfKey    string
-	PivotRelatedKey string
-	SelfKey         string
-	RelatedKey      string
-	Builder         *Builder
-	PivotTypeColumn string
-}
-
-/*
-MorphByMany is a relation that can be used to retrieve the related model of a polymorphic many-to-many relation.
-For example
-tagable table
-id  tag_id  tagable_id  tagable_type
-2   4        1           post
-3   4        2           image
-
-	type Tag struct{
-		...
-		Posts     []Post `goelo:"MorphByMany:PostsRelation"`
-		Images    []Image `goelo:"MorphByMany:ImagesRelation"`
-		...
-	}
-
-	func (t *Tag) PostsRelation() *goeloquent.RelationBuilder {
-		return t.MorphByMany(t, &Post{}, "tagable", "tag_id", "tagable_id", "id", "id","tagable_type")
-	}
-
-	func (t *Tag) ImagesRelation() *goeloquent.RelationBuilder {
-		return t.MorphByMany(t, &Image{}, "tagable", "tag_id", "tagable_id", "id", "id","tagable_type")
-	}
-
-DB.Model(&Tag{}).With("Posts","Images").Get(&tags)
-*/
-func (m *EloquentModel) MorphByMany(self, related interface{}, pivotTable, pivotSelfKey, pivotRelatedKey, selfKey, relatedKey, pivotTypeColumn string) *RelationBuilder {
-	b := NewRelationBaseBuilder(related)
-	relation := MorphByManyRelation{
-		Relation: Relation{
-			Parent:  self,
-			Related: related,
-			Type:    RelationMorphByMany,
-		},
-		PivotTable: pivotTable, PivotSelfKey: pivotSelfKey, PivotRelatedKey: pivotRelatedKey, SelfKey: selfKey, RelatedKey: relatedKey, Builder: b, PivotTypeColumn: pivotTypeColumn,
-	}
-	selfModel := GetParsedModel(self)
-	relatedModel := GetParsedModel(related)
-	modelMorphName := GetMorphMap(relatedModel.Name)
-	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedKey, "=", relatedModel.Table+"."+relation.RelatedKey)
-	b.Select(relatedModel.Table + "." + "*")
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedKey, ormPivotAlias, relation.PivotRelatedKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfKey, ormPivotAlias, relation.PivotSelfKey))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotTypeColumn, ormPivotAlias, relation.PivotTypeColumn))
-	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(relation.PivotSelfKey, selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
-	b.Where(pivotTypeColumn, modelMorphName)
-	return &RelationBuilder{Builder: b, Relation: &relation}
-
+	eloquent.Relation
+	PivotTable                  string
+	PivotRelatedIdColumn        string
+	PivotRelatedTypeColumn      string
+	PivotSelfColumn             string
+	SelfColumn                  string
+	RelatedIdColumn             string
+	RelatedModelTypeColumnValue string
 }
 
 func (r *MorphByManyRelation) AddEagerConstraints(models interface{}) {
-	parentParsedModel := GetParsedModel(r.Parent)
-	index := parentParsedModel.FieldsByDbName[r.SelfKey].Index
+	parentParsedModel := eloquent.GetParsedModel(r.SelfModel)
+	index := parentParsedModel.FieldsByDbName[r.SelfColumn].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -90,34 +38,41 @@ func (r *MorphByManyRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Reset(TYPE_WHERE)
-	r.Builder.WhereIn(r.PivotTable+"."+r.PivotSelfKey, keys)
-	relatedParsedModel := GetParsedModel(r.Related)
-	r.Builder.Where(r.PivotTypeColumn, GetMorphMap(relatedParsedModel.Name))
+	r.Builder.WhereIn(r.PivotTable+"."+r.PivotSelfColumn, keys)
+	relatedParsedModel := eloquent.GetParsedModel(r.RelatedModel)
+	r.Builder.Where(r.PivotRelatedTypeColumn, eloquent.GetMorphMap(relatedParsedModel.Name))
 }
+
+func (r *MorphByManyRelation) AddConstraints() {
+	selfModel := eloquent.GetParsedModel(r.SelfModel)
+	selfDirect := reflect.Indirect(reflect.ValueOf(r.Relation.SelfModel))
+	r.Builder.Where(r.PivotSelfColumn, selfDirect.Field(selfModel.FieldsByDbName[r.SelfColumn].Index).Interface())
+	r.Builder.Where(r.PivotRelatedTypeColumn, r.RelatedModelTypeColumnValue)
+}
+
 func MatchMorphByMany(models interface{}, related interface{}, relation *MorphByManyRelation) {
 	relatedValue := related.(reflect.Value)
 	relatedResults := relatedValue
-	relatedModel := GetParsedModel(relation.Related)
-	parent := GetParsedModel(relation.Parent)
+	relatedModel := eloquent.GetParsedModel(relation.RelatedModel)
+	parent := eloquent.GetParsedModel(relation.SelfModel)
 	isPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Kind() == reflect.Ptr
 	var relatedType reflect.Type
 
 	if isPtr {
-		relatedType = reflect.ValueOf(relation.Relation.Related).Type()
+		relatedType = reflect.ValueOf(relation.Relation.RelatedModel).Type()
 	} else {
-		relatedType = reflect.ValueOf(relation.Relation.Related).Elem().Type()
+		relatedType = reflect.ValueOf(relation.Relation.RelatedModel).Elem().Type()
 	}
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	pivotKey := ormPivotAlias + relation.PivotSelfKey
+	pivotKey := eloquent.OrmPivotAlias + relation.PivotSelfColumn
 	if !relatedResults.IsValid() || relatedResults.IsNil() {
 		return
 	}
 	for i := 0; i < relatedResults.Len(); i++ {
 		result := relatedResults.Index(i)
-		pivotMap := result.FieldByIndex(relatedModel.PivotFieldIndex).Interface().(map[string]interface{})
+		pivotMap := result.FieldByIndex([]int{relatedModel.PivotFieldIndex}).Interface().(map[string]interface{})
 		groupKey := reflect.ValueOf(pivotMap[pivotKey].(string))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
@@ -140,7 +95,7 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
 	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfKey].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfColumn].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {

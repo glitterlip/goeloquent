@@ -1,4 +1,4 @@
-package goeloquent
+package connectors
 
 type Driver string
 

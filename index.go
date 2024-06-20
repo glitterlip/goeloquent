@@ -3,29 +3,51 @@ package goeloquent
 import (
 	"database/sql"
 	"fmt"
+	"github.com/glitterlip/goeloquent/connectors"
+	"github.com/glitterlip/goeloquent/eloquent"
+	"github.com/glitterlip/goeloquent/query"
+	"github.com/glitterlip/goeloquent/query/grammar"
 	"reflect"
 	"sync"
+)
+
+const (
+	DefaultConnectionName = "default"
 )
 
 var Eloquent *DB
 
 type DB struct {
 	DatabaseManager
-	RegisteredModelsMap      sync.Map
-	RegisteredMorphModelsMap sync.Map
-	RegisteredDBMap          sync.Map
-	RegisteredMacros         map[string]MacroFunc
-	ParsedModelsMap          sync.Map
+	RegisteredModelsMap      sync.Map //name:reflect.Value
+	RegisteredMorphModelsMap sync.Map //model pointer:alias , when save relation to db, convert models.User => users
+	RegisteredDBMap          sync.Map //alias:model pointer , when query relation from db, convert users => models.User
+	ParsedModelsMap          sync.Map //pkg+modelname:*eloquent.Model , get parsed model config
 	LogFunc                  func(log Log)
 }
-type MacroFunc = func(builder *Builder, params ...interface{}) *Builder
+type EloquentModel = eloquent.EloquentModel
+type Builder = query.Builder
+type MysqlGrammar = grammar.MysqlGrammar
+type MacroFunc = func(builder *query.Builder, params ...interface{}) *query.Builder
 
+func CloneBuilderWithTable(b *Builder) *Builder {
+	return query.Clone(b)
+}
+func NewBuilder(c *Connection) *Builder {
+	return query.NewBuilder(c)
+}
+func Clone(original *Builder) *Builder {
+	return query.Clone(original)
+}
+func CloneWithout(original *Builder, without ...string) *Builder {
+	return query.CloneWithout(original, without...)
+}
 func (d *DB) SetLogger(f func(log Log)) *DB {
 	d.LogFunc = f
 	return d
 }
-func Open(config map[string]DBConfig) *DB {
-	var configP = make(map[string]*DBConfig)
+func Open(config map[string]connectors.DBConfig) *DB {
+	var configP = make(map[string]*connectors.DBConfig)
 	for name := range config {
 		c := config[name]
 		configP[name] = &c
@@ -40,11 +62,11 @@ func Open(config map[string]DBConfig) *DB {
 	Eloquent = &db
 	return Eloquent
 }
-func (d *DB) AddConfig(name string, config *DBConfig) *DB {
+func (d *DB) AddConfig(name string, config *connectors.DBConfig) *DB {
 	Eloquent.Configs[name] = config
 	return d
 }
-func (d *DB) GetConfigs() map[string]*DBConfig {
+func (d *DB) GetConfigs() map[string]*connectors.DBConfig {
 	return Eloquent.Configs
 }
 func RegistMorphMap(morphMap map[string]interface{}) {
@@ -97,7 +119,4 @@ func (*DB) Raw(connectionName ...string) *sql.DB {
 		c := Eloquent.Connection("default")
 		return (*c).GetDB()
 	}
-}
-func (d *DB) RegistMacroMap(macroMap map[string]MacroFunc) {
-	d.RegisteredMacros = macroMap
 }

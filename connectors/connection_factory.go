@@ -1,27 +1,24 @@
-package goeloquent
+package connectors
 
 import (
 	"errors"
 	"fmt"
-)
-
-const (
-	DriverMysql = "mysql"
+	"github.com/glitterlip/goeloquent"
 )
 
 type ConnectionFactory struct {
 }
 type Connector interface {
-	connect(config *DBConfig) *Connection
+	connect(config *DBConfig) *goeloquent.Connection
 }
 
-func (f ConnectionFactory) Make(config *DBConfig) *Connection {
+func (f ConnectionFactory) Make(config *DBConfig) *goeloquent.Connection {
 	return f.MakeConnection(config)
 }
-func (f ConnectionFactory) MakeConnection(config *DBConfig) *Connection {
+func (f ConnectionFactory) MakeConnection(config *DBConfig) *goeloquent.Connection {
 	return f.CreateConnection(config)
 }
-func (f ConnectionFactory) CreateConnection(config *DBConfig) *Connection {
+func (f ConnectionFactory) CreateConnection(config *DBConfig) *goeloquent.Connection {
 	switch config.Driver {
 	case DriverMysql:
 		connector := MysqlConnector{}

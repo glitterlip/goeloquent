@@ -1,4 +1,4 @@
-package goeloquent
+package connectors
 
 import (
 	"database/sql"
@@ -39,20 +39,6 @@ func (c MysqlConnector) connect(config *DBConfig) *Connection {
 	if config.ConnMaxIdleTime == 0 {
 		config.ConnMaxIdleTime = 7200
 	}
-	var params []string
-
-	if len(config.Charset) > 0 {
-		params = append(params, "charset="+config.Charset)
-	}
-	if len(config.Collation) > 0 {
-		params = append(params, "collation="+config.Collation)
-	}
-	if config.MultiStatements {
-		params = append(params, "multiStatements=true")
-	}
-	if config.ParseTime {
-		params = append(params, "parseTime=true")
-	}
 
 	db := c.CreateConnection(c.GetDsn(config))
 
@@ -92,6 +78,20 @@ func (c MysqlConnector) ConfigureMode(db *sql.DB, config DBConfig) {
 
 func (c MysqlConnector) GetDsn(config *DBConfig) string {
 	var dsn string
+	var params []string
+
+	if len(config.Charset) > 0 {
+		params = append(params, "charset="+config.Charset)
+	}
+	if len(config.Collation) > 0 {
+		params = append(params, "collation="+config.Collation)
+	}
+	if config.MultiStatements {
+		params = append(params, "multiStatements=true")
+	}
+	if config.ParseTime {
+		params = append(params, "parseTime=true")
+	}
 	if len(config.Dsn) > 0 {
 		dsn = config.Dsn
 	} else {

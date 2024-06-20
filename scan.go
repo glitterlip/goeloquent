@@ -2,23 +2,12 @@ package goeloquent
 
 import (
 	"database/sql"
-	"errors"
+	"github.com/glitterlip/goeloquent/eloquent"
 	"reflect"
 	"strings"
 )
 
-type ScanResult struct {
-	Count int
-}
-
-func (ScanResult) LastInsertId() (int64, error) {
-	return 0, errors.New("no insert in select")
-}
-
-func (v ScanResult) RowsAffected() (int64, error) {
-	return int64(v.Count), nil
-}
-func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
+func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	if realDest.Kind() == reflect.Slice {
 		slice := realDest.Type()
@@ -52,7 +41,7 @@ func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 	return
 }
 
-func scanMapSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
+func scanMapSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	columns, _ := rows.Columns()
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
@@ -81,13 +70,13 @@ func scanMapSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface
 	}
 	return
 }
-func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
+func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	columns, _ := rows.Columns()
 	slice := realDest.Type()
 	sliceItem := slice.Elem()
 	itemIsPtr := sliceItem.Kind() == reflect.Ptr
-	model := GetParsedModel(dest)
+	model := eloquent.GetParsedModel(dest)
 	scanArgs := make([]interface{}, len(columns))
 	var needProcessPivot bool
 	var pivotColumnMap = make(map[string]int, 2)
@@ -141,8 +130,8 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
-			eloquentModel.Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
-			v.Field(model.PivotFieldIndex[0]).Set(eloquentPtr)
+			eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
+			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
 		}
 		if itemIsPtr {
 			realDest.Set(reflect.Append(realDest, vp))
@@ -152,14 +141,14 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 	}
 	return
 }
-func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
+func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	columns, _ := rows.Columns()
 	destValue := dest.(*reflect.Value)
 	//relation reflect results
 	slice := destValue.Type()
 	sliceItem := slice.Elem()
 	//itemIsPtr := base.Kind() == reflect.Ptr
-	model := GetParsedModel(sliceItem)
+	model := eloquent.GetParsedModel(sliceItem)
 	scanArgs := make([]interface{}, len(columns))
 	vp := reflect.New(sliceItem)
 	v := reflect.Indirect(vp)
@@ -207,16 +196,16 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
-			eloquentModel.Field(model.PivotFieldIndex[1]).Set(reflect.ValueOf(t))
-			v.Field(model.PivotFieldIndex[0]).Set(eloquentPtr)
+			eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
+			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
 		}
 		*destValue = reflect.Append(*destValue, v)
 	}
 	return
 }
-func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
+func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
-	model := GetParsedModel(dest)
+	model := eloquent.GetParsedModel(dest)
 	columns, _ := rows.Columns()
 	scanArgs := make([]interface{}, len(columns))
 	vp := reflect.New(realDest.Type())
@@ -247,7 +236,7 @@ func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}
 	}
 	return
 }
-func scanMap(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result ScanResult) {
+func scanMap(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	columns, _ := rows.Columns()
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	scanArgs := make([]interface{}, len(columns))
@@ -275,7 +264,7 @@ func scanMap(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 	}
 	return
 }
-func scanValues(rows *sql.Rows, dest interface{}) (result ScanResult) {
+func scanValues(rows *sql.Rows, dest interface{}) (result Result) {
 	columns, _ := rows.Columns()
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	scanArgs := make([]interface{}, len(columns))

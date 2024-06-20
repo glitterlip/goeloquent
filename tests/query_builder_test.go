@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glitterlip/goeloquent"
+	"github.com/glitterlip/goeloquent/query"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -12,11 +13,11 @@ import (
 
 //test DatabaseQueryBuilderTest
 
-func GetBuilder() *goeloquent.Builder {
+func GetBuilder() *query.Builder {
 	c := DB.Connection("default")
-	DB.SetLogger(func(log goeloquent.Log) {
-		fmt.Println(log)
-	})
+	//DB.SetLogger(func(log goeloquent.Log) {
+	//	fmt.Println(log)
+	//})
 	builder := goeloquent.NewBuilder(c)
 	builder.Grammar = &goeloquent.MysqlGrammar{}
 	builder.Grammar.SetTablePrefix(c.Config.Prefix)
@@ -203,7 +204,7 @@ func TestBasicWheres(t *testing.T) {
 		}},
 		{goeloquent.Raw("year(birthday) < 1998")},       //expression
 		{"suspend", goeloquent.Raw("'nodoublequotes'")}, //raw value
-		{goeloquent.Where{
+		{query.Where{
 			Type:     goeloquent.CONDITION_TYPE_BASIC,
 			Column:   "alias",
 			Operator: "=",
@@ -222,6 +223,10 @@ func TestBasicWheres(t *testing.T) {
 	ElementsShouldMatch(t, []interface{}{"foo", "bar", 25}, b5.GetBindings())
 }
 
+// TODO
+func TestWhereNested(t *testing.T) {
+
+}
 func TestDateBasedWheres(t *testing.T) {
 	//testDateBasedWheresAcceptsTwoArguments testWhereDateMySql testWhereDayMySql testOrWhereDayMySql testWhereMonthMySql testOrWhereMonthMySql testWhereYearMySql testOrWhereYearMySql testWhereTimeMySql
 	b := GetBuilder()
@@ -1288,6 +1293,16 @@ func TestPaginate(t *testing.T) {
 		assert.Equal(t, int64(2), p.CurrentPage)
 		assert.Equal(t, 5, len(users1))
 
+		//test paginate select columns
+		var uSlice1 []map[string]interface{}
+		p1, err := DB.Table("user").
+			Where("id", ">", 13).
+			Paginate(&uSlice1, 5, 2, []string{"name", "id"})
+		assert.Nil(t, err)
+		assert.Equal(t, int64(37), p1.Total)
+		assert.Equal(t, int64(2), p1.CurrentPage)
+		assert.Equal(t, 5, len(uSlice1))
+
 	})
 
 }
@@ -1829,7 +1844,6 @@ func TestCloneBuilder(t *testing.T) {
 	assert.Equal(t, b.FromTable, newB.FromTable)
 	assert.Equal(t, b.LimitNum, newB.LimitNum)
 	assert.Equal(t, b.OffsetNum, newB.OffsetNum)
-	assert.Equal(t, b.LoggingQueries, newB.LoggingQueries)
 	for i, _ := range b.Columns {
 		assert.Equal(t, b.Columns[i], newB.Columns[i])
 	}

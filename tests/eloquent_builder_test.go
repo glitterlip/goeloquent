@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/glitterlip/goeloquent"
+	"github.com/glitterlip/goeloquent/eloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -313,8 +314,8 @@ func TestEvents(t *testing.T) {
 		u2.UserName = "Bob"
 		DB.Boot(&u1)
 		DB.Boot(&u2)
-		u1.Mute(goeloquent.EventALL)
-		u2.Mute(goeloquent.EventSaving)
+		u1.Mute(eloquent.EventALL)
+		u2.Mute(eloquent.EventSaving)
 		DB.Save(&u1)
 		DB.Save(&u2)
 		var count int64

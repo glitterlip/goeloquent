@@ -15,15 +15,15 @@ type IConnection struct {
 }
 
 // AffectingStatement provides a mock function with given fields: query, bindings
-func (_m *IConnection) AffectingStatement(query string, bindings []interface{}) (sql.Result, error) {
+func (_m *IConnection) AffectingStatement(query string, bindings []interface{}) (Result, error) {
 	ret := _m.Called(query, bindings)
 
-	var r0 sql.Result
-	if rf, ok := ret.Get(0).(func(string, []interface{}) sql.Result); ok {
+	var r0 Result
+	if rf, ok := ret.Get(0).(func(string, []interface{}) Result); ok {
 		r0 = rf(query, bindings)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sql.Result)
+			r0 = ret.Get(0).(Result)
 		}
 	}
 
@@ -38,15 +38,15 @@ func (_m *IConnection) AffectingStatement(query string, bindings []interface{}) 
 }
 
 // Delete provides a mock function with given fields: query, bindings
-func (_m *IConnection) Delete(query string, bindings []interface{}) (sql.Result, error) {
+func (_m *IConnection) Delete(query string, bindings []interface{}) (Result, error) {
 	ret := _m.Called(query, bindings)
 
-	var r0 sql.Result
-	if rf, ok := ret.Get(0).(func(string, []interface{}) sql.Result); ok {
+	var r0 Result
+	if rf, ok := ret.Get(0).(func(string, []interface{}) Result); ok {
 		r0 = rf(query, bindings)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sql.Result)
+			r0 = ret.Get(0).(Result)
 		}
 	}
 
@@ -61,15 +61,15 @@ func (_m *IConnection) Delete(query string, bindings []interface{}) (sql.Result,
 }
 
 // Insert provides a mock function with given fields: query, bindings
-func (_m *IConnection) Insert(query string, bindings []interface{}) (sql.Result, error) {
+func (_m *IConnection) Insert(query string, bindings []interface{}) (Result, error) {
 	ret := _m.Called(query, bindings)
 
-	var r0 sql.Result
-	if rf, ok := ret.Get(0).(func(string, []interface{}) sql.Result); ok {
+	var r0 Result
+	if rf, ok := ret.Get(0).(func(string, []interface{}) Result); ok {
 		r0 = rf(query, bindings)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sql.Result)
+			r0 = ret.Get(0).(Result)
 		}
 	}
 
@@ -84,15 +84,15 @@ func (_m *IConnection) Insert(query string, bindings []interface{}) (sql.Result,
 }
 
 // Select provides a mock function with given fields: query, bindings, dest
-func (_m *IConnection) Select(query string, bindings []interface{}, dest interface{}) (sql.Result, error) {
+func (_m *IConnection) Select(query string, bindings []interface{}, dest interface{}) (Result, error) {
 	ret := _m.Called(query, bindings, dest)
 
-	var r0 sql.Result
-	if rf, ok := ret.Get(0).(func(string, []interface{}, interface{}) sql.Result); ok {
+	var r0 Result
+	if rf, ok := ret.Get(0).(func(string, []interface{}, interface{}) Result); ok {
 		r0 = rf(query, bindings, dest)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sql.Result)
+			r0 = ret.Get(0).(Result)
 		}
 	}
 
@@ -107,15 +107,15 @@ func (_m *IConnection) Select(query string, bindings []interface{}, dest interfa
 }
 
 // Statement provides a mock function with given fields: query, bindings
-func (_m *IConnection) Statement(query string, bindings []interface{}) (sql.Result, error) {
+func (_m *IConnection) Statement(query string, bindings []interface{}) (Result, error) {
 	ret := _m.Called(query, bindings)
 
-	var r0 sql.Result
-	if rf, ok := ret.Get(0).(func(string, []interface{}) sql.Result); ok {
+	var r0 Result
+	if rf, ok := ret.Get(0).(func(string, []interface{}) Result); ok {
 		r0 = rf(query, bindings)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sql.Result)
+			r0 = ret.Get(0).(Result)
 		}
 	}
 
@@ -157,15 +157,15 @@ func (_m *IConnection) Table(tableName string) *goeloquent.Builder {
 }
 
 // Update provides a mock function with given fields: query, bindings
-func (_m *IConnection) Update(query string, bindings []interface{}) (sql.Result, error) {
+func (_m *IConnection) Update(query string, bindings []interface{}) (Result, error) {
 	ret := _m.Called(query, bindings)
 
-	var r0 sql.Result
-	if rf, ok := ret.Get(0).(func(string, []interface{}) sql.Result); ok {
+	var r0 Result
+	if rf, ok := ret.Get(0).(func(string, []interface{}) Result); ok {
 		r0 = rf(query, bindings)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sql.Result)
+			r0 = ret.Get(0).(Result)
 		}
 	}
 

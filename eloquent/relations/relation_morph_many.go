@@ -1,65 +1,22 @@
-package goeloquent
+package relations
 
 import (
 	"fmt"
+	"github.com/glitterlip/goeloquent/eloquent"
 	"reflect"
 )
 
 type MorphManyRelation struct {
-	Relation
-	RelatedIdColumn  string
-	ParentKey        string
-	Builder          *Builder
-	RelatedTpeColumn string
-	MorphType        string
+	eloquent.Relation
+	RelatedModelIdColumn        string
+	RelatedModelTypeColumn      string
+	SelfColumn                  string
+	RelatedModelTypeColumnValue string
 }
 
-/*
-MorphMany is a relation that can be used to retrieve the parent model of a polymorphic relation.
-For example
-images table
-id  imageable_id  imageable_type path
-2   1             User    	/path/to/image
-3   2             User   	/path/to/image
-4   1             Post   	/path/to/image
-5   1             Post   	/path/to/image
-
-	type Post struct{
-		...
-		Images     []Image `goelo:"MorphMany:ImagesRelation"`
-		...
-	}
-
-	func (p *Post) ImagesRelation() *goeloquent.RelationBuilder {
-		return p.MorphMany(p, &Image{}, "imageable_id", "id", "imageable_type")
-	}
-
-DB.Model(&Post{}).Where("id",1).With("Images").First(&post)
-*/
-func (m *EloquentModel) MorphMany(self interface{}, related interface{}, relatedTypeColumn, relatedIdColumn, selfKey string) *RelationBuilder {
-	b := NewRelationBaseBuilder(related)
-	relation := MorphManyRelation{
-		Relation: Relation{
-			Parent:  self,
-			Related: related,
-			Type:    RelationMorphOne,
-		},
-		RelatedIdColumn: relatedIdColumn, ParentKey: selfKey, Builder: b, RelatedTpeColumn: relatedTypeColumn,
-	}
-	selfModel := GetParsedModel(self)
-	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	relation.MorphType = GetMorphMap(selfModel.Name)
-
-	b.Where(relatedIdColumn, "=", selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
-	b.WhereNotNull(relatedIdColumn)
-	b.Where(relatedTypeColumn, "=", relation.MorphType)
-
-	return &RelationBuilder{Builder: b, Relation: &relation}
-
-}
 func (r *MorphManyRelation) AddEagerConstraints(models interface{}) {
-	parentParsedModel := GetParsedModel(r.Parent)
-	index := parentParsedModel.FieldsByDbName[r.ParentKey].Index
+	selfParsedModel := eloquent.GetParsedModel(r.SelfModel)
+	index := selfParsedModel.FieldsByDbName[r.SelfColumn].Index
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -78,18 +35,21 @@ func (r *MorphManyRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Reset(TYPE_WHERE)
-	r.Builder.WhereNotNull(r.RelatedIdColumn)
-	r.Builder.Where(r.RelatedTpeColumn, "=", r.MorphType)
-	r.Builder.WhereIn(r.RelatedIdColumn, keys)
+	r.Builder.WhereNotNull(r.RelatedModelIdColumn)
+	r.Builder.Where(r.RelatedModelTypeColumn, "=", r.RelatedModelTypeColumnValue)
+	r.Builder.WhereIn(r.RelatedModelIdColumn, keys)
+}
+func (r *MorphManyRelation) AddConstraints() {
+	r.Builder.Where(r.RelatedModelIdColumn, "=", r.GetSelfKey(r.SelfColumn))
+	r.Builder.Where(r.RelatedModelTypeColumn, "=", r.RelatedModelTypeColumnValue)
 }
 func MatchMorphMany(models interface{}, related interface{}, relation *MorphManyRelation) {
 	relatedModelsValue := related.(reflect.Value)
 	relatedModels := relatedModelsValue
-	relatedModel := GetParsedModel(relation.Related)
-	relatedType := reflect.ValueOf(relation.Relation.Related).Elem().Type()
+	relatedModel := eloquent.GetParsedModel(relation.RelatedModel)
+	relatedType := reflect.ValueOf(relation.Relation.RelatedModel).Elem().Type()
 
-	parent := GetParsedModel(relation.Parent)
+	parent := eloquent.GetParsedModel(relation.SelfModel)
 	relationFieldIsPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Kind() == reflect.Ptr
 	var sliceEleIsptr bool
 	if relationFieldIsPtr {
@@ -110,7 +70,7 @@ func MatchMorphMany(models interface{}, related interface{}, relation *MorphMany
 	}
 	for i := 0; i < relatedModels.Len(); i++ {
 		result := relatedModels.Index(i)
-		ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedIdColumn].Index
+		ownerKeyIndex := relatedModel.FieldsByDbName[relation.RelatedModelIdColumn].Index
 		groupKey := reflect.ValueOf(fmt.Sprint(result.FieldByIndex([]int{ownerKeyIndex})))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
@@ -133,7 +93,7 @@ func MatchMorphMany(models interface{}, related interface{}, relation *MorphMany
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
 	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.ParentKey].Index
+	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfColumn].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {

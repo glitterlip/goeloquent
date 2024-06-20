@@ -1,17 +1,18 @@
-package goeloquent
+package relations
 
 import (
 	"fmt"
+	"github.com/glitterlip/goeloquent"
+	"github.com/glitterlip/goeloquent/eloquent"
 	"reflect"
 )
 
 type MorphToRelation struct {
-	Relation
-	ParentRelatedKey  string
-	RelatedKey        string
-	Builder           *Builder
-	ParentRelatedType string
-	Groups            map[string][]interface{}
+	eloquent.Relation
+	SelfRelatedIdColumn   string
+	SelfRelatedTypeColumn string
+	RelatedModelIdColumn  string
+	Groups                map[string][]interface{} //filed name => []interface{}
 }
 type MorphToResult struct {
 	MorphToResultP reflect.Value
@@ -21,60 +22,14 @@ func (m *MorphToResult) GetMorph() {
 
 }
 
-/*
-MorphTo is a relation that can be used to retrieve the parent model of a polymorphic relation.
-For example
-images table
-id  imageable_id  imageable_type path
-2   1             User    	/path/to/image
-3   2             Post   	/path/to/image
-
-	type Image struct{
-		...
-		Imageable     interface{} `goelo:"MorphTo:ImageableRelation"`
-
-		...
-	}
-
-	func (i *Image) ImageableRelation() *goeloquent.RelationBuilder {
-		return i.MorphTo(i, "imageable_id", "id", "imageable_type")
-	}
-
-DB.Model(&Image{}).Where("imageable_type","User").With("Imageable").First(&image)
-var user = image.Imageable.(User)
-*/
-func (m *EloquentModel) MorphTo(self interface{}, selfRelatedKey, relatedKey, parentRelatedType string) *RelationBuilder {
-
-	builder := NewRelationBaseBuilder(nil)
-	relation := MorphToRelation{
-		Relation: Relation{
-			Parent:  self,
-			Related: nil,
-			Type:    RelationMorphTo,
-		},
-		ParentRelatedKey: selfRelatedKey, RelatedKey: relatedKey, Builder: builder, ParentRelatedType: parentRelatedType,
-	}
-	parent := GetParsedModel(self)
-	relatedTypeField := parent.FieldsByDbName[parentRelatedType]
-	t := reflect.Indirect(reflect.ValueOf(self)).Field(relatedTypeField.Index).Interface().(string)
-	if t != "" {
-		m := GetMorphDBMap(t)
-		builder.SetModel(m.Type())
-		builder.Where(relatedKey, reflect.Indirect(reflect.ValueOf(self)).Field(parent.FieldsByDbName[selfRelatedKey].Index).Interface())
-	}
-
-	return &RelationBuilder{Builder: builder, Relation: &relation}
-
-}
-
 func (r *MorphToRelation) AddEagerConstraints(models interface{}) {
 	r.Builder.Wheres = nil
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	groups := make(map[string][]interface{})
 	if modelSlice.Type().Kind() == reflect.Slice {
-		parsed := GetParsedModel(modelSlice.Type().Elem())
-		typeColumnIndex := parsed.FieldsByDbName[r.ParentRelatedType].Index
-		idColumnIndex := parsed.FieldsByDbName[r.ParentRelatedKey].Index
+		parsedSelfModel := eloquent.GetParsedModel(modelSlice.Type().Elem())
+		typeColumnIndex := parsedSelfModel.FieldsByDbName[r.SelfRelatedTypeColumn].Index
+		idColumnIndex := parsedSelfModel.FieldsByDbName[r.SelfRelatedIdColumn].Index
 		for i := 0; i < modelSlice.Len(); i++ {
 			model := modelSlice.Index(i)
 			t := reflect.Indirect(model).Field(typeColumnIndex).Interface().(string)
@@ -87,9 +42,9 @@ func (r *MorphToRelation) AddEagerConstraints(models interface{}) {
 			}
 		}
 	} else if ms, ok := models.(*reflect.Value); ok {
-		parsed := GetParsedModel(ms.Type().Elem())
-		typeColumnIndex := parsed.FieldsByDbName[r.ParentRelatedType].Index
-		idColumnIndex := parsed.FieldsByDbName[r.ParentRelatedKey].Index
+		parsed := eloquent.GetParsedModel(ms.Type().Elem())
+		typeColumnIndex := parsed.FieldsByDbName[r.SelfRelatedTypeColumn].Index
+		idColumnIndex := parsed.FieldsByDbName[r.SelfRelatedIdColumn].Index
 		for i := 0; i < ms.Len(); i++ {
 			model := ms.Index(i)
 			t := reflect.Indirect(model).Field(typeColumnIndex).Interface().(string)
@@ -103,28 +58,35 @@ func (r *MorphToRelation) AddEagerConstraints(models interface{}) {
 		}
 	} else {
 		model := modelSlice
-		parsed := GetParsedModel(modelSlice.Type())
-		typeColumnIndex := parsed.FieldsByDbName[r.ParentRelatedType].Index
-		idColumnIndex := parsed.FieldsByDbName[r.ParentRelatedKey].Index
+		parsed := eloquent.GetParsedModel(modelSlice.Type())
+		typeColumnIndex := parsed.FieldsByDbName[r.SelfRelatedTypeColumn].Index
+		idColumnIndex := parsed.FieldsByDbName[r.SelfRelatedIdColumn].Index
 		t := model.Field(typeColumnIndex).Interface().(string)
 		id := model.Field(idColumnIndex).Interface()
 		groups[t] = []interface{}{id}
 	}
 	r.Groups = groups
 }
+func (r *MorphToRelation) AddConstraints() {
+
+	r.Builder.Where(r.RelatedModelIdColumn, "=", r.GetSelfKey(r.SelfRelatedIdColumn))
+	modelPointer := goeloquent.GetMorphDBMap(r.GetSelfKey(r.SelfRelatedTypeColumn).(string))
+
+	r.Relation.RelatedModel = modelPointer
+	r.Builder.SetModel(modelPointer)
+}
 func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRelation) {
 	releatedValue := releated.(map[string]reflect.Value)
 	releatedResults := releatedValue
-	//groupedResults := make(map[string]map[string]interface{})
 	morphMapResults := make(map[string]map[string]reflect.Value)
-	parent := GetParsedModel(relation.Parent)
+	parent := eloquent.GetParsedModel(relation.SelfModel)
 	isPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Kind() == reflect.Ptr
 	for morphType, relatedSliceValue := range releatedResults {
 		groupedResults := make(map[string]reflect.Value)
 		for i := 0; i < relatedSliceValue.Len(); i++ {
 			morphModelValue := relatedSliceValue.Index(i)
-			parsedMorphModel := GetParsedModel(GetMorphDBMap(morphType).Type())
-			ownerKeyIndex := parsedMorphModel.FieldsByDbName[relation.RelatedKey].Index
+			parsedMorphModel := eloquent.GetParsedModel(goeloquent.GetMorphDBMap(morphType).Type())
+			ownerKeyIndex := parsedMorphModel.FieldsByDbName[relation.RelatedModelIdColumn].Index
 			idIndex := morphModelValue.Field(ownerKeyIndex)
 			idStr := fmt.Sprint(idIndex.Interface())
 			if isPtr {
@@ -141,8 +103,8 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 	rv, ok := models.(*reflect.Value)
 
 	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelMorphIdFieldIndex := parent.FieldsByDbName[relation.ParentRelatedKey].Index
-	modelMorphTypeFieldIndex := parent.FieldsByDbName[relation.ParentRelatedType].Index
+	modelMorphIdFieldIndex := parent.FieldsByDbName[relation.SelfRelatedTypeColumn].Index
+	modelMorphTypeFieldIndex := parent.FieldsByDbName[relation.SelfRelatedIdColumn].Index
 
 	if targetSlice.Type().Kind() != reflect.Slice && !ok {
 		model := targetSlice

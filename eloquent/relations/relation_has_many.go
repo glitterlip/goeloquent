@@ -1,94 +1,57 @@
-package goeloquent
+package relations
 
 import (
 	"fmt"
+	"github.com/glitterlip/goeloquent/eloquent"
 	"reflect"
 )
 
-// HasManyRelation for better understanding,rename the parameters. parent prefix represent for current model column, related represent for related model column,pivot prefix represent for pivot table
-// for example we have user,address table
-// for user model hasmanyaddress relation parentkey => user table id column,relatedkey => address table id column,relatedparentkey => address table user_id column
 type HasManyRelation struct {
-	Relation
-	ReleatedKey string
-	SelfKey     string
-	Builder     *Builder
+	eloquent.Relation
+	RelatedColumn string
+	SelfColumn    string
 }
 
-/*
-HasMany is a relation that can be used to retrieve the related model of a one-to-many relation.
-For example
-address table
-id  user_id  address
-2   4        USA
-3   4        EU
-4   4        JP
-
-	type User struct{
-		...
-		Addresses     []Address `goelo:"HasMany:AddressesRelation"`
-		...
-	}
-
-	func (u *User) AddressesRelation() *goeloquent.RelationBuilder {
-		return u.HasMany(u, &Address{}, "id", "user_id")
-	}
-
-DB.Model(&User{}).With("Addresses").Get(&users)
-*/
-func (m *EloquentModel) HasMany(self interface{}, related interface{}, selfKey, relatedKey string) *RelationBuilder {
-	b := NewRelationBaseBuilder(related)
-	relation := HasManyRelation{
-		Relation{
-			Parent:  self,
-			Related: related,
-			Type:    RelationHasMany,
-		}, relatedKey, selfKey, b,
-	}
-	selfModel := GetParsedModel(self)
-	selfDirect := reflect.Indirect(reflect.ValueOf(self))
-	b.Where(relatedKey, "=", selfDirect.Field(selfModel.FieldsByDbName[selfKey].Index).Interface())
-	b.WhereNotNull(relatedKey)
-
-	return &RelationBuilder{Builder: b, Relation: &relation}
-}
 func (r *HasManyRelation) AddEagerConstraints(models interface{}) {
-	relatedParsedModel := GetParsedModel(r.Parent)
-	index := relatedParsedModel.FieldsByDbName[r.SelfKey].Index
+	relatedParsedModel := eloquent.GetParsedModel(r.Relation.RelatedModel)
+	ReleatedColumnField := relatedParsedModel.FieldsByDbName[r.RelatedColumn]
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	var keys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
 		for i := 0; i < modelSlice.Len(); i++ {
 			model := modelSlice.Index(i)
-			modelKey := reflect.Indirect(model).Field(index).Interface()
+			modelKey := reflect.Indirect(model).Field(ReleatedColumnField.Index).Interface()
 			keys = append(keys, modelKey)
 		}
 	} else if ms, ok := models.(*reflect.Value); ok {
 		for i := 0; i < ms.Len(); i++ {
-			modelKey := ms.Index(i).Field(index).Interface()
+			modelKey := ms.Index(i).Field(ReleatedColumnField.Index).Interface()
 			keys = append(keys, modelKey)
 		}
 	} else {
 		model := modelSlice
-		modelKey := model.Field(index).Interface()
+		modelKey := model.Field(ReleatedColumnField.Index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.Reset(TYPE_WHERE)
-	r.Builder.WhereNotNull(r.ReleatedKey)
-	r.Builder.WhereIn(r.ReleatedKey, keys)
+	r.Builder.WhereNotNull(r.RelatedColumn)
+	r.Builder.WhereIn(r.RelatedColumn, keys)
+}
+
+func (r *HasManyRelation) AddConstraints() {
+	r.Builder.Where(r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
 }
 func MatchHasMany(models interface{}, related interface{}, relation *HasManyRelation) {
 	relatedModelsValue := related.(reflect.Value)
 	relatedModels := relatedModelsValue
-	relatedModel := GetParsedModel(relation.Related)
-	parent := GetParsedModel(relation.Parent)
-	isPtr := parent.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Kind() == reflect.Ptr
+	relatedModel := eloquent.GetParsedModel(relation.RelatedModel)
+	self := eloquent.GetParsedModel(relation.SelfModel)
+	isPtr := self.FieldsByStructName[relation.Relation.Name].FieldType.Elem().Kind() == reflect.Ptr
 
 	var relatedType reflect.Type
 	if isPtr {
-		relatedType = reflect.ValueOf(relation.Relation.Related).Type()
+		relatedType = reflect.ValueOf(relation.Relation.RelatedModel).Type()
 	} else {
-		relatedType = reflect.ValueOf(relation.Relation.Related).Elem().Type()
+		relatedType = reflect.ValueOf(relation.Relation.RelatedModel).Elem().Type()
 	}
 	slice := reflect.MakeSlice(reflect.SliceOf(relatedType), 0, 1)
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(slice))
@@ -100,7 +63,7 @@ func MatchHasMany(models interface{}, related interface{}, relation *HasManyRela
 
 	for i := 0; i < relatedModels.Len(); i++ {
 		result := relatedModels.Index(i)
-		foreignKeyIndex := relatedModel.FieldsByDbName[relation.ReleatedKey].Index
+		foreignKeyIndex := relatedModel.FieldsByDbName[relation.RelatedColumn].Index
 		groupKey := reflect.ValueOf(fmt.Sprint(result.FieldByIndex([]int{foreignKeyIndex})))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
@@ -121,8 +84,8 @@ func MatchHasMany(models interface{}, related interface{}, relation *HasManyRela
 
 	targetSlice := reflect.Indirect(reflect.ValueOf(models))
 
-	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.Name].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfKey].Index
+	modelRelationFieldIndex := self.FieldsByStructName[relation.Relation.Name].Index
+	modelKeyFieldIndex := self.FieldsByDbName[relation.SelfColumn].Index
 
 	if rvP, ok := models.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
