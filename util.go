@@ -14,26 +14,6 @@ func ToSnakeCase(str string) string {
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
 }
-func ExtractStruct(target interface{}) map[string]interface{} {
-	tv := reflect.Indirect(reflect.ValueOf(target))
-	tt := tv.Type()
-	result := make(map[string]interface{}, tv.NumField())
-	if tt.Kind() == reflect.Struct {
-		m := GetParsedModel(tt)
-		for _, key := range m.DbFields {
-			keyIndex := m.FieldsByDbName[key].Index
-			if !tv.Field(keyIndex).IsZero() {
-				result[key] = tv.Field(keyIndex).Interface()
-			}
-		}
-	} else {
-		for i := 0; i < tv.NumField(); i++ {
-			key := ToSnakeCase(tt.Field(i).Name)
-			result[key] = tv.Field(i).Interface()
-		}
-	}
-	return result
-}
 func InterfaceToSlice(param interface{}) []interface{} {
 	if p, ok := param.([]interface{}); ok {
 		return p
@@ -50,14 +30,14 @@ func InterfaceToSlice(param interface{}) []interface{} {
 	return res
 }
 
-//StrPtr
-//return a pointer of string helper function for create mapping
+// StrPtr
+// return a pointer of string helper function for create mapping
 func StrPtr() *string {
 	return new(string)
 }
 
-//UintPtr
-//return a pointer of uint64 helper function for create mapping
+// UintPtr
+// return a pointer of uint64 helper function for create mapping
 func UintPtr() *uint64 {
 	return new(uint64)
 }

@@ -1,53 +1,8 @@
 package tests
 
 import (
-	"database/sql"
-	_ "database/sql"
-	"errors"
-	"fmt"
-	"github.com/glitterlip/goeloquent"
 	"time"
-	_ "time"
 )
-
-type Post struct {
-	*goeloquent.EloquentModel
-	ID       int64     `goelo:"column:pid;primaryKey"`
-	Title    string    `goelo:"column:title"`
-	Author   UserT     `goelo:"BelongsTo:AuthorRelation"`
-	AuthorId int64     `goelo:"column:author_id"`
-	Comments []Comment `goelo:"HasMany:CommentsRelation"`
-	Viewers  []UserT   `goelo:"BelongsToMany:ViewersRelation"`
-	Images   []Image   `goelo:"MorphMany:ImagesRelation"`
-	Image    Image     `goelo:"MorphOne:ImageRelation"`
-	Tags     []Tag     `goelo:"MorphToMany:TagsRelation"`
-}
-
-func (p *Post) AuthorRelation() *goeloquent.RelationBuilder {
-	return p.BelongsTo(p, &UserT{}, "author_id", "id")
-}
-func (p *Post) CommentsRelation() *goeloquent.RelationBuilder {
-	return p.HasMany(p, &Comment{}, "post_id", "id")
-}
-
-func (p *Post) ViewersRelation() *goeloquent.RelationBuilder {
-	return p.BelongsToMany(p, &UserT{}, "view_records", "user_id", "post_id", "id", "id")
-}
-func (p *Post) TagsRelation() *goeloquent.RelationBuilder {
-	rb := p.MorphToMany(p, &Tag{}, "tagables", "tag_id", "tagable_id", "pid", "tid", "tagable_type")
-	rb.EnableLogQuery()
-	return rb
-}
-func (p *Post) ImagesRelation() *goeloquent.RelationBuilder {
-	rb := p.MorphMany(p, &Image{}, "imageable_type", "imageable_id", "pid")
-	rb.EnableLogQuery()
-	return rb
-}
-func (p *Post) ImageRelation() *goeloquent.RelationBuilder {
-	rb := p.MorphOne(p, &Image{}, "imageable_type", "imageable_id", "pid")
-	rb.EnableLogQuery()
-	return rb
-}
 
 const (
 	FriendStatusWaiting = 1
@@ -55,103 +10,6 @@ const (
 	FriendStatusDeleted = 3
 	FriendStatusBlocked = 4
 )
-
-type UserT struct {
-	*goeloquent.EloquentModel
-	Id          int64   `goelo:"column:id;primaryKey"`
-	UserName    string  `goelo:"column:name"`
-	Age         int     `goelo:"column:age"`
-	ViewedPosts []Post  `goelo:"BelongsToMany:ViewedPostsRelation"`
-	Friends     []UserT `goelo:"BelongsToMany:FriendsRelation"`
-	Address     Address `goelo:"HasOne:AddressRelation"`
-	Posts       []Post  `goelo:"HasMany:PostsRelation"`
-
-	CreatedAt time.Time    `goelo:"column:created_at;CREATED_AT"`
-	UpdatedAt sql.NullTime `goelo:"column:updated_at;UPDATED_AT"`
-}
-
-func (u *UserT) TableName() string {
-	return "user"
-}
-func (u *UserT) Saving(builder *goeloquent.Builder) (err error) {
-	if u.Age <= 0 {
-		u.Age = 18
-	}
-	if u.Age > 100 {
-		return errors.New("too old")
-	}
-	return
-}
-func (u *UserT) Saved(builder *goeloquent.Builder) (err error) {
-	//save avatar
-	var avatar Image
-	avatar.Url = fmt.Sprintf("cdn.com/statis/users/%d/avatar.png", u.Id)
-	avatar.ImageableType = "users"
-	avatar.ImageableId = u.Id
-	DB.Save(&avatar)
-	return
-}
-func (u *UserT) Creating(builder *goeloquent.Builder) (err error) {
-	if u.Id > 0 {
-		return errors.New("wrong id")
-	}
-	return nil
-}
-func (u *UserT) Created(builder *goeloquent.Builder) (err error) {
-	var post Post
-	post.Title = "Hello I am here"
-	post.AuthorId = u.Id
-	_, err = DB.Save(&post)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-func (u *UserT) Deleting(builder *goeloquent.Builder) (err error) {
-	if u.Id == 1 {
-		return errors.New("can't delete admin")
-	}
-	return nil
-}
-func (u *UserT) Deleted(builder *goeloquent.Builder) (err error) {
-	DB.Model(&Post{}).Where("author_id", u.Id).Delete()
-	return nil
-}
-
-func (u *UserT) Updated(builder *goeloquent.Builder) (err error) {
-	var avatar Image
-	DB.Model().Where("imageable_id", u.Id).Where("imageable_type", "users").First(&avatar)
-	avatar.Url = fmt.Sprintf("cdn.com/statis/users/%d/avatar-new.png", u.Id)
-	avatar.Save()
-	return nil
-}
-func (u *UserT) Updating(builder *goeloquent.Builder) (err error) {
-	if u.IsDirty("Id") {
-		return errors.New("id can not be changed")
-	}
-	return nil
-}
-func (u *UserT) ViewedPostsRelation() *goeloquent.RelationBuilder {
-	return u.BelongsToMany(u, &Post{}, "view_record", "post_id", "users_id", "id", "id")
-}
-func (u *UserT) PostsRelation() *goeloquent.RelationBuilder {
-	return u.HasMany(u, &Post{}, "id", "author_id")
-}
-func (u *UserT) FriendsRelation() *goeloquent.RelationBuilder {
-	rb := u.BelongsToMany(u, &UserT{}, "friends", "user_id", "friend_id", "id", "id")
-	rb.Builder.EnableLogQuery()
-	return rb
-}
-func (u *UserT) AddressRelation() *goeloquent.RelationBuilder {
-	rb := u.HasOne(u, &Address{}, "id", "user_id")
-	rb.EnableLogQuery()
-	return rb
-}
-func (u *UserT) ImagesRelation() *goeloquent.RelationBuilder {
-	rb := u.MorphMany(u, &Image{}, "imageable_type", "imageable_id", "id")
-	rb.EnableLogQuery()
-	return rb
-}
 
 type Friends struct {
 	ID         int64     `goelo:"column:id;primaryKey"`
@@ -161,65 +19,7 @@ type Friends struct {
 	Time       time.Time `goelo:"column:time"`
 	Additional string    `goelo:"column:additional"`
 }
-type Address struct {
-	*goeloquent.EloquentModel
-	ID      int64  `goelo:"column:id;primaryKey"`
-	UserT   *UserT `goelo:"BelongsTo:UserRelation"`
-	UserId  int64  `goelo:"column:user_id"`
-	Country string `goelo:"column:country"`
-	State   string `goelo:"column:state"`
-	City    string `goelo:"column:city"`
-	Detail  string `goelo:"column:detail"`
-}
 
-func (a *Address) UserRelation() *goeloquent.RelationBuilder {
-	rb := a.BelongsTo(a, &Address{}, "id", "user_id")
-	rb.EnableLogQuery()
-	return rb
-}
-
-type Comment struct {
-	*goeloquent.EloquentModel
-	ID   int64 `goelo:"column:cid;primaryKey"`
-	Post Post  `goelo:"BelongsTo:PostRelation"`
-}
-
-func (c *Comment) PostRelation() *goeloquent.RelationBuilder {
-	return c.BelongsTo(c, &Post{}, "id", "post_id")
-}
-
-type Image struct {
-	*goeloquent.EloquentModel
-	ID            int64       `goelo:"column:id;primaryKey"`
-	Url           string      `goelo:"column:url"`
-	ImageableType string      `goelo:"column:imageable_type"`
-	ImageableId   int64       `goelo:"column:imageable_id"`
-	Tags          []Tag       `goelo:"MorphToMany:TagsRelation"`
-	Imageable     interface{} `goelo:"MorphTo:ImageableRelation"`
-}
-
-func (i *Image) ImageableRelation() *goeloquent.RelationBuilder {
-	return i.MorphTo(i, "imageable_id", "id", "imageable_type")
-}
-
-func (i *Image) TagsRelation() *goeloquent.RelationBuilder {
-	return i.MorphToMany(i, &Tag{}, "tagables", "tag_id", "tagable_id", "id", "id", "tagable_type")
-}
-
-type Tag struct {
-	*goeloquent.EloquentModel
-	ID     int64   `goelo:"column:tid;primaryKey"`
-	Name   string  `goelo:"column:name"`
-	Posts  []Post  `goelo:"MorphByMany:PostsRelation"`
-	Images []Image `goelo:"MorphByMany:ImagesRelation"`
-}
-
-func (t *Tag) ImagesRelation() *goeloquent.RelationBuilder {
-	return t.MorphByMany(t, &Image{}, "tagables", "tag_id", "tagable_id", "tid", "id", "tagable_type")
-}
-func (t *Tag) PostsRelation() *goeloquent.RelationBuilder {
-	return t.MorphByMany(t, &Post{}, "tagables", "tag_id", "tagable_id", "tid", "pid", "tagable_type")
-}
 func CreateRelationTables() (create, drop string) {
 	create = `
 DROP TABLE IF EXISTS "comment","image","post","tag","tagables","user","users","view_record","friends","address";

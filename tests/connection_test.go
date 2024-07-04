@@ -11,9 +11,9 @@ import (
 
 func TestOpenFailed(t *testing.T) {
 
-	openCases := map[string]interface{}{
+	openCases := map[string]map[string]interface{}{
 		//testIfDriverIsntSetExceptionIsThrown
-		"missing driver": map[string]interface{}{
+		"missing driver": {
 			"msg": "a driver must be specified",
 			"config": map[string]goeloquent.DBConfig{
 				"default": {
@@ -22,7 +22,7 @@ func TestOpenFailed(t *testing.T) {
 			},
 		},
 		//testExceptionIsThrownOnUnsupportedDriver
-		"unsupported driver": map[string]interface{}{
+		"unsupported driver": {
 			"msg": "unsupported driver:mssql",
 			"config": map[string]goeloquent.DBConfig{
 				"default": {
@@ -30,7 +30,7 @@ func TestOpenFailed(t *testing.T) {
 				},
 			},
 		},
-		"missing default config": map[string]interface{}{
+		"missing default config": {
 			"msg": "Database connection default not configured.",
 			"config": map[string]goeloquent.DBConfig{
 				"defaul": {
@@ -38,7 +38,7 @@ func TestOpenFailed(t *testing.T) {
 				},
 			},
 		},
-		"wrong host": map[string]interface{}{
+		"wrong host": {
 			"msg": "dial tcp: lookup test: no such host",
 			"config": map[string]goeloquent.DBConfig{
 				"default": {
@@ -48,15 +48,12 @@ func TestOpenFailed(t *testing.T) {
 			},
 		},
 	}
-	for caseName, i := range openCases {
-		m, ok := i.(map[string]interface{})
-		if ok {
-			errStr := m["msg"].(string)
-			config := m["config"].(map[string]goeloquent.DBConfig)
-			assert.PanicsWithErrorf(t, errStr, func() {
-				_ = goeloquent.Open(config)
-			}, "TestOpen case %s failed", caseName)
-		}
+	for caseName, m := range openCases {
+		errStr := m["msg"].(string)
+		config := m["config"].(map[string]goeloquent.DBConfig)
+		assert.PanicsWithValuef(t, errStr, func() {
+			_ = goeloquent.Open(config)
+		}, "TestOpen case %s failed", caseName)
 	}
 
 }
@@ -109,26 +106,25 @@ func TestDSNConfig(t *testing.T) {
 	err := conn.DB.Ping()
 	assert.Nil(t, err)
 }
+func TestConnectionEvent(t *testing.T) {
 
-//TODO: testCustomConnectorsCanBeResolvedViaContainer
-//TODO: testSqliteForeignKeyConstraints
+}
+func TestConnectionPool(t *testing.T) {
+	//testConnectionPool
+
+}
+
 //TODO: testReadWriteConnectionsNotCreatedUntilNeeded
 
 //DatabaseConnectionTest
-//TODO: testSettingDefaultCallsGetDefaultGrammar
-//TODO: testSettingDefaultCallsGetDefaultPostProcessor
 //TODO: testSelectOneCallsSelectAndReturnsSingleResult
-//TODO: testSelectProperlyCallsPDO
 //TODO: testInsertCallsTheStatementMethod
 //TODO: testUpdateCallsTheAffectingStatementMethod
 //TODO: testDeleteCallsTheAffectingStatementMethod
-//TODO: testStatementProperlyCallsPDO
-//TODO: testAffectingStatementProperlyCallsPDO
 //TODO: testTransactionLevelNotIncrementedOnTransactionException
 //TODO: testBeginTransactionMethodRetriesOnFailure
 //TODO: testBeginTransactionMethodReconnectsMissingConnection
 //TODO: testBeginTransactionMethodNeverRetriesIfWithinTransaction
-//TODO: testSwapPDOWithOpenTransactionResetsTransactionLevel
 //TODO: testBeganTransactionFiresEventsIfSet
 //TODO: testCommittedFiresEventsIfSet
 //TODO: testRollBackedFiresEventsIfSet
@@ -137,8 +133,6 @@ func TestDSNConfig(t *testing.T) {
 //TODO: testTransactionRetriesOnSerializationFailure
 //TODO: testTransactionMethodRetriesOnDeadlock
 //TODO: testTransactionMethodRollsbackAndThrows
-//TODO: testOnLostConnectionPDOIsNotSwappedWithinATransaction
-//TODO: testOnLostConnectionPDOIsSwappedOutsideTransaction
 //TODO: testRunMethodRetriesOnFailure
 //TODO: testRunMethodNeverRetriesIfWithinTransaction
 //TODO: testFromCreatesNewQueryBuilder

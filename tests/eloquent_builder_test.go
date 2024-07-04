@@ -1,92 +1,13 @@
 package tests
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/glitterlip/goeloquent"
-	"github.com/glitterlip/goeloquent/eloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
-type User struct {
-	*goeloquent.EloquentModel
-	Id        int64          `goelo:"column:id;primaryKey"`
-	UserName  sql.NullString `goelo:"column:name"`
-	Age       int            `goelo:"column:age"`
-	Status    int            `goelo:"column:status"`
-	CreatedAt time.Time      `goelo:"column:created_at,timestatmp:create"`
-	UpdatedAt sql.NullTime   `goelo:"column:updated_at,timestatmp:update"`
-}
-
-func (user *User) TableName() string {
-	return "users"
-}
-
-type UserTable struct {
-	*goeloquent.EloquentModel
-	Id        int64          `goelo:"column:User_Sid;primaryKey"`
-	UserName  sql.NullString `goelo:"column:name"`
-	Age       int            `goelo:"column:age"`
-	CreatedAt time.Time      `goelo:"column:create_time;CREATED_AT"`
-	UpdatedAt sql.NullTime   `goelo:"column:update_Time;UPDATED_AT"`
-}
-
-func (user *UserTable) TableName() string {
-	return "user_Table"
-}
-
-type UserConnection struct {
-	*goeloquent.EloquentModel
-	Id        int64          `goelo:"column:id;primaryKey"`
-	UserName  sql.NullString `goelo:"column:name"`
-	Age       int            `goelo:"column:age"`
-	CreatedAt time.Time      `goelo:"column:created_at"`
-	UpdatedAt sql.NullTime   `goelo:"column:updated_at"`
-}
-
-func (user *UserConnection) ConnectionName() string {
-	return "chat"
-}
-func TestParseModel(t *testing.T) {
-	type U struct {
-		*goeloquent.EloquentModel
-	}
-	var user User
-	var userT UserTable
-	var userC UserConnection
-	var userS []UserConnection
-	var userPS []*UserTable
-	b := DB.Model(&userT)
-	b1 := DB.Model(&userC)
-	b2 := DB.Model(&userS)
-	b3 := DB.Model(&userPS)
-	b4 := DB.Model()
-	b5 := DB.Model()
-	b6 := DB.Model(&user)
-	b7 := DB.Model(&U{})
-	b4.First(&userC)
-	b5.Get(&userPS)
-	//parse table
-	assert.Equal(t, "user_Table", b.FromTable)
-	assert.Equal(t, "user_Table", b.FromTable)
-	assert.Equal(t, "user_connection", b1.FromTable)
-	assert.Equal(t, "user_Table", b3.FromTable)
-	assert.Equal(t, "user_Table", b5.FromTable)
-	assert.Equal(t, "users", b6.FromTable)
-	assert.Equal(t, "u", b7.FromTable)
-	//pase connection
-	assert.Equal(t, "default", b.Connection.ConnectionName)
-	assert.Equal(t, "chat", b1.Connection.ConnectionName)
-	assert.Equal(t, "chat", b2.Connection.ConnectionName)
-	assert.Equal(t, "chat", b4.Connection.ConnectionName)
-	//parse field
-	assert.Equal(t, "User_Sid", b.Model.PrimaryKey.ColumnName)
-	assert.Equal(t, "create_time", b.Model.CreatedAt)
-	assert.Equal(t, "update_Time", b.Model.UpdatedAt)
-
-}
 func TestFindMethod(t *testing.T) {
 	//testFindMethod
 	createUsers, dropUsers := UserTableSql()
@@ -181,8 +102,8 @@ func TestValueMethod(t *testing.T) {
 func TestSaveMethod(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
-		var u1, u2, u3 UserT
-		var us []UserT
+		var u1, u2, u3 User
+		var us []User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		u3.UserName = "u3"
@@ -199,7 +120,7 @@ func TestSaveMethod(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Greater(t, u1.Id, int64(0))
 		us = append(us, u2, u3)
-		insert, err := DB.Model().Insert(&us)
+		insert, err := DB.Model(&User{}).Insert(&us)
 		assert.Nil(t, err)
 		count, _ = insert.RowsAffected()
 		assert.Equal(t, int64(2), count)
@@ -208,7 +129,7 @@ func TestSaveMethod(t *testing.T) {
 func TestAttrs(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
-		var u1 UserT
+		var u1 User
 		u1.UserName = "u1"
 		_, err := DB.Save(&u1)
 		assert.Empty(t, u1.GetDirty())
@@ -238,7 +159,7 @@ func TestEvents(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
 		//test saving,saved
-		var u1, u2 UserT
+		var u1, u2 User
 		u1.UserName = "u1"
 		_, err := DB.Save(&u1)
 		assert.Nil(t, err)
@@ -250,14 +171,14 @@ func TestEvents(t *testing.T) {
 		assert.Equal(t, err.Error(), "too old")
 		assert.Nil(t, res)
 		var avatar Image
-		DB.Model().Where("imageable_id", u1.Id).Where("imageable_type", "users").First(&avatar)
+		DB.Model(&Image{}).Where("imageable_id", u1.Id).Where("imageable_type", "users").First(&avatar)
 		assert.Equal(t, avatar.ImageableId, u1.Id)
 		assert.Equal(t, avatar.ImageableType, "users")
 
 	})
 	RunWithDB(c, d, func() {
 		//test creating,created
-		var u3, u4 UserT
+		var u3, u4 User
 		var post Post
 		u3.Id = 10
 		r, err := DB.Save(&u3)
@@ -271,10 +192,10 @@ func TestEvents(t *testing.T) {
 	})
 	RunWithDB(c, d, func() {
 		//test updating,updated
-		var u6, u7 UserT
+		var u6, u7 User
 		u6.UserName = "Alice"
 		DB.Save(&u6)
-		DB.Model().Find(&u7, u6.Id)
+		DB.Model(&User{}).Find(&u7, u6.Id)
 		u7.Id = u7.Id + 10
 		save, err := u7.Save()
 		assert.Nil(t, save)
@@ -283,18 +204,18 @@ func TestEvents(t *testing.T) {
 		u6.Save()
 		newUrl := fmt.Sprintf("cdn.com/statis/users/%d/avatar-new.png", u6.Id)
 		var avatar Image
-		DB.Model().Where("imageable_id", u6.Id).Where("imageable_type", "users").First(&avatar)
+		DB.Model(&avatar).Where("imageable_id", u6.Id).Where("imageable_type", "users").First(&avatar)
 		assert.Equal(t, newUrl, avatar.Url)
 	})
 	RunWithDB(c, d, func() {
 		//test deleting deleted
-		var u1, u2 UserT
+		var u1, u2 User
 		var post Post
 		u1.UserName = "Alice"
 		u2.UserName = "Joe"
 		DB.Save(&u1)
 		DB.Save(&u2)
-		DB.Model().Where("author_id", u1.Id).First(&post)
+		DB.Model(&post).Where("author_id", u1.Id).First(&post)
 		assert.Equal(t, post.AuthorId, u1.Id)
 		_, err := u1.Delete()
 		assert.Equal(t, "can't delete admin", err.Error())
@@ -307,15 +228,15 @@ func TestEvents(t *testing.T) {
 	//test mute events
 	RunWithDB(c, d, func() {
 		//test deleting deleted
-		var u1, u2 UserT
+		var u1, u2 User
 		var post Post
 		var image Image
 		u1.UserName = "Alice"
 		u2.UserName = "Bob"
 		DB.Boot(&u1)
 		DB.Boot(&u2)
-		u1.Mute(eloquent.EventALL)
-		u2.Mute(eloquent.EventSaving)
+		u1.Mute(goeloquent.EventALL)
+		u2.Mute(goeloquent.EventSaving)
 		DB.Save(&u1)
 		DB.Save(&u2)
 		var count int64

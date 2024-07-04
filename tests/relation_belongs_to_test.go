@@ -10,7 +10,7 @@ func TestBelongsTo(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
 		//test saving,saved
-		var u1, u2, u3 UserT
+		var u1, u2, u3 User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		u3.UserName = "u3"
@@ -54,7 +54,7 @@ func TestBelongsTo(t *testing.T) {
 		assert.Equal(t, int64(0), pp4.AuthorId)
 		//test lazyload
 		var lazy Post
-		var lazyUser UserT
+		var lazyUser User
 		DB.Model(&p1).Find(&lazy, p2.ID)
 		lazy.AuthorRelation().Get(&lazyUser)
 		assert.Equal(t, lazy.AuthorId, lazyUser.Id)

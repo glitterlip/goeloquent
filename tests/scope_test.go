@@ -6,22 +6,13 @@ import (
 	"testing"
 )
 
-func ScopeFunc(builder *goeloquent.Builder) *goeloquent.Builder {
-	return builder.OrderBy("id", "desc")
+func ScopeFunc(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+	builder.OrderBy("id", "desc")
+	return builder
 }
-func AgeScope(builder *goeloquent.Builder) *goeloquent.Builder {
-	return builder.Where("age", ">", 18)
-}
-func TestQueryScopes(t *testing.T) {
-	b := DB.Query()
-	var us []UserT
-	b.Select().From("users").Scopes(func(builder *goeloquent.Builder) *goeloquent.Builder {
-		return b.Where("age", 18)
-	}, ScopeFunc).Get(&us)
-	assert.Equal(t, "select * from `users` where `age` = ? order by `id` desc", b.ToSql())
-	b1 := DB.Query()
-	b1.Select().From("users").Scopes(AgeScope, ScopeFunc).Get(&us)
-	assert.Equal(t, "select * from `users` where `age` > ? order by `id` desc", b1.ToSql())
+func AgeScope(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+	builder.Where("age", ">", 18)
+	return builder
 }
 
 type Tag1 struct {
@@ -32,7 +23,7 @@ type Tag1 struct {
 
 func (t *Tag1) AddGlobalScopes() map[string]goeloquent.ScopeFunc {
 	return map[string]goeloquent.ScopeFunc{
-		"active": func(builder *goeloquent.Builder) *goeloquent.Builder {
+		"active": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			return builder.Where("active", 1)
 		},
 	}
@@ -46,10 +37,10 @@ type Tag2 struct {
 
 func (t *Tag2) AddGlobalScopes() map[string]goeloquent.ScopeFunc {
 	return map[string]goeloquent.ScopeFunc{
-		"active": func(builder *goeloquent.Builder) *goeloquent.Builder {
+		"active": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			return builder.Where("active", 1)
 		},
-		"defaultOrder": func(builder *goeloquent.Builder) *goeloquent.Builder {
+		"defaultOrder": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			return builder.OrderBy("id")
 		},
 	}
@@ -63,16 +54,16 @@ type Tag3 struct {
 
 func (t *Tag3) AddGlobalScopes() map[string]goeloquent.ScopeFunc {
 	return map[string]goeloquent.ScopeFunc{
-		"email": func(builder *goeloquent.Builder) *goeloquent.Builder {
+		"email": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			return builder.Where("email", "email1").OrWhere("email", "email2")
 		},
-		"select": func(builder *goeloquent.Builder) *goeloquent.Builder {
+		"select": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			return builder.Select("email", "password")
 		},
-		"defaultOrder": func(builder *goeloquent.Builder) *goeloquent.Builder {
+		"defaultOrder": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			return builder.OrderBy("id")
 		},
-		"active": func(builder *goeloquent.Builder) *goeloquent.Builder {
+		"active": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			return builder.Where("active", 1)
 		},
 	}

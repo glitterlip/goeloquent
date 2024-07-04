@@ -13,10 +13,10 @@ func TestMorphMany(t *testing.T) {
 	RunWithDB(c, d, func() {
 		goeloquent.RegistMorphMap(map[string]interface{}{
 			"posts": &Post{},
-			"users": &UserT{},
+			"users": &User{},
 		})
 		//test saving,saved
-		var u1, u2 UserT
+		var u1, u2 User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		DB.Create(&u1)

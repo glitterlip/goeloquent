@@ -12,3 +12,17 @@ type Paginator struct {
 func (p Paginator) LastPage() int64 {
 	return int64(int(math.Ceil(float64(p.Total / p.PerPage))))
 }
+func (p Paginator) GetItems() interface{} {
+	return p.Items
+}
+func (p Paginator) PageSize() int64 {
+	return p.PerPage
+}
+
+func (p Paginator) Page() int64 {
+	return p.CurrentPage
+}
+
+func (p Paginator) Count() int64 {
+	return p.Total
+}

@@ -2,11 +2,13 @@ package goeloquent
 
 import (
 	"database/sql"
-	"github.com/glitterlip/goeloquent/eloquent"
 	"reflect"
-	"strings"
 )
 
+//TODO scanner/valuer
+/*
+scan should only process map/plain struct or slice of map/plain struct, eloquent model should be processed by eloquent
+*/
 func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	realDest := reflect.Indirect(reflect.ValueOf(dest))
 	if realDest.Kind() == reflect.Slice {
@@ -15,18 +17,18 @@ func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (
 		if sliceItem.Kind() == reflect.Map {
 			return scanMapSlice(rows, dest, mapping)
 		} else if sliceItem.Kind() == reflect.Struct {
-			return scanStructSlice(rows, dest, mapping)
+			//return scanStructSlice(rows, dest, mapping)
 		} else if sliceItem.Kind() == reflect.Ptr {
 			if sliceItem.Elem().Kind() == reflect.Struct {
-				return scanStructSlice(rows, dest, mapping)
+				//return scanStructSlice(rows, dest, mapping)
 			}
 		} else {
 			return scanValues(rows, dest)
 		}
 	} else if _, ok := dest.(*reflect.Value); ok {
-		return scanRelations(rows, dest, mapping)
+		//return scanRelations(rows, dest, mapping)
 	} else if realDest.Kind() == reflect.Struct {
-		return scanStruct(rows, dest, mapping)
+		//return scanStruct(rows, dest, mapping)
 	} else if realDest.Kind() == reflect.Map {
 		return scanMap(rows, dest, mapping)
 	} else {
@@ -70,172 +72,175 @@ func scanMapSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface
 	}
 	return
 }
-func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
-	realDest := reflect.Indirect(reflect.ValueOf(dest))
-	columns, _ := rows.Columns()
-	slice := realDest.Type()
-	sliceItem := slice.Elem()
-	itemIsPtr := sliceItem.Kind() == reflect.Ptr
-	model := eloquent.GetParsedModel(dest)
-	scanArgs := make([]interface{}, len(columns))
-	var needProcessPivot bool
-	var pivotColumnMap = make(map[string]int, 2)
-	for rows.Next() {
-		result.Count++
-		var v, vp reflect.Value
-		if itemIsPtr {
-			vp = reflect.New(sliceItem.Elem())
-			v = reflect.Indirect(vp)
-		} else {
-			vp = reflect.New(sliceItem)
-			v = reflect.Indirect(vp)
-		}
-		for i, column := range columns {
-			if f, ok := model.FieldsByDbName[column]; ok {
-				scanArgs[i] = v.Field(f.Index).Addr().Interface()
-			} else if strings.Contains(column, PivotAlias) {
-				//process user's withpivot column
-				needProcessPivot = true
-				pivotColumnMap[column] = i
-				//check if user defined a datetype mapping
-				if t, ok := mapping[column]; ok {
-					scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
-				} else {
-					scanArgs[i] = new(interface{})
-				}
-			} else if strings.Contains(column, ormPivotAlias) {
-				//process orm pivot keys as string
-				needProcessPivot = true
-				pivotColumnMap[column] = i
-				var ts string
-				scanArgs[i] = &ts
-			} else {
-				scanArgs[i] = new(interface{})
-			}
-		}
-		err := rows.Scan(scanArgs...)
-		if err != nil {
-			panic(err.Error())
-		}
-		if needProcessPivot {
-			t := make(map[string]interface{}, 2)
-			for columnName, index := range pivotColumnMap {
-				if strings.Contains(columnName, ormPivotAlias) {
-					t[columnName] = *scanArgs[index].(*string)
-					//t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
-				}
-				if strings.Contains(columnName, PivotAlias) {
-					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
-				}
-			}
-			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
-			eloquentModel := reflect.Indirect(eloquentPtr)
-			eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
-			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
-		}
-		if itemIsPtr {
-			realDest.Set(reflect.Append(realDest, vp))
-		} else {
-			realDest.Set(reflect.Append(realDest, v))
-		}
-	}
-	return
-}
-func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
-	columns, _ := rows.Columns()
-	destValue := dest.(*reflect.Value)
-	//relation reflect results
-	slice := destValue.Type()
-	sliceItem := slice.Elem()
-	//itemIsPtr := base.Kind() == reflect.Ptr
-	model := eloquent.GetParsedModel(sliceItem)
-	scanArgs := make([]interface{}, len(columns))
-	vp := reflect.New(sliceItem)
-	v := reflect.Indirect(vp)
-	var needProcessPivot bool
-	var pivotColumnMap = make(map[string]int, 2)
-	for rows.Next() {
-		result.Count++
-		for i, column := range columns {
-			if f, ok := model.FieldsByDbName[column]; ok {
-				scanArgs[i] = v.Field(f.Index).Addr().Interface()
-			} else if strings.Contains(column, PivotAlias) {
-				//process user's withpivot column
-				needProcessPivot = true
-				pivotColumnMap[column] = i
-				//check if user defined a datetype mapping
-				if t, ok := mapping[column]; ok {
-					scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
-				} else {
-					scanArgs[i] = new(interface{})
-				}
-			} else if strings.Contains(column, ormPivotAlias) {
-				//process orm pivot keys as string
-				needProcessPivot = true
-				pivotColumnMap[column] = i
-				var ts string
-				scanArgs[i] = &ts
-			} else {
-				scanArgs[i] = new(interface{})
-			}
-		}
-		err := rows.Scan(scanArgs...)
-		if err != nil {
-			panic(err.Error())
-		}
-		if needProcessPivot {
-			t := make(map[string]interface{}, 2)
-			for columnName, index := range pivotColumnMap {
-				if strings.Contains(columnName, ormPivotAlias) {
-					t[columnName] = *scanArgs[index].(*string)
-					//t[strings.Replace(columnName, ormPivotAlias, "", 1)] = *scanArgs[index].(*string)
-				}
-				if strings.Contains(columnName, PivotAlias) {
-					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
-				}
-			}
-			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
-			eloquentModel := reflect.Indirect(eloquentPtr)
-			eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
-			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
-		}
-		*destValue = reflect.Append(*destValue, v)
-	}
-	return
-}
-func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
-	realDest := reflect.Indirect(reflect.ValueOf(dest))
-	model := eloquent.GetParsedModel(dest)
-	columns, _ := rows.Columns()
-	scanArgs := make([]interface{}, len(columns))
-	vp := reflect.New(realDest.Type())
-	v := reflect.Indirect(vp)
 
-	for rows.Next() {
-		result.Count++
-		for i, column := range columns {
-			if f, ok := model.FieldsByDbName[column]; ok {
-				if t, ok := mapping[column]; ok {
-					scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
-				} else {
-					scanArgs[i] = v.Field(f.Index).Addr().Interface()
-				}
-			} else {
-				scanArgs[i] = new(interface{})
-			}
-		}
-		err := rows.Scan(scanArgs...)
-		if err != nil {
-			panic(err.Error())
-		}
-		if realDest.Kind() == reflect.Ptr {
-			realDest.Set(vp)
-		} else {
-			realDest.Set(v)
-		}
-	}
-	return
-}
+//	func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
+//		realDest := reflect.Indirect(reflect.ValueOf(dest))
+//		columns, _ := rows.Columns()
+//		slice := realDest.Type()
+//		sliceItem := slice.Elem()
+//		itemIsPtr := sliceItem.Kind() == reflect.Ptr
+//		model := eloquent.GetParsedModel(dest)
+//		scanArgs := make([]interface{}, len(columns))
+//		var needProcessPivot bool
+//		var pivotColumnMap = make(map[string]int, 2)
+//		for rows.Next() {
+//			result.Count++
+//			var v, vp reflect.Value
+//			if itemIsPtr {
+//				vp = reflect.New(sliceItem.Elem())
+//				v = reflect.Indirect(vp)
+//			} else {
+//				vp = reflect.New(sliceItem)
+//				v = reflect.Indirect(vp)
+//			}
+//			for i, column := range columns {
+//				if f, ok := model.FieldsByDbName[column]; ok {
+//					scanArgs[i] = v.Field(f.Index).Addr().Interface()
+//				} else if strings.Contains(column, PivotAlias) {
+//					//process user's withpivot column
+//					needProcessPivot = true
+//					pivotColumnMap[column] = i
+//					//check if user defined a datetype mapping
+//					if t, ok := mapping[column]; ok {
+//						scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
+//					} else {
+//						scanArgs[i] = new(interface{})
+//					}
+//				} else if strings.Contains(column, OrmPivotAlias) {
+//					//process orm pivot keys as string
+//					needProcessPivot = true
+//					pivotColumnMap[column] = i
+//					var ts string
+//					scanArgs[i] = &ts
+//				} else {
+//					scanArgs[i] = new(interface{})
+//				}
+//			}
+//			err := rows.Scan(scanArgs...)
+//			if err != nil {
+//				panic(err.Error())
+//			}
+//			if needProcessPivot {
+//				t := make(map[string]interface{}, 2)
+//				for columnName, index := range pivotColumnMap {
+//					if strings.Contains(columnName, OrmPivotAlias) {
+//						t[columnName] = *scanArgs[index].(*string)
+//						//t[strings.Replace(columnName, OrmPivotAlias, "", 1)] = *scanArgs[index].(*string)
+//					}
+//					if strings.Contains(columnName, PivotAlias) {
+//						t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
+//					}
+//				}
+//				eloquentPtr := reflect.New(reflect.TypeOf(eloquent.EloquentModel{}))
+//				eloquentModel := reflect.Indirect(eloquentPtr)
+//				eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
+//				v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
+//			}
+//			if itemIsPtr {
+//				realDest.Set(reflect.Append(realDest, vp))
+//			} else {
+//				realDest.Set(reflect.Append(realDest, v))
+//			}
+//		}
+//		return
+//	}
+//
+//	func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
+//		columns, _ := rows.Columns()
+//		destValue := dest.(*reflect.Value)
+//		//relation reflect results
+//		slice := destValue.Type()
+//		sliceItem := slice.Elem()
+//		//itemIsPtr := base.Kind() == reflect.Ptr
+//		model := eloquent.GetParsedModel(sliceItem)
+//		scanArgs := make([]interface{}, len(columns))
+//		vp := reflect.New(sliceItem)
+//		v := reflect.Indirect(vp)
+//		var needProcessPivot bool
+//		var pivotColumnMap = make(map[string]int, 2)
+//		for rows.Next() {
+//			result.Count++
+//			for i, column := range columns {
+//				if f, ok := model.FieldsByDbName[column]; ok {
+//					scanArgs[i] = v.Field(f.Index).Addr().Interface()
+//				} else if strings.Contains(column, PivotAlias) {
+//					//process user's withpivot column
+//					needProcessPivot = true
+//					pivotColumnMap[column] = i
+//					//check if user defined a datetype mapping
+//					if t, ok := mapping[column]; ok {
+//						scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
+//					} else {
+//						scanArgs[i] = new(interface{})
+//					}
+//				} else if strings.Contains(column, OrmPivotAlias) {
+//					//process orm pivot keys as string
+//					needProcessPivot = true
+//					pivotColumnMap[column] = i
+//					var ts string
+//					scanArgs[i] = &ts
+//				} else {
+//					scanArgs[i] = new(interface{})
+//				}
+//			}
+//			err := rows.Scan(scanArgs...)
+//			if err != nil {
+//				panic(err.Error())
+//			}
+//			if needProcessPivot {
+//				t := make(map[string]interface{}, 2)
+//				for columnName, index := range pivotColumnMap {
+//					if strings.Contains(columnName, OrmPivotAlias) {
+//						t[columnName] = *scanArgs[index].(*string)
+//						//t[strings.Replace(columnName, OrmPivotAlias, "", 1)] = *scanArgs[index].(*string)
+//					}
+//					if strings.Contains(columnName, PivotAlias) {
+//						t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
+//					}
+//				}
+//				eloquentPtr := reflect.New(reflect.TypeOf(eloquent.EloquentModel{}))
+//				eloquentModel := reflect.Indirect(eloquentPtr)
+//				eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
+//				v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
+//			}
+//			*destValue = reflect.Append(*destValue, v)
+//		}
+//		return
+//	}
+//
+//	func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
+//		realDest := reflect.Indirect(reflect.ValueOf(dest))
+//		model := eloquent.GetParsedModel(dest)
+//		columns, _ := rows.Columns()
+//		scanArgs := make([]interface{}, len(columns))
+//		vp := reflect.New(realDest.Type())
+//		v := reflect.Indirect(vp)
+//
+//		for rows.Next() {
+//			result.Count++
+//			for i, column := range columns {
+//				if f, ok := model.FieldsByDbName[column]; ok {
+//					if t, ok := mapping[column]; ok {
+//						scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
+//					} else {
+//						scanArgs[i] = v.Field(f.Index).Addr().Interface()
+//					}
+//				} else {
+//					scanArgs[i] = new(interface{})
+//				}
+//			}
+//			err := rows.Scan(scanArgs...)
+//			if err != nil {
+//				panic(err.Error())
+//			}
+//			if realDest.Kind() == reflect.Ptr {
+//				realDest.Set(vp)
+//			} else {
+//				realDest.Set(v)
+//			}
+//		}
+//		return
+//	}
 func scanMap(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
 	columns, _ := rows.Columns()
 	realDest := reflect.Indirect(reflect.ValueOf(dest))

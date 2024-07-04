@@ -13,10 +13,10 @@ func TestMorphTo(t *testing.T) {
 	RunWithDB(c, d, func() {
 		goeloquent.RegistMorphMap(map[string]interface{}{
 			"posts": &Post{},
-			"users": &UserT{},
+			"users": &User{},
 		})
 		//test saving,saved
-		var u1, u2 UserT
+		var u1, u2 User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		DB.Create(&u1)
@@ -31,7 +31,7 @@ func TestMorphTo(t *testing.T) {
 		//test find
 		b := DB.Model(&i1).With("Imageable")
 		b.First(&ii1)
-		assert.IsType(t, UserT{}, ii1.Imageable)
+		assert.IsType(t, User{}, ii1.Imageable)
 		//test get
 		result, err := DB.Model(&i1).With("Imageable").Where("imageable_type", "users").Limit(2).Get(&images)
 		assert.Nil(t, err)
@@ -40,7 +40,7 @@ func TestMorphTo(t *testing.T) {
 		assert.Equal(t, int64(2), count)
 		for _, image := range images {
 			switch imageable := image.Imageable.(type) {
-			case UserT:
+			case User:
 				imageable.Id = image.ImageableId
 				image.ImageableType = "users"
 			default:

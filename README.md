@@ -13,7 +13,7 @@ type User struct {
     UserName  sql.NullString `goelo:"column:name"`
     Age       int            `goelo:"column:age"`
     Status    int            `goelo:"column:status"`
-    Friends   []UserT        `goelo:"BelongsToMany:FriendsRelation"`
+    Friends   []User        `goelo:"BelongsToMany:FriendsRelation"`
     Address   Address        `goelo:"HasOne:AddressRelation"`
     CreatedAt time.Time      `goelo:"column:created_at,timestatmp:create"`
     UpdatedAt sql.NullTime   `goelo:"column:updated_at,timestatmp:update"`

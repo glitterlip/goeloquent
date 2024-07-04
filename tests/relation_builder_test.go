@@ -9,8 +9,8 @@ func TestLoadingWithColumns(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
 		//test saving,saved
-		var u1, u2, u3, u4 UserT
-		var uu1 UserT
+		var u1, u2, u3, u4 User
+		var uu1 User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		u3.UserName = "u3"
@@ -46,6 +46,6 @@ func TestLoadingWithColumns(t *testing.T) {
 		//test find
 		q := DB.Model(&u1)
 		q.Select("id").With("Address:city,state").Find(&uu1, u1.Id)
-		assert.Equal(t, []interface{}{"city", "state"}, q.EagerLoad["Address"](uu1.AddressRelation()).Columns)
+		assert.Equal(t, []interface{}{"city", "state"}, q.EagerLoad["Address"](uu1.AddressRelation().EloquentBuilder).Columns)
 	})
 }

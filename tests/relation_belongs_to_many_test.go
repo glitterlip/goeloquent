@@ -12,9 +12,9 @@ func TestBelongsToMany(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
 		//test saving,saved
-		var u1, u2, u3, u4, u5 UserT
-		var us []UserT
-		var uu1, uu2 UserT
+		var u1, u2, u3, u4, u5 User
+		var us []User
+		var uu1, uu2 User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		u3.UserName = "u3"
@@ -116,8 +116,8 @@ func TestBelongsToMany(t *testing.T) {
 		assert.Equal(t, int64(1), count)
 		assert.Equal(t, 0, len(uu2.Friends))
 		//test lazyload
-		var lazy UserT
-		var lazyUser []UserT
+		var lazy User
+		var lazyUser []User
 		DB.Model(&u1).Find(&lazy, u1.Id)
 		lazy.FriendsRelation().WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "additional").Mapping(mapping).Get(&lazyUser)
 		assert.Equal(t, 2, len(lazyUser))

@@ -3,38 +3,12 @@ package goeloquent
 import (
 	"database/sql"
 	"errors"
-	"github.com/glitterlip/goeloquent/connectors"
-	"github.com/glitterlip/goeloquent/eloquent"
-	"github.com/glitterlip/goeloquent/query"
-	_ "reflect"
-	_ "time"
 )
 
 type Connection struct {
 	DB             *sql.DB
-	Config         *connectors.DBConfig
+	Config         *DBConfig
 	ConnectionName string
-}
-
-type IConnection interface {
-	Insert(query string, bindings []interface{}) (result Result, err error)
-	Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result Result, err error)
-	Update(query string, bindings []interface{}) (result Result, err error)
-	Delete(query string, bindings []interface{}) (result Result, err error)
-	AffectingStatement(query string, bindings []interface{}) (result Result, err error)
-	Statement(query string, bindings []interface{}) (Result, error)
-	Table(tableName string) *query.Builder
-}
-
-type Preparer interface {
-	Prepare(query string) (*sql.Stmt, error)
-}
-type Execer interface {
-	Exec(query string, args ...interface{}) (Result, error)
-}
-type ITransaction interface {
-	BeginTransaction() (*Transaction, error)
-	Transaction(closure TxClosure) (interface{}, error)
 }
 
 func (c *Connection) Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result Result, err error) {
@@ -61,7 +35,6 @@ func (c *Connection) BeginTransaction() (*Transaction, error) {
 	}
 	tx := &Transaction{
 		Tx:             begin,
-		Config:         c.Config,
 		ConnectionName: c.ConnectionName,
 	}
 	return tx, nil
@@ -85,7 +58,6 @@ func (c *Connection) Transaction(closure TxClosure) (res interface{}, err error)
 	}()
 	tx := &Transaction{
 		Tx:             begin,
-		Config:         c.Config,
 		ConnectionName: c.ConnectionName,
 	}
 	return closure(tx)
@@ -121,31 +93,24 @@ func (c *Connection) AffectingStatement(query string, bindings []interface{}) (r
 	}, nil
 }
 
-func (c *Connection) Table(tableName string) *query.Builder {
+func (c *Connection) Table(tableName string) *Builder {
 	builder := c.Query()
 	builder.From(tableName)
 	return builder
 }
 
-func (c *Connection) Model(modelPointer interface{}) *eloquent.Builder {
-	parsed := eloquent.GetParsedModel(modelPointer)
-
-	builder := query.NewBuilder(c)
-
-	return &eloquent.Builder{
-		Builder:   builder,
-		BaseModel: parsed,
-	}
-}
 func (c *Connection) Statement(query string, bindings []interface{}) (Result, error) {
 	return c.AffectingStatement(query, bindings)
 }
 func (c *Connection) GetDB() *sql.DB {
 	return c.DB
 }
-func (c *Connection) Query() *query.Builder {
-	return query.NewBuilder(c)
+func (c *Connection) Query() *Builder {
+	return NewQueryBuilder(c)
 }
-func (c *Connection) GetConfig() *connectors.DBConfig {
+func (c *Connection) GetConfig() *DBConfig {
 	return c.Config
+}
+func (c *Connection) Model(model ...interface{}) *EloquentBuilder {
+	return NewEloquentBuilder(model)
 }

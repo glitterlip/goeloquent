@@ -10,9 +10,9 @@ func TestHasMany(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
 		//test saving,saved
-		var u1, u2, u3 UserT
-		var uu1, uu2 UserT
-		var us []UserT
+		var u1, u2, u3 User
+		var uu1, uu2 User
+		var us []User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		u3.UserName = "u3"
@@ -38,7 +38,7 @@ func TestHasMany(t *testing.T) {
 		}
 
 		//test get
-		result, err := DB.Model(&UserT{}).With("Posts").Get(&us)
+		result, err := DB.Model(&User{}).With("Posts").Get(&us)
 		assert.Nil(t, err)
 		count, _ := result.RowsAffected()
 		assert.Nil(t, err)
@@ -58,7 +58,7 @@ func TestHasMany(t *testing.T) {
 		assert.Equal(t, int64(1), count)
 		assert.Equal(t, 0, len(uu2.Posts))
 		//test lazyload
-		var lazy UserT
+		var lazy User
 		var lazyPosts []Post
 		DB.Model(&u1).Find(&lazy, u2.Id)
 		lazy.PostsRelation().Get(&lazyPosts)

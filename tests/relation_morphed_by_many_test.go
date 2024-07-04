@@ -13,12 +13,12 @@ func TestMorphedByMany(t *testing.T) {
 	RunWithDB(c, d, func() {
 		goeloquent.RegistMorphMap(map[string]interface{}{
 			"post":   &Post{},
-			"users":  &UserT{},
+			"users":  &User{},
 			"images": &Image{},
 			"tag":    &Tag{},
 		})
 		//test saving,saved
-		var u1, u2, u3 UserT
+		var u1, u2, u3 User
 		var p1, p2 Post
 		var ts []Tag
 		var t1, t2, t3 Tag

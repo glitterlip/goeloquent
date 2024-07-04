@@ -9,9 +9,9 @@ func TestHasOne(t *testing.T) {
 	c, d := CreateRelationTables()
 	RunWithDB(c, d, func() {
 		//test saving,saved
-		var u1, u2, u3, u4 UserT
-		var uu1, uu3 UserT
-		var us []UserT
+		var u1, u2, u3, u4 User
+		var uu1, uu3 User
+		var us []User
 		u1.UserName = "u1"
 		u2.UserName = "u2"
 		u3.UserName = "u3"
@@ -48,7 +48,7 @@ func TestHasOne(t *testing.T) {
 		DB.Model(&u1).With("Address").Find(&uu1, u1.Id)
 		assert.Equal(t, uu1.Address.UserId, u1.Id)
 		//test get
-		result, err := DB.Model(&UserT{}).With("Address").WhereIn("id", []int64{u2.Id, u4.Id}).Get(&us)
+		result, err := DB.Model(&User{}).With("Address").WhereIn("id", []int64{u2.Id, u4.Id}).Get(&us)
 		assert.Nil(t, err)
 		count, _ := result.RowsAffected()
 		assert.Nil(t, err)
@@ -64,7 +64,7 @@ func TestHasOne(t *testing.T) {
 		assert.Equal(t, int64(1), count)
 		assert.Equal(t, int64(0), uu3.Address.UserId)
 		//test lazyload
-		var lazy UserT
+		var lazy User
 		var lazyAddress Address
 		DB.Model(&u1).Find(&lazy, u2.Id)
 		lazy.AddressRelation().Get(&lazyAddress)
