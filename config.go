@@ -55,9 +55,8 @@ type Model struct {
 	Name                       string //pkg + model name
 	ModelType                  reflect.Type
 	Table                      string                                //model db table name
-	DbFields                   []string                              //model db table columns
+	TableResolver              func(builder *EloquentBuilder) string //model table name
 	FieldsByDbName             map[string]*Field                     //map of fields of database table columns, database column name=>Model.Field
-	Fields                     []*Field                              //all struct fields
 	FieldsByStructName         map[string]*Field                     //map of struct fields, struct field name=>Model.Field
 	Relations                  map[string]reflect.Value              //model field name => model getRelation method()
 	ConnectionName             string                                //connection name
@@ -85,7 +84,6 @@ type Field struct {
 	Index             int          //Type.FieldByIndex, struct reflect.type fields index
 	FieldType         reflect.Type //reflect.StructField.Type
 	IndirectFieldType reflect.Type
-	StructField       reflect.StructField
 	Tag               reflect.StructTag
 	TagSettings       map[string]string
 }
@@ -95,60 +93,41 @@ Parse Parse model to ModelConfig and cache it
 */
 func Parse(modelType reflect.Type) (model *Model, err error) {
 	modelValue := reflect.New(modelType)
-	var tableName string
-	var connectionName string
-	if t, ok := modelValue.Interface().(TableName); ok {
-		tableName = t.TableName()
-	} else {
-		tableName = ToSnakeCase(modelType.Name())
-	}
-	if c, ok := modelValue.Interface().(ConnectionName); ok {
-		connectionName = c.ConnectionName()
-	} else {
-		connectionName = "default"
-	}
 	model = &Model{
 		Name:                modelType.Name(),
 		ModelType:           modelType,
-		Table:               tableName,
 		FieldsByDbName:      make(map[string]*Field),
 		FieldsByStructName:  make(map[string]*Field),
 		Relations:           make(map[string]reflect.Value),
 		PrimaryKey:          nil,
 		CallBacks:           make(map[string]reflect.Value),
-		ConnectionName:      connectionName,
 		PivotFieldIndex:     0,
 		DefaultAttributes:   make(map[string]interface{}),
 		EagerRelations:      make(map[string]RelationFunc),
 		EagerRelationCounts: make(map[string]RelationFunc),
 		GlobalScopes:        make(map[string]ScopeFunc),
 	}
+	if t, ok := modelValue.Interface().(TableName); ok {
+		model.Table = t.TableName()
+	} else if t, ok := modelValue.Interface().(DynamicTableName); ok {
+		model.TableResolver = t.ResolveTableName
+	} else {
+		model.Table = ToSnakeCase(modelType.Name())
+	}
+	if c, ok := modelValue.Interface().(ConnectionName); ok {
+		model.ConnectionName = c.ConnectionName()
+	} else if c, ok := modelValue.Interface().(DynamicConnectionName); ok {
+		model.ConnectionResolver = c.ResolveConnectionName
+	} else {
+		model.ConnectionName = "default"
+	}
 
 	for i := 0; i < modelType.NumField(); i++ {
-		model.ParseField(modelType.Field(i))
-	}
-	if len(model.DbFields) == 0 {
-		for i := 0; i < len(model.Fields); i++ {
-			if model.Fields[i].Name == "Table" && strings.Contains(model.Fields[i].Tag.Get(EloquentTagName), "TableName:") {
-				model.Table = strings.Replace(model.Fields[i].Tag.Get(EloquentTagName), "TableName:", "", 1)
-			} else {
-				tag := model.Fields[i].Tag.Get(EloquentTagName)
-				if strings.Contains(tag, "primaryKey") {
-					model.PrimaryKey = model.Fields[i]
-				}
-				var name string
-				if t := model.Fields[i].Tag.Get("column"); len(t) > 0 {
-					name = t
-				} else {
-					name = ToSnakeCase(model.Fields[i].Name)
-				}
-				model.Fields[i].ColumnName = name
-				model.FieldsByDbName[name] = model.Fields[i]
-				model.DbFields = append(model.DbFields, name)
-			}
-
+		if _, ok := modelType.Field(i).Tag.Lookup(EloquentTagName); ok {
+			model.ParseField(modelType.Field(i))
 		}
 	}
+
 	funcs := map[string]string{
 		EventSaving:           EventSaving,
 		EventSaved:            EventSaved,
@@ -214,7 +193,6 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 		ColumnName:        field.Name,
 		FieldType:         field.Type,
 		IndirectFieldType: field.Type,
-		StructField:       field,
 		Tag:               field.Tag,
 		TagSettings:       make(map[string]string),
 		Index:             field.Index[0],
@@ -232,7 +210,7 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 			case "column":
 				modelField.ColumnName = value
 				m.FieldsByDbName[modelField.ColumnName] = modelField
-				m.DbFields = append(m.DbFields, modelField.ColumnName)
+				m.FieldsByStructName[modelField.Name] = modelField
 			case "primaryKey":
 				m.PrimaryKey = modelField
 			case "CREATED_AT":
@@ -260,10 +238,11 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 					panic(fmt.Sprintf("relation method %s on model %s not found", methodName, m.Name))
 				}
 
+			default:
+				panic(fmt.Sprintf("unknown tag %s", key))
 			}
 		}
 
-		m.Fields = append(m.Fields, modelField)
 		m.FieldsByStructName[modelField.Name] = modelField
 	}
 
