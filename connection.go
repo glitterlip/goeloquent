@@ -120,5 +120,5 @@ func (c *Connection) GetConfig() *DBConfig {
 	return c.Config
 }
 func (c *Connection) Model(model ...interface{}) *EloquentBuilder {
-	return NewEloquentBuilder(model)
+	return NewEloquentBuilder(model...)
 }
