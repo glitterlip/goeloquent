@@ -129,21 +129,19 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 	}
 
 	funcs := map[string]string{
-		EventSaving:           EventSaving,
-		EventSaved:            EventSaved,
-		EventCreating:         EventCreating,
-		EventCreated:          EventCreated,
-		EventUpdating:         EventUpdating,
-		EventUpdated:          EventUpdated,
-		EventDeleteing:        EventDeleteing,
-		EventDeleted:          EventDeleted,
-		EventRetrieving:       EventRetrieving,
-		EventRetrieved:        EventRetrieved,
-		EventBooting:          EventBooting,
-		EventBoot:             EventBoot,
-		EventBooted:           EventBooted,
-		EloquentGetConnection: EloquentGetConnection,
-		EloquentGetTable:      EloquentGetTable,
+		EventSaving:     EventSaving,
+		EventSaved:      EventSaved,
+		EventCreating:   EventCreating,
+		EventCreated:    EventCreated,
+		EventUpdating:   EventUpdating,
+		EventUpdated:    EventUpdated,
+		EventDeleteing:  EventDeleteing,
+		EventDeleted:    EventDeleted,
+		EventRetrieving: EventRetrieving,
+		EventRetrieved:  EventRetrieved,
+		EventBooting:    EventBooting,
+		EventBoot:       EventBoot,
+		EventBooted:     EventBooted,
 	}
 	ptrReciver := reflect.PtrTo(modelType)
 	for i := 0; i < ptrReciver.NumMethod(); i++ {
@@ -272,12 +270,16 @@ GetParsedModel get parsed ModelConfig from cache or parse it
 */
 func GetParsedModel(model interface{}) *Model {
 	var target reflect.Type
-
-	if t, ok := model.(reflect.Type); ok {
+	switch t := model.(type) {
+	case *Model:
+		return t
+	case Model:
+		return &t
+	case reflect.Type:
 		target = t
-	} else if s, ok := model.(string); ok {
-		target = GetRegisteredModel(s).Type()
-	} else {
+	case string:
+		target = GetRegisteredModel(t).Type()
+	default:
 		value := reflect.ValueOf(model)
 		if value.Kind() != reflect.Ptr {
 			panic("must be a pointer")
@@ -294,6 +296,7 @@ func GetParsedModel(model interface{}) *Model {
 			target = modelValue.Type()
 		}
 	}
+
 	name := target.PkgPath() + "." + target.Name()
 	i, ok := GetParsed(name)
 	if ok {
