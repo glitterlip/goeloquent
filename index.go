@@ -14,10 +14,6 @@ var DB *DatabaseManager
 
 type MacroFunc = func(builder *Builder, params ...interface{}) *Builder
 
-func CloneBuilderWithTable(b *Builder) *Builder {
-	return Clone(b)
-}
-
 func Open(config map[string]DBConfig) *DatabaseManager {
 	var configP = make(map[string]*DBConfig)
 	for name := range config {
@@ -33,11 +29,11 @@ func Open(config map[string]DBConfig) *DatabaseManager {
 	db.FireEvent(EventOpened, config)
 	return DB
 }
-func (d DatabaseManager) AddConfig(name string, config *DBConfig) DatabaseManager {
+func (dm DatabaseManager) AddConfig(name string, config *DBConfig) DatabaseManager {
 	DB.Configs[name] = config
-	return d
+	return dm
 }
-func (d DatabaseManager) GetConfigs() map[string]*DBConfig {
+func (dm DatabaseManager) GetConfigs() map[string]*DBConfig {
 	return DB.Configs
 }
 func RegistMorphMap(morphMap map[string]interface{}) {
