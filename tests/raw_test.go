@@ -7,33 +7,32 @@ import (
 )
 
 func TestRawMethods(t *testing.T) {
-	var row = make(map[string]interface{})
 	createUsers, dropUsers := UserTableSql()
 	RunWithDB(createUsers, dropUsers, func() {
+
 		//test raw
 		exec, err := DB.Raw("default").Exec("insert into `users` (`name`,`age`) values ('Alice',33)")
 		assert.Nil(t, err)
-		c, _ := exec.RowsAffected()
-		assert.Equal(t, int64(1), c)
+		count, _ := exec.RowsAffected()
+		assert.Equal(t, int64(1), count)
 
 		//test insert
 		insert, err := DB.Insert("insert into `users` (`name`,`age`,`status`)  values (?,?,?),(?,?,?)", []interface{}{"John", 12, 1, "Joe", 22, 1})
 		assert.Nil(t, err)
-		c, _ = insert.RowsAffected()
-		assert.Equal(t, int64(2), c)
+		count, _ = insert.RowsAffected()
+		assert.Equal(t, int64(2), count)
 
 		//test select map
-		r, err := DB.Select("select * from users limit ? ", []interface{}{1}, &row)
-		c, err = r.RowsAffected()
+		var row = make(map[string]interface{})
+		r, err := DB.Select("select * from users where name = ? ", []interface{}{"Alice"}, &row)
 		assert.Nil(t, err)
 		assert.Equal(t, "Alice", string(row["name"].([]uint8)))
-		assert.Equal(t, int64(1), c)
 
+		//test select slice of map
 		var rows []map[string]interface{}
 		r, err = DB.Select("select * from users ", nil, &rows)
-		c, err = r.RowsAffected()
 		assert.Nil(t, err)
-		assert.Equal(t, int64(3), c)
+		assert.Equal(t, int64(3), r.Count)
 		goeloquent.ParsedModelsMap.Delete("github.com/glitterlip/goeloquent/tests.User")
 		//test select struct
 		type User struct {
@@ -49,17 +48,15 @@ func TestRawMethods(t *testing.T) {
 		var user User
 		var mapUser MappingUser
 		res, err := DB.Select("select * from users order by id asc limit ?", []interface{}{1}, &user)
-		c, _ = res.RowsAffected()
 		assert.Nil(t, err)
-		assert.Equal(t, int64(1), c)
+		assert.Equal(t, int64(1), res.Count)
 		assert.Equal(t, int64(1), user.Id)
 		assert.Equal(t, 33, user.Age)
 		assert.Equal(t, "Alice", user.Name)
 
 		res, err = DB.Select("select * from users order by id asc limit ? offset 1", []interface{}{1}, &mapUser)
-		c, _ = res.RowsAffected()
 		assert.Nil(t, err)
-		assert.Equal(t, int64(1), c)
+		assert.Equal(t, int64(1), res.Count)
 		assert.Equal(t, int64(2), mapUser.Id)
 		assert.Equal(t, 12, mapUser.Age)
 		assert.Equal(t, "John", mapUser.UserName)
@@ -67,9 +64,8 @@ func TestRawMethods(t *testing.T) {
 		//select slice of struct
 		var us []User
 		res, err = DB.Select("select * from users order by id asc limit ?", []interface{}{2}, &us)
-		c, _ = res.RowsAffected()
 		assert.Nil(t, err)
-		assert.Equal(t, int64(2), c)
+		assert.Equal(t, int64(2), res.Count)
 		assert.Equal(t, int64(1), us[0].Id)
 		assert.Equal(t, int64(2), us[1].Id)
 		assert.Equal(t, 33, us[0].Age)
@@ -89,12 +85,11 @@ func TestRawMethods(t *testing.T) {
 		deleted, _ := d.RowsAffected()
 		assert.Equal(t, int64(1), deleted)
 
-		c = 0
+		var c int64
 		userC, err := DB.Select("select count(1) from users", []interface{}{}, &c)
 
 		assert.Nil(t, err)
-		count, err := userC.RowsAffected()
-		assert.Equal(t, int64(1), count)
+		assert.Equal(t, int64(1), userC.Count)
 		assert.Equal(t, int64(2), c)
 
 	})
