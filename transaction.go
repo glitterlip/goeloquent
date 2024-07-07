@@ -88,10 +88,15 @@ func NewTxBuilder(tx *Transaction) *Builder {
 }
 
 func (t *Transaction) Commit() error {
-	return t.Tx.Commit()
+
+	err := t.Tx.Commit()
+	DB.FireEvent(EventTransactionCommitted, err)
+	return err
 }
 func (t *Transaction) Rollback() error {
-	return t.Tx.Rollback()
+	err := t.Tx.Rollback()
+	DB.FireEvent(EventTransactionRollback, err)
+	return err
 }
 func (t *Transaction) Model(model interface{}) *EloquentBuilder {
 	return NewEloquentBuilder(model)

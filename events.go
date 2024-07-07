@@ -19,14 +19,12 @@ const (
 
 	EventOpened            = "EventOpened"
 	EventConnectionCreated = "EventConnectionCreated"
-	EventConnected         = "EventConnected"
 
-	EventExecuted              = "EventExecuted"
-	EventStatementPrepared     = "EventStatementPrepared"
-	EventTransactionBegin      = "EventTransactionBegin"
-	EventTransactionCommitting = "EventTransactionCommitting"
-	EventTransactionCommitted  = "EventTransactionCommitted"
-	EventTransactionRollback   = "EventTransactionRollback"
+	EventExecuted             = "EventExecuted"
+	EventStatementPrepared    = "EventStatementPrepared"
+	EventTransactionBegin     = "EventTransactionBegin"
+	EventTransactionCommitted = "EventTransactionCommitted"
+	EventTransactionRollback  = "EventTransactionRollback"
 )
 
 type ISaving interface {

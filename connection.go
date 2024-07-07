@@ -25,7 +25,10 @@ func (c *Connection) Select(query string, bindings []interface{}, dest interface
 	}
 	defer rows.Close()
 
-	return ScanAll(rows, dest, mapping), nil
+	result = ScanAll(rows, dest, mapping)
+	DB.FireEvent(EventExecuted, result)
+
+	return
 }
 
 func (c *Connection) BeginTransaction() (*Transaction, error) {
@@ -37,6 +40,7 @@ func (c *Connection) BeginTransaction() (*Transaction, error) {
 		Tx:             begin,
 		ConnectionName: c.ConnectionName,
 	}
+	DB.FireEvent(EventTransactionBegin, tx)
 	return tx, nil
 }
 func (c *Connection) Transaction(closure TxClosure) (res interface{}, err error) {
@@ -52,8 +56,10 @@ func (c *Connection) Transaction(closure TxClosure) (res interface{}, err error)
 				err = errors.New("error occurred during transaction")
 			}
 			_ = begin.Rollback()
+			DB.FireEvent(EventTransactionRollback, err)
 		} else {
 			err = begin.Commit()
+			DB.FireEvent(EventTransactionCommitted, err)
 		}
 	}()
 	tx := &Transaction{
@@ -86,11 +92,13 @@ func (c *Connection) AffectingStatement(query string, bindings []interface{}) (r
 		return
 	}
 
-	return Result{
+	result = Result{
 		Count: 0,
 		Raw:   rawResult,
 		Error: nil,
-	}, nil
+	}
+	DB.FireEvent(EventExecuted, result)
+	return
 }
 
 func (c *Connection) Table(tableName string) *Builder {

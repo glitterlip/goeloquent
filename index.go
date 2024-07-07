@@ -30,6 +30,7 @@ func Open(config map[string]DBConfig) *DatabaseManager {
 	}
 	db.Connection("default")
 	DB = &db
+	db.FireEvent(EventOpened, config)
 	return DB
 }
 func (d DatabaseManager) AddConfig(name string, config *DBConfig) DatabaseManager {
