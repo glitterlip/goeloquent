@@ -53,6 +53,25 @@ func (dm *DatabaseManager) Listen(eventName string, listener interface{}) {
 	}
 	dm.Listeners[eventName] = append(dm.Listeners[eventName], listener)
 }
+func (dm *DatabaseManager) FireEvent(eventName string, params ...interface{}) {
+	if _, ok := dm.Listeners[eventName]; !ok {
+		return
+	}
+	for _, listener := range dm.Listeners[eventName] {
+		switch eventName {
+		case EventOpened:
+			listener.(func(map[string]DBConfig))(params[0].(map[string]DBConfig))
+		case EventConnectionCreated:
+			listener.(func(*Connection))(params[0].(*Connection))
+		case EventExecuted:
+			listener.(func(result Result))(params[0].(Result))
+		case EventTransactionBegin:
+		case EventTransactionCommitted:
+		case EventTransactionRollback:
+			listener.(func(err error))(params[0].(error))
+		}
+	}
+}
 
 /*
 GetConfig get a db config by name
@@ -73,6 +92,7 @@ func (dm *DatabaseManager) MakeConnection(connectionName string) *Connection {
 	conn := dm.Factory.Make(config)
 	conn.ConnectionName = connectionName
 	dm.Connections[connectionName] = conn
+	dm.FireEvent(EventConnectionCreated, conn)
 	return conn
 }
 
