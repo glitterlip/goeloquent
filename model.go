@@ -3,6 +3,7 @@ package goeloquent
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"reflect"
@@ -28,8 +29,6 @@ const (
 	EloquentTagName               = "goelo"
 	EloquentAddGlobalScopes       = "EloquentAddGlobalScopes"
 	EloquentGetDefaultAttributes  = "EloquentGetDefaultAttributes"
-	EloquentGetConnection         = "EloquentGetConnection"
-	EloquentGetTable              = "EloquentGetTable"
 	EloquentGetFillable           = "EloquentGetFillable"
 	EloquentGetGuarded            = "EloquentGetGuarded"
 	EloquentGetWithRelations      = "EloquentGetWithRelations"
@@ -94,26 +93,29 @@ const EloquentModelPivotFieldIndex = 5
 
 // EloquentModel is the base model for all models
 type EloquentModel struct {
-	IsBooted      bool                   `json:"-"` //model is booted
-	Origin        map[string]interface{} `json:"-"` //store original attributes that get from the database or default attributes map[model.FiledName]value
-	Changes       map[string]interface{} `json:"-"` //store changed attribute after save to database map[model.FiledName]value
-	ModelPointer  reflect.Value          `json:"-"` //model pointer points to the model which hold this e.g. reflect.ValueOf(&User{})
-	Pivot         map[string]interface{} `json:"-"` //pivot relation table attributes map[Relation.Field]value //TODO: field type mapping
-	Exists        bool                   `json:"-"` //indicate whether the model is get from database or newly created and not store to the database yet
-	Related       reflect.Value          `json:"-"` //when call save/create on relationship ,this holds the related key
-	Muted         string                 `json:"-"` //muted events, comma separated
-	OnlyColumns   map[string]interface{} `json:"-"` //only update/save these columns
-	ExceptColumns map[string]interface{} `json:"-"` //exclude update/save there columns
-	Tx            *Transaction           `json:"-"` //use same transaction
-	Context       context.Context        `json:"-"`
+	IsBooted           bool                   `json:"-"` //model is booted
+	Origin             map[string]interface{} `json:"-"` //store original attributes that get from the database or default attributes map[model.FiledName]value
+	Changes            map[string]interface{} `json:"-"` //store changed attribute after save to database map[model.FiledName]value
+	ModelPointer       reflect.Value          `json:"-"` //model pointer points to the model which hold this e.g. reflect.ValueOf(&User{})
+	Pivot              map[string]interface{} `json:"-"` //pivot relation table attributes map[Relation.Field]value //TODO: field type mapping
+	Exists             bool                   `json:"-"` //indicate whether the model is get from database or newly created and not store to the database yet
+	Related            reflect.Value          `json:"-"` //when call save/create on relationship ,this holds the related key
+	Muted              string                 `json:"-"` //muted events, comma separated
+	OnlyColumns        map[string]interface{} `json:"-"` //only update/save these columns
+	ExceptColumns      map[string]interface{} `json:"-"` //exclude update/save there columns
+	Tx                 *Transaction           `json:"-"` //use same transaction
+	Context            context.Context        `json:"-"`
+	WasRecentlyCreated bool                   `json:"-"`
 }
 
 /*
 Init set modelPointer after initialized
 */
 func Init(modelPointer interface{}) {
-	parsed := GetParsedModel(modelPointer)
-	isBooted := reflect.Indirect(reflect.ValueOf(modelPointer)).Field(parsed.EloquentModelFieldIndex).Elem().Field(0).Interface().(bool)
+	config := GetParsedModel(modelPointer)
+	model := reflect.Indirect(reflect.ValueOf(modelPointer))
+	elo := model.Field(config.EloquentModelFieldIndex).Elem()
+	isBooted := elo.IsValid() && elo.Field(0).Interface().(bool)
 	if !isBooted {
 		InitModel(modelPointer)
 	}
@@ -216,7 +218,7 @@ func (m *EloquentModel) SyncOrigin() {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
 	model := reflect.Indirect(m.ModelPointer)
 	for _, field := range parsed.FieldsByDbName {
-		m.Origin[field.StructField.Name] = model.Field(field.StructField.Index[0]).Interface()
+		m.Origin[field.Name] = model.Field(field.Index).Interface()
 	}
 }
 
@@ -224,8 +226,11 @@ func (m *EloquentModel) SyncOrigin() {
 Save save the model to the database
 */
 func (m *EloquentModel) Save() (res Result, err error) {
+	if reflect.ValueOf(m).IsNil() {
+		panic("call Init(&model) first,or set modelPointer by call Save(&model)")
+	}
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
-	builder := DB.Model(parsed.ModelType)
+	builder := DB.Model(parsed)
 	if eventErr := m.FireModelEvent(EventSaving, builder); eventErr != nil {
 		return Result{Error: eventErr}, eventErr
 	}
@@ -304,6 +309,10 @@ func (m *EloquentModel) Mute(events ...string) *EloquentModel {
 	}
 	return m
 }
+
+/*
+GetAttributesForUpdate Get the attributes that should be updated.
+*/
 func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) {
 	model := reflect.Indirect(m.ModelPointer)
 	attrs = make(map[string]interface{})
@@ -315,26 +324,31 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 	if m.ExceptColumns != nil && len(m.ExceptColumns) > 0 {
 		hasExceptColumns = true
 	}
-	for _, key := range modelType.DbFields {
-		keyIndex := modelType.FieldsByDbName[key].Index
+	for columnName, field := range modelType.FieldsByDbName {
+		keyIndex := field.Index
 		if hasExceptColumns {
-			if _, ok := m.ExceptColumns[key]; ok {
+			if _, ok := m.ExceptColumns[columnName]; ok {
 				continue
 			}
-			attrs[key] = model.Field(keyIndex).Interface()
+			attrs[columnName] = model.Field(keyIndex).Interface()
 			continue
 		}
 		if hasOnlyColumns {
-			if _, ok := m.OnlyColumns[key]; !ok {
+			if _, ok := m.OnlyColumns[columnName]; !ok {
 				continue
 			}
-			attrs[key] = model.Field(keyIndex).Interface()
+			attrs[columnName] = model.Field(keyIndex).Interface()
 			continue
 		}
 		// TODO should insert all fields include zero value or just no-zero value?withzero/withoutzero?
-		if !model.Field(keyIndex).IsZero() && keyIndex != modelType.PrimaryKey.Index {
-			attrs[key] = model.Field(keyIndex).Interface()
+		if !model.Field(keyIndex).IsZero() {
+			v := model.Field(keyIndex).Interface()
+			if value, ok := v.(driver.Valuer); ok {
+				v, _ = value.Value()
+			}
+			attrs[columnName] = v
 		}
+
 	}
 	if modelType.UpdatedAt != "" {
 		//if user set it manually,we won't change it
@@ -369,27 +383,33 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 	if m.ExceptColumns != nil && len(m.ExceptColumns) > 0 {
 		hasExceptColumns = true
 	}
-	for _, key := range modelType.DbFields {
-		keyIndex := modelType.FieldsByDbName[key].Index
+	for columnName, field := range modelType.FieldsByDbName {
+		keyIndex := field.Index
 		if hasExceptColumns {
-			if _, ok := m.ExceptColumns[key]; ok {
+			if _, ok := m.ExceptColumns[columnName]; ok {
 				continue
 			}
-			attrs[key] = model.Field(keyIndex).Interface()
+			attrs[columnName] = model.Field(keyIndex).Interface()
 			continue
 		}
 		if hasOnlyColumns {
-			if _, ok := m.OnlyColumns[key]; !ok {
+			if _, ok := m.OnlyColumns[columnName]; !ok {
 				continue
 			}
-			attrs[key] = model.Field(keyIndex).Interface()
+			attrs[columnName] = model.Field(keyIndex).Interface()
 			continue
 		}
 		//TODO: should update all fields or just dirty value?
 
 		//TODO: scanner/valuer pointer
 		if !model.Field(keyIndex).IsZero() {
-			attrs[key] = model.Field(keyIndex).Interface()
+			v := model.Field(keyIndex).Interface()
+
+			if value, ok := v.(driver.Valuer); ok {
+				v, _ = value.Value()
+			}
+
+			attrs[columnName] = v
 		}
 	}
 	if modelType.CreatedAt != "" {
@@ -415,14 +435,18 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 	return
 
 }
+
+/*
+GetAttributes Get the model's attributes. database column name=>value
+*/
 func (m *EloquentModel) GetAttributes() (attrs map[string]interface{}) {
 
 	model := reflect.Indirect(m.ModelPointer)
 	attrs = make(map[string]interface{})
 	modelType := GetParsedModel(model.Type())
-	for _, key := range modelType.DbFields {
-		keyIndex := modelType.FieldsByDbName[key].Index
-		attrs[key] = model.Field(keyIndex).Interface()
+	for columnName, field := range modelType.FieldsByDbName {
+		keyIndex := field.Index
+		attrs[columnName] = model.Field(keyIndex).Interface()
 	}
 	return
 }
