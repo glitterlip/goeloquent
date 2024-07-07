@@ -98,28 +98,23 @@ func (dm *DatabaseManager) Model(model ...interface{}) *EloquentBuilder {
 	if len(model) == 0 {
 		return c.Model()
 	}
-	return c.Model(model)
+	return c.Model(model[0])
 
 }
 func (dm *DatabaseManager) Select(query string, bindings []interface{}, dest interface{}) (Result, error) {
-	ic := dm.Connections[DefaultConnectionName]
-	return (*ic).Select(query, bindings, dest, nil)
+	return dm.Connection(DefaultConnectionName).Select(query, bindings, dest, nil)
 }
 func (dm *DatabaseManager) Insert(query string, bindings []interface{}) (Result, error) {
-	ic := dm.Connections[DefaultConnectionName]
-	return (*ic).Insert(query, bindings)
+	return dm.Connection(DefaultConnectionName).Insert(query, bindings)
 }
 func (dm *DatabaseManager) Update(query string, bindings []interface{}) (Result, error) {
-	ic := dm.Connections[DefaultConnectionName]
-	return (*ic).Update(query, bindings)
+	return dm.Connection(DefaultConnectionName).Update(query, bindings)
 }
 func (dm *DatabaseManager) Delete(query string, bindings []interface{}) (Result, error) {
-	ic := dm.Connections[DefaultConnectionName]
-	return (*ic).Delete(query, bindings)
+	return dm.Connection(DefaultConnectionName).Delete(query, bindings)
 }
 func (dm *DatabaseManager) Statement(query string, bindings []interface{}) (Result, error) {
-	ic := dm.Connections[DefaultConnectionName]
-	return (*ic).Delete(query, bindings)
+	return dm.Connection(DefaultConnectionName).AffectingStatement(query, bindings)
 }
 func (dm *DatabaseManager) Query() *Builder {
 	defaultConn := dm.getDefaultConnection()
@@ -139,7 +134,9 @@ func (dm *DatabaseManager) Query() *Builder {
 func (dm *DatabaseManager) Create(model interface{}) (res Result, err error) {
 	return dm.Save(model)
 }
-
+func (dm *DatabaseManager) Init(model interface{}) {
+	Init(model)
+}
 func (dm *DatabaseManager) Save(modelP interface{}) (res Result, err error) {
 	//TODO: use connection as proxy
 	//TODO: batch create/update/delete
