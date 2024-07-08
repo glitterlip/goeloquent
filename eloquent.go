@@ -184,7 +184,8 @@ func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result 
 Find Find a model by its primary key.
 */
 func (b *EloquentBuilder) Find(dest interface{}, id interface{}) (result Result, err error) {
-	return b.WhereKey(id).First(dest)
+	b.WhereKey(id)
+	return b.Get(dest)
 }
 
 /*
