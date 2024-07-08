@@ -234,10 +234,18 @@ func (m *EloquentModel) SyncOrigin() {
 /*
 Save save the model to the database
 */
-func (m *EloquentModel) Save() (res Result, err error) {
+func (m *EloquentModel) Save(ps ...interface{}) (res Result, err error) {
+	if len(ps) > 0 && reflect.ValueOf(m).IsNil() {
+		parsed := GetParsedModel(reflect.Indirect(reflect.ValueOf(ps[0])).Type())
+		e := NewEloquentModel(ps[0])
+		reflect.ValueOf(ps[0]).Elem().Field(parsed.EloquentModelFieldIndex).Set(reflect.ValueOf(e))
+		return e.Save()
+	}
+
 	if reflect.ValueOf(m).IsNil() {
 		panic("call Init(&model) first,or set modelPointer by call Save(&model)")
 	}
+	var saved map[string]interface{}
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
 	builder := DB.Model(parsed)
 	if eventErr := m.FireModelEvent(EventSaving, builder); eventErr != nil {
@@ -248,7 +256,8 @@ func (m *EloquentModel) Save() (res Result, err error) {
 			return Result{Error: eventErr}, eventErr
 		}
 		//TODO:SetDefaults
-		res, err = builder.Insert(m.GetAttributesForCreate())
+		saved = m.GetAttributesForCreate()
+		res, err = builder.Insert(saved)
 		if err != nil {
 			return
 		}
@@ -262,7 +271,8 @@ func (m *EloquentModel) Save() (res Result, err error) {
 			return
 		}
 		m.Exists = true
-		//m.WasRecentlyCreated = true for createOrNew createOrUpdate?
+		m.Changes = m.GetDirty()
+		m.WasRecentlyCreated = true
 		if eventErr := m.FireModelEvent(EventCreated, builder); eventErr != nil {
 			return Result{Error: eventErr}, eventErr
 		}
@@ -271,7 +281,8 @@ func (m *EloquentModel) Save() (res Result, err error) {
 			return Result{Error: eventErr}, eventErr
 		}
 		m.Changes = m.GetDirty()
-		res, err = builder.Where(parsed.PrimaryKey.ColumnName, reflect.Indirect(m.ModelPointer).Field(parsed.PrimaryKey.Index).Interface()).Update(m.GetAttributesForUpdate())
+		saved = m.GetAttributesForUpdate()
+		res, err = builder.Where(parsed.PrimaryKey.ColumnName, reflect.Indirect(m.ModelPointer).Field(parsed.PrimaryKey.Index).Interface()).Update(saved)
 		if eventErr := m.FireModelEvent(EventUpdated, builder); eventErr != nil {
 			return Result{Error: eventErr}, eventErr
 		}
@@ -335,13 +346,6 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 	}
 	for columnName, field := range modelType.FieldsByDbName {
 		keyIndex := field.Index
-		if hasExceptColumns {
-			if _, ok := m.ExceptColumns[columnName]; ok {
-				continue
-			}
-			attrs[columnName] = model.Field(keyIndex).Interface()
-			continue
-		}
 		if hasOnlyColumns {
 			if _, ok := m.OnlyColumns[columnName]; !ok {
 				continue
@@ -349,6 +353,14 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 			attrs[columnName] = model.Field(keyIndex).Interface()
 			continue
 		}
+		if hasExceptColumns {
+			if _, ok := m.ExceptColumns[columnName]; ok {
+				continue
+			}
+			attrs[columnName] = model.Field(keyIndex).Interface()
+			continue
+		}
+
 		// TODO should insert all fields include zero value or just no-zero value?withzero/withoutzero?
 		if !model.Field(keyIndex).IsZero() {
 			v := model.Field(keyIndex).Interface()
@@ -394,13 +406,7 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 	}
 	for columnName, field := range modelType.FieldsByDbName {
 		keyIndex := field.Index
-		if hasExceptColumns {
-			if _, ok := m.ExceptColumns[columnName]; ok {
-				continue
-			}
-			attrs[columnName] = model.Field(keyIndex).Interface()
-			continue
-		}
+
 		if hasOnlyColumns {
 			if _, ok := m.OnlyColumns[columnName]; !ok {
 				continue
@@ -408,9 +414,16 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 			attrs[columnName] = model.Field(keyIndex).Interface()
 			continue
 		}
+
+		if hasExceptColumns {
+			if _, ok := m.ExceptColumns[columnName]; ok {
+				continue
+			}
+			attrs[columnName] = model.Field(keyIndex).Interface()
+			continue
+		}
 		//TODO: should update all fields or just dirty value?
 
-		//TODO: scanner/valuer pointer
 		if !model.Field(keyIndex).IsZero() {
 			v := model.Field(keyIndex).Interface()
 
@@ -502,18 +515,39 @@ func (m *EloquentModel) FireModelEvent(eventName string, b *EloquentBuilder) err
 
 /*
 Fill fill the model with a map of attributes.
+ 1. user.Fill(map[string]interface{}) key can be struct field name / db column name
+    fill user with map[string]interface{}
+ 2. user.Fill(map[string]interface{},true)
+    fill user with map[string]interface{},force fill ignore guard or fillable
+ 3. user.Fill(map[string]interface{},false,&user)
+    fill user with map[string]interface{},honor fillable or guard and init with user
 */
-func (m *EloquentModel) Fill(attrs map[string]interface{}) *EloquentModel {
-	if !m.IsBooted {
+func (m *EloquentModel) Fill(attrs map[string]interface{}, ps ...interface{}) *EloquentModel {
+	force := false
+	if len(ps) > 1 {
+		parsed := GetParsedModel(reflect.Indirect(reflect.ValueOf(ps[1])).Type())
+		e := NewEloquentModel(ps[1])
+		reflect.ValueOf(ps[1]).Elem().Field(parsed.EloquentModelFieldIndex).Set(reflect.ValueOf(e))
+		return e.Fill(attrs, ps[0])
+	}
+	if len(ps) > 0 {
+		force = ps[0].(bool)
+	}
+	if reflect.ValueOf(m).IsNil() || !m.IsBooted {
 		panic("model not inited yet,call Init first")
 	}
 	model := reflect.Indirect(m.ModelPointer)
-	modelType := GetParsedModel(model.Type())
+	config := GetParsedModel(model.Type())
 	for k, v := range attrs {
-		//TODO check guard or fillable
-		if f, ok := modelType.FieldsByDbName[k]; ok {
+		if _, ok := config.Fillables[k]; !ok && len(config.Fillables) > 0 && !force {
+			continue
+		}
+		if _, ok := config.Guards[k]; ok && len(config.Guards) > 0 && !force {
+			continue
+		}
+		if f, ok := config.FieldsByDbName[k]; ok {
 			model.Field(f.Index).Set(reflect.ValueOf(v))
-		} else if f, ok := modelType.FieldsByStructName[k]; ok {
+		} else if f, ok := config.FieldsByStructName[k]; ok {
 			model.Field(f.Index).Set(reflect.ValueOf(v))
 		}
 	}
