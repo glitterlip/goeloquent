@@ -1,103 +1,236 @@
 package tests
 
 import (
-	"time"
+	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
+	"github.com/glitterlip/goeloquent"
+	"strings"
 )
 
-const (
-	FriendStatusWaiting = 1
-	FriendStatusNormal  = 2
-	FriendStatusDeleted = 3
-	FriendStatusBlocked = 4
-)
-
-type Friends struct {
-	ID         int64     `goelo:"column:id;primaryKey"`
-	UserId     int64     `goelo:"column:user_id"`
-	FriendId   int64     `goelo:"column:friend_id"`
-	Status     int       `goelo:"column:status"`
-	Time       time.Time `goelo:"column:time"`
-	Additional string    `goelo:"column:additional"`
+type User struct {
+	*goeloquent.EloquentModel
+	ID        int64        `goelo:"column:id;primaryKey"`
+	Name      string       `goelo:"column:name"`
+	Age       uint8        `goelo:"column:age"`
+	Email     string       `goelo:"column:email"`
+	Status    uint8        `goelo:"column:status"`
+	Info      UserInfo     `goelo:"column:info"`
+	CreatedAt sql.NullTime `goelo:"column:created_at;CREATED_AT"`
+	UpdatedAt sql.NullTime `goelo:"column:updated_at;UPDATED_AT"`
+	DeletedAt sql.NullTime `goelo:"column:deleted_at;DELETED_AT"`
+	Phone     *Phone       `goelo:"HasOne:PhoneRelation"`
+	Posts     []Post       `goelo:"HasMany:PostRelation"`
+	Images    []*Image     `goelo:"MorphMany:ImageRelation"`
+	Tags      UserTag      `goelo:"column:tags"`
 }
 
-func CreateRelationTables() (create, drop string) {
-	create = `
-DROP TABLE IF EXISTS "comment","image","post","tag","tagables","user","users","view_record","friends","address";
-CREATE TABLE "comment" (
-  "cid" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "post_id" int(11) NOT NULL,
-  "content" varchar(255) DEFAULT NULL,
-  "user_id" int(11) NOT NULL,
-  "upvotes" int(11) NOT NULL DEFAULT '0',
-  "downvotes" int(11) NOT NULL DEFAULT '0',
-  "comment_id" int(11) NOT NULL DEFAULT '0',
-  PRIMARY KEY ("cid") USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "image" (
-  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "url" varchar(255) CHARACTER SET utf8 NOT NULL DEFAULT '',
-  "imageable_id" int(11) DEFAULT NULL,
-  "imageable_type" varchar(255) CHARACTER SET utf8 DEFAULT NULL,
-  PRIMARY KEY ("id")
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "post" (
-  "pid" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "title" varchar(255) NOT NULL DEFAULT '',
-  "author_id" int(10) unsigned NOT NULL DEFAULT '0',
-  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" datetime DEFAULT NULL,
-  "deleted_at" datetime DEFAULT NULL,
-  PRIMARY KEY ("pid") USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "tag" (
-  "tid" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "name" varchar(255) DEFAULT '',
-  PRIMARY KEY ("tid") USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "tagables" (
-  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "tag_id" int(11) NOT NULL,
-  "tagable_id" int(11) DEFAULT NULL,
-  "status" int(10) unsigned NOT NULL DEFAULT '0',
-  "tagable_type" varchar(255) DEFAULT NULL,
-  PRIMARY KEY ("id")
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "user" (
-  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "age" int(10) unsigned NOT NULL DEFAULT '0',
-  "name" varchar(255) NOT NULL DEFAULT '',
-  "created_at" datetime DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" datetime DEFAULT NULL,
-  PRIMARY KEY ("id") USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "view_record" (
-  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "user_id" int(11) DEFAULT NULL,
-  "post_id" int(11) DEFAULT NULL,
-  "view_time" datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY ("id")
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "friends" (
-  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "user_id" int(11) NOT NULL,
-  "friend_id" int(11) NOT NULL,
-  "status" tinyint(4) NOT NULL,
-  "time" datetime DEFAULT NULL,
-  "additional" varchar(255) DEFAULT '',
-  PRIMARY KEY ("id")
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE "address" (
-  "id" int(10) unsigned NOT NULL AUTO_INCREMENT,
-  "user_id" int(10) unsigned NOT NULL,
-  "country" tinyint(4) NOT NULL,
-  "state" varchar(255) NOT NULL,
-  "city" varchar(255) NOT NULL,
-  "detail" varchar(255) DEFAULT NULL,
-  PRIMARY KEY ("id")
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-`
-	drop = `
-DROP TABLE IF EXISTS "comment","image","post","tag","tagables","user","users","view_record","friends","address";
-`
-	return
+type UserTag struct {
+	Strs []string
+}
+
+func (c *UserTag) Scan(src any) error {
+	str, ok := src.([]byte)
+	if !ok {
+		return nil
+	} else {
+		c.Strs = strings.Split(string(str), ",")
+		return nil
+	}
+}
+func (c UserTag) Value() (driver.Value, error) {
+	return strings.Join(c.Strs, ","), nil
+}
+
+type UserInfo struct {
+	Verified bool
+	Age      int
+	Address  string
+	Links    []string
+}
+
+func (u UserInfo) Value() (driver.Value, error) {
+	return json.Marshal(u)
+}
+func (u *UserInfo) Scan(src any) error {
+
+	str, ok := src.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(str, u)
+}
+func (u *User) TableName() string {
+	return "user_models"
+}
+
+func (u *User) PhoneRelation() *goeloquent.HasOneRelation {
+	return u.HasOne(u, &Phone{}, "id", "user_id")
+}
+
+func (u *User) PostRelation() *goeloquent.HasManyRelation {
+	return u.HasMany(u, &Post{}, "id", "user_id")
+}
+
+func (u *User) ImageRelation() *goeloquent.MorphManyRelation {
+	return u.MorphMany(u, &Image{}, "id", "imageable_id", "imageable_type")
+}
+func (u *User) EloquentGetGuarded() map[string]struct{} {
+	return map[string]struct{}{
+		"id":     {},
+		"status": {},
+	}
+}
+
+func (u *User) EloquentGetDefaultAttributes() map[string]interface{} {
+	return map[string]interface{}{
+		"status": uint8(2),
+	}
+}
+func (u *User) EloquentGetWithRelationCounts() map[string]goeloquent.RelationFunc {
+	return map[string]goeloquent.RelationFunc{
+		"Posts": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return builder.Where("stauts", 1)
+		},
+	}
+}
+
+func (u *User) EloquentGetWithRelations() map[string]goeloquent.RelationFunc {
+	return map[string]goeloquent.RelationFunc{
+		"Phone": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			builder.Where("country", "+2")
+			return builder
+		},
+	}
+}
+
+type Phone struct {
+	*goeloquent.EloquentModel
+	ID      int64  `goelo:"column:id;primaryKey"`
+	UserId  int64  `goelo:"column:user_id"`
+	Country string `goelo:"column:country"`
+	Tel     string `goelo:"column:tel"`
+	Owner   User   `goelo:"BelongsTo:UserRelation"`
+}
+
+func (p *Phone) TableName() string {
+	return "phones"
+}
+
+func (p *Phone) UserRelation() *goeloquent.BelongsToRelation {
+	return p.BelongsTo(p, &User{}, "user_id", "id")
+}
+
+type Post struct {
+	*goeloquent.EloquentModel
+	ID     int64                  `goelo:"column:id;primaryKey"`
+	UserId int64                  `goelo:"column:user_id"`
+	Title  string                 `goelo:"column:title"`
+	Tags   []string               `goelo:"column:tags"`
+	Status uint8                  `goelo:"column:status"`
+	User   User                   `goelo:"BelongsTo:UserRelation"`
+	Meta   map[string]interface{} `goelo:"column:meta"`
+	Images []Image                `goelo:"MorphMany:ImageRelation"`
+}
+
+func (p *Post) TableName() string {
+	return "posts"
+}
+
+func (p *Post) UserRelation() *goeloquent.BelongsToRelation {
+	return p.BelongsTo(p, &User{}, "user_id", "id")
+}
+
+func (p *Post) ImageRelation() *goeloquent.MorphManyRelation {
+	return p.MorphMany(p, &Image{}, "id", "imageable_id", "imageable_type")
+}
+
+type Image struct {
+	*goeloquent.EloquentModel
+	ID            int64       `goelo:"column:id;primaryKey"`
+	Path          string      `goelo:"column:path"`
+	Size          int64       `goelo:"column:size"`
+	Driver        string      `goelo:"column:driver"`
+	ImageableId   int64       `goelo:"column:imageable_id"`
+	ImageableType string      `goelo:"column:imageable_type"`
+	Remark        string      `goelo:"column:remark"`
+	Imageable     interface{} `goelo:"MorphTo:ImageableRelation"`
+}
+
+func (i *Image) TableName() string {
+	return "images"
+}
+
+func (i *Image) ImageableRelation() *goeloquent.MorphToRelation {
+	return i.MorphTo(i, "imageable_id", "imageable_type", "id")
+}
+
+type Video struct {
+	*goeloquent.EloquentModel
+	ID     int64  `goelo:"column:id;primaryKey"`
+	UserID int64  `goelo:"column:user_id"`
+	Size   int64  `goelo:"column:size"`
+	Path   string `goelo:"column:path"`
+	Title  string `goelo:"column:title"`
+	Tags   []Tag  `goelo:"MorphToMany:TagsRelation"`
+}
+
+func (v *Video) TableName() string {
+	return "videos"
+}
+
+func (v *Video) TagsRelation() *goeloquent.MorphToManyRelation {
+	return v.MorphToMany(v, "tagable_id", "tagable_type", "tagables", "tag_id", "tag_id", "id", "id")
+}
+
+type Tag struct {
+	*goeloquent.EloquentModel
+	ID      int64   `goelo:"column:id;primaryKey"`
+	Name    string  `goelo:"column:name"`
+	Related int     `goelo:"column:related"`
+	Posts   []Post  `goelo:"MorphByMany:PostsRelation"`
+	Videos  []Video `goelo:"MorphByMany:VideosRelation"`
+}
+
+func (t *Tag) TableName() string {
+	return "tags"
+}
+
+func (t *Tag) PostsRelation() *goeloquent.MorphByManyRelation {
+	return t.MorphByMany(t, &Post{}, "tagables", "id", "id", "tag_id", "tagable_id", "tagable_type")
+}
+
+func (t *Tag) VideosRelation() *goeloquent.MorphByManyRelation {
+	return t.MorphByMany(t, &Video{}, "tagables", "id", "id", "tag_id", "tagable_id", "tagable_type")
+}
+
+type Comment struct {
+	*goeloquent.EloquentModel
+	ID              int64        `goelo:"column:id;primaryKey"`
+	Content         string       `goelo:"column:content"`
+	Likes           int          `goelo:"column:likes"`
+	CommentableId   int64        `goelo:"column:commentable_id"`
+	CommentableType string       `goelo:"column:commentable_type"`
+	Commentable     interface{}  `goelo:"MorphTo:CommentableRelation"`
+	Parent          *Comment     `goelo:"BelongsTo:ParentRelation"`
+	Children        []*Comment   `goelo:"HasMany:ChildrenRelation"`
+	CreatedAt       sql.NullTime `goelo:"column:created_at"`
+	UpdatedAt       sql.NullTime `goelo:"column:updated_at"`
+	DeletedAt       sql.NullTime `goelo:"column:deleted_at"`
+}
+
+func (c *Comment) TableName() string {
+	return "comments"
+}
+
+func (c *Comment) CommentableRelation() *goeloquent.MorphToRelation {
+	return c.MorphTo(c, "commentable_id", "commentable_type", "id")
+}
+
+func (c *Comment) ParentRelation() *goeloquent.BelongsToRelation {
+	return c.BelongsTo(c, &Comment{}, "parent_id", "id")
+}
+
+func (c *Comment) ChildrenRelation() *goeloquent.HasManyRelation {
+	return c.HasMany(c, &Comment{}, "id", "parent_id")
 }
