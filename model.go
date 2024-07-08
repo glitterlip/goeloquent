@@ -353,15 +353,11 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 			if _, ok := m.OnlyColumns[columnName]; !ok {
 				continue
 			}
-			attrs[columnName] = model.Field(keyIndex).Interface()
-			continue
 		}
 		if hasExceptColumns {
 			if _, ok := m.ExceptColumns[columnName]; ok {
 				continue
 			}
-			attrs[columnName] = model.Field(keyIndex).Interface()
-			continue
 		}
 
 		// TODO should insert all fields include zero value or just no-zero value?withzero/withoutzero?
@@ -414,16 +410,12 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 			if _, ok := m.OnlyColumns[columnName]; !ok {
 				continue
 			}
-			attrs[columnName] = model.Field(keyIndex).Interface()
-			continue
 		}
 
 		if hasExceptColumns {
 			if _, ok := m.ExceptColumns[columnName]; ok {
 				continue
 			}
-			attrs[columnName] = model.Field(keyIndex).Interface()
-			continue
 		}
 		//TODO: should update all fields or just dirty value?
 
