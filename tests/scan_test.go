@@ -3,7 +3,6 @@ package tests
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"fmt"
 	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -31,7 +30,6 @@ type CommaString struct {
 func (c *CommaString) Scan(src any) error {
 	str, ok := src.([]byte)
 	if !ok {
-		fmt.Printf("%#v", src)
 		return nil
 	} else {
 		c.Strs = strings.Split(string(str), ",")
@@ -65,12 +63,19 @@ func TestBasicScan(t *testing.T) {
 	RunWithDB(createUsers, dropUsers, func() {
 		DB.Raw("default").Exec("insert into `users` (`name`,`age`) values ('Alice',33)")
 		DB.Insert("insert into `users` (`name`,`age`,`status`)  values (?,?,?),(?,?,?)", []interface{}{"John", 12, 1, "Joe", 22, 1})
+		//test scan ptr
+		_, err := DB.Select("select * from users where name = ? ", []interface{}{"Alice"}, map[string]interface{}{})
+		assert.Errorf(t, err, "dest must be a pointer")
 		//test scan map
 		var row = make(map[string]interface{})
 		r, err := DB.Select("select * from users where name = ? ", []interface{}{"Alice"}, &row)
 		assert.Nil(t, err)
 		assert.Equal(t, "Alice", string(row["name"].([]uint8)))
 
+		//test scan values
+		var ss []string
+		DB.Select("select name from users", nil, &ss)
+		assert.ElementsMatch(t, ss, []string{"Alice", "John", "Joe"})
 		//test scan slice of map
 		var rows []map[string]interface{}
 		r, err = DB.Select("select * from users ", nil, &rows)
