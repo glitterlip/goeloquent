@@ -3057,10 +3057,10 @@ func ExtractStruct(target interface{}) map[string]interface{} {
 	result := make(map[string]interface{}, tv.NumField())
 	if tt.Kind() == reflect.Struct {
 		m := GetParsedModel(tt)
-		for _, key := range m.DbFields {
-			keyIndex := m.FieldsByDbName[key].Index
+		for column, f := range m.FieldsByDbName {
+			keyIndex := f.Index
 			if !tv.Field(keyIndex).IsZero() {
-				result[key] = tv.Field(keyIndex).Interface()
+				result[column] = tv.Field(keyIndex).Interface()
 			}
 		}
 	} else {
