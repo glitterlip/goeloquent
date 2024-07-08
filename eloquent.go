@@ -155,7 +155,7 @@ func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result 
 
 	}
 
-	result, err = b.Builder.Get(dest, columns)
+	result, err = b.Builder.Get(dest, columns...)
 
 	d := reflect.TypeOf(b.Dest).Elem()
 	if d.Kind() == reflect.Slice {
@@ -189,9 +189,9 @@ func (b *EloquentBuilder) Find(dest interface{}, id interface{}) (result Result,
 /*
 First Execute the query and get the first result.
 */
-func (b *EloquentBuilder) First(dest interface{}, columns ...string) (result Result, err error) {
+func (b *EloquentBuilder) First(dest interface{}, columns ...interface{}) (result Result, err error) {
 	b.Limit(1)
-	return b.Get(dest, columns)
+	return b.Get(dest, columns...)
 }
 
 /*
