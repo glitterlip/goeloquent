@@ -73,8 +73,8 @@ type Model struct {
 	DeletedAt                  string                   //database delete timestamp column name
 	SoftDelete                 bool                     //has soft delete
 	GlobalScopes               map[string]ScopeFunc     //registered global scopes
-	Guards                     map[string]struct{}      //guarded model fields
-	Fillables                  map[string]struct{}      //fillable model fields
+	Guards                     map[string]struct{}      //guarded model fields when use Save(map[string]interface{})/Fill(map[string]interface{})
+	Fillables                  map[string]struct{}      //fillable model fields when use Save(map[string]interface{})/Fill(map[string]interface{})
 	EagerRelations             map[string]RelationFunc  //eager loaded relations
 	EagerRelationCounts        map[string]RelationFunc  //eager loaded relation counts
 }
@@ -158,6 +158,9 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 			model.Fillables = res[0].Interface().(map[string]struct{})
 		}
 		if ptrReciver.Method(i).Name == EloquentGetGuarded {
+			if model.Fillables != nil && len(model.Fillables) > 0 {
+				panic("can not use guarded with fillable")
+			}
 			res := modelValue.MethodByName(EloquentGetGuarded).Call([]reflect.Value{})
 			model.Guards = res[0].Interface().(map[string]struct{})
 		}
