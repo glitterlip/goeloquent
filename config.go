@@ -128,7 +128,7 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 	}
 
 	for i := 0; i < modelType.NumField(); i++ {
-		if _, ok := modelType.Field(i).Tag.Lookup(EloquentTagName); ok {
+		if _, ok := modelType.Field(i).Tag.Lookup(EloquentTagName); ok || modelType.Field(i).Name == EloquentName {
 			model.ParseField(modelType.Field(i))
 		}
 	}
