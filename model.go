@@ -197,22 +197,28 @@ func (m *EloquentModel) Booted() {
 
 }
 
-func (m *EloquentModel) IsEager() bool {
-	return !m.Exists
-}
-func (m *EloquentModel) IsDirty(key string) bool {
+//	func (m *EloquentModel) IsEager() bool {
+//		return !m.Exists
+//	}
+func (m *EloquentModel) IsDirty(structFieldName string) bool {
 	current := reflect.Indirect(m.ModelPointer)
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
-	fieldIndex := parsed.FieldsByStructName[key].Index
+	fieldIndex := parsed.FieldsByStructName[structFieldName].Index
 	keyValue := current.Field(fieldIndex)
 	if !keyValue.IsValid() || keyValue.IsZero() {
-		return m.Origin[key] == nil
+		return m.Origin[structFieldName] == nil
 	}
-	return keyValue.Interface() != m.Origin[key]
+	return keyValue.Interface() != m.Origin[structFieldName]
 }
 
 /*
 SyncOrigin Sync the original attributes with the current.
+
+u := &User{}
+u.Name = "asd"
+u.Email = "asd@zz.cc"
+u.Only("Name").Save(&u)
+u.IsDirty() = false
 */
 func (m *EloquentModel) SyncOrigin() {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
@@ -220,6 +226,9 @@ func (m *EloquentModel) SyncOrigin() {
 	for _, field := range parsed.FieldsByDbName {
 		m.Origin[field.Name] = model.Field(field.Index).Interface()
 	}
+	//reset after create/update
+	m.OnlyColumns = nil
+	m.ExceptColumns = nil
 }
 
 /*
