@@ -6,7 +6,7 @@ import (
 )
 
 type Result struct {
-	Count    int
+	Count    int64 //count of rows query returned
 	Raw      sql.Result
 	Error    error
 	Sql      string
