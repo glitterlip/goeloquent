@@ -56,7 +56,13 @@ func (m *EloquentModel) GetDirty() map[string]interface{} {
 			o := m.Origin[key].(sql.NullTime)
 			equal = c.Valid == o.Valid && c.Time == c.Time
 		default:
-			equal = currentField.Interface() == m.Origin[key]
+			//check currentField is comparable
+			if currentField.Comparable() {
+				equal = currentField.Interface() == m.Origin[key]
+			} else {
+				equal = true
+			}
+
 		}
 		if !equal {
 			dirty[key] = currentField.Interface()
