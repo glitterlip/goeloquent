@@ -131,6 +131,9 @@ func InitModel(modelPointer interface{}, exists ...bool) *EloquentModel {
 	parsed := GetParsedModel(modelPointer)
 	e := NewEloquentModel(modelPointer, exists...)
 	m.Field(parsed.EloquentModelFieldIndex).Set(reflect.ValueOf(e))
+	if len(parsed.DefaultAttributes) > 0 {
+		e.Fill(parsed.DefaultAttributes, true)
+	}
 	return e
 }
 func NewEloquentModel(modelPointer interface{}, exists ...bool) *EloquentModel {
