@@ -27,7 +27,8 @@ var DefaultConstraint = func(builder *EloquentBuilder) *EloquentBuilder {
 
 func NewEloquentBuilder(model ...interface{}) (b *EloquentBuilder) {
 	b = &EloquentBuilder{
-		Builder: NewQueryBuilder(),
+		Builder:       NewQueryBuilder(),
+		RemovedScopes: map[string]struct{}{},
 	}
 	if len(model) > 0 {
 		b.SetModel(model[0])
