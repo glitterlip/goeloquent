@@ -926,3 +926,9 @@ func (b *EloquentBuilder) When(boolean bool, cb ...func(builder *EloquentBuilder
 	}
 	return b
 }
+func (b *EloquentBuilder) WithTrashed() *EloquentBuilder {
+	return b.WithOutGlobalScopes(GlobalScopeWithoutTrashed)
+}
+func (b *EloquentBuilder) OnlyTrashed() *EloquentBuilder {
+	return b.WithOutGlobalScopes(GlobalScopeWithoutTrashed).WhereNotNull(b.BaseModel.DeletedAt)
+}

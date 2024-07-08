@@ -9,7 +9,12 @@ import (
 type Driver string
 
 const (
-	DriverMysql Driver = "mysql"
+	DriverMysql               Driver = "mysql"
+	GlobalScopeWithoutTrashed        = "WithoutTrashed"
+	ColumnDeletedAt                  = "DELETED_AT"
+	ColumnCreatedAt                  = "CREATED_AT"
+	ColumnUpdatedAt                  = "UPDATED_AT"
+	ColumnPrimaryKey                 = "primaryKey"
 )
 
 type DBConfig struct {
@@ -212,15 +217,19 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 				modelField.ColumnName = value
 				m.FieldsByDbName[modelField.ColumnName] = modelField
 				m.FieldsByStructName[modelField.Name] = modelField
-			case "primaryKey":
+			case ColumnPrimaryKey:
 				m.PrimaryKey = modelField
-			case "CREATED_AT":
+			case ColumnCreatedAt:
 				m.CreatedAt = modelField.ColumnName
-			case "UPDATED_AT":
+			case ColumnUpdatedAt:
 				m.UpdatedAt = modelField.ColumnName
-			case "DELETED_AT":
+			case ColumnDeletedAt:
 				m.DeletedAt = modelField.ColumnName
 				m.SoftDelete = true
+				m.GlobalScopes[GlobalScopeWithoutTrashed] = func(builder *EloquentBuilder) *EloquentBuilder {
+					return builder.WhereNull(m.DeletedAt)
+				}
+
 			case string(RelationHasMany),
 				string(RelationHasOne),
 				string(RelationBelongsToMany),
