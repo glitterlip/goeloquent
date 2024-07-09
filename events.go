@@ -11,7 +11,7 @@ const (
 	EventDeleted     = "EloquentDeleted"
 	EventRetrieved   = "EloquentRetrieved"
 	EventRetrieving  = "EloquentRetrieving"
-	EventALL         = "ALL"
+	EventALL         = "EloquentEventALL"
 	EventInitialized = "EventInitialized"
 	EventBooting     = "EloquentBooting"
 	EventBoot        = "EventBoot"

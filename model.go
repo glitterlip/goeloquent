@@ -83,7 +83,7 @@ func BatchSync(models interface{}, exists ...bool) {
 			if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.Field(parsed.PivotFieldIndex).IsZero() {
 				newModel.Elem().Field(parsed.PivotFieldIndex).Set(model.Field(parsed.PivotFieldIndex))
 			}
-			realModels.Field(parsed.FieldsByStructName[EloquentName].Index).Set(reflect.ValueOf(NewEloquentModel(realModels.Addr().Interface(), exist)))
+			realModels.Field(parsed.EloquentModelFieldIndex).Set(newModel)
 		}
 	}
 	return
@@ -178,9 +178,7 @@ func Fill(target interface{}, values ...map[string]interface{}) error {
 	}
 
 }
-func (m *EloquentModel) WithContent(ctx context.Context) {
-	m.Context = ctx
-}
+
 func (m *EloquentModel) BootIfNotBooted() {
 	if !m.IsBooted {
 		//m.FireModelEvent(EventBooting,nil)
@@ -198,6 +196,10 @@ func (m *EloquentModel) Boot() {
 }
 func (m *EloquentModel) Booted() {
 
+}
+func (m *EloquentModel) WithContext(ctx context.Context) *EloquentModel {
+	m.Context = ctx
+	return m
 }
 
 //	func (m *EloquentModel) IsEager() bool {
@@ -250,7 +252,7 @@ func (m *EloquentModel) Save(ps ...interface{}) (res Result, err error) {
 	}
 	var saved map[string]interface{}
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
-	builder := DB.Model(parsed)
+	builder := DB.Model(parsed).WithContext(m.Context)
 	if eventErr := m.FireModelEvent(EventSaving, builder); eventErr != nil {
 		return Result{Error: eventErr}, eventErr
 	}
@@ -311,7 +313,7 @@ Delete Delete the model from the database.
 */
 func (m *EloquentModel) Delete() (res Result, err error) {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
-	b := DB.Model(parsed.ModelType)
+	b := DB.Model(parsed.ModelType).WithContext(m.Context)
 	b.Where(parsed.PrimaryKey.ColumnName, m.ModelPointer.Elem().Field(parsed.PrimaryKey.Index).Interface())
 	if eventErr := m.FireModelEvent(EventDeleteing, b); eventErr != nil {
 		return Result{Error: eventErr}, eventErr
@@ -325,7 +327,7 @@ func (m *EloquentModel) Delete() (res Result, err error) {
 func (m *EloquentModel) Mute(events ...string) *EloquentModel {
 	for i := 0; i < len(events); i++ {
 		if events[i] == EventALL {
-			m.Muted = "Creating,Created,Updating,Updated,Saving,Saved,Deleting,Deleted"
+			m.Muted = strings.Join([]string{EventSaving, EventSaved, EventCreating, EventCreated, EventUpdating, EventUpdated, EventDeleteing, EventDeleted, EventRetrieved, EventRetrieving}, ",")
 			break
 		}
 		m.Muted = m.Muted + "," + events[i]
@@ -502,6 +504,14 @@ func (m *EloquentModel) FireModelEvent(eventName string, b *EloquentBuilder) err
 	case EventDeleted:
 		if model, ok := reverted.(IDeleted); ok && !strings.Contains(m.Muted, EventDeleted) {
 			return model.EloquentDeleted()
+		}
+	case EventRetrieved:
+		if model, ok := reverted.(IRetrieved); ok && !strings.Contains(m.Muted, EventRetrieved) {
+			return model.EloquentRetrieved()
+		}
+	case EventRetrieving:
+		if model, ok := reverted.(IRetrieving); ok && !strings.Contains(m.Muted, EventRetrieving) {
+			return model.EloquentRetrieving()
 		}
 	}
 	return nil

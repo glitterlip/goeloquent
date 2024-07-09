@@ -155,15 +155,27 @@ func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result 
 	if b.Connection == nil {
 
 	}
-
-	result, err = b.Builder.Get(dest, columns...)
-
-	d := reflect.TypeOf(b.Dest).Elem()
+	d := reflect.TypeOf(dest).Elem()
 	if d.Kind() == reflect.Slice {
 		d = d.Elem()
+	} else if b.BaseModel.IsEloquent {
+		m := reflect.ValueOf(dest).MethodByName(EventRetrieving)
+		if m.IsValid() {
+			v := m.Call([]reflect.Value{})
+			if e, ok := v[0].Interface().(error); ok && e != nil {
+				return Result{}, e
+			}
+		}
 	}
+	result, err = b.Builder.Get(dest, columns...)
+
 	if err == nil && b.BaseModel.IsEloquent && d.Kind() == reflect.Struct {
 		BatchSync(b.Dest, result.Count > 0)
+		m := reflect.ValueOf(dest).MethodByName(EventRetrieved)
+		if m.IsValid() {
+			m.Call([]reflect.Value{})
+		}
+
 	}
 
 	if len(b.EagerLoad) == 0 {

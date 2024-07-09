@@ -26,6 +26,9 @@ func (c *Connection) Select(query string, bindings []interface{}, dest interface
 	defer rows.Close()
 
 	result = ScanAll(rows, dest, mapping)
+	if result.Error != nil {
+		err = errors.New(result.Error.Error())
+	}
 	DB.FireEvent(EventExecuted, result)
 
 	return
