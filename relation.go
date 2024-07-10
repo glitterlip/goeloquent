@@ -152,10 +152,6 @@ func (m *EloquentModel) HasOne(selfModelPointer, relatedModelPointer interface{}
 		RelatedColumn: relatedColumn,
 		SelfColumn:    selfColumn,
 	}
-	selfModel := GetParsedModel(selfModelPointer)
-	b.Where(relatedColumn, "=", selfModel.FieldsByDbName[selfColumn].Name)
-	b.WhereNotNull(relatedColumn)
-
 	return &relation
 }
 

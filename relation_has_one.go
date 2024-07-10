@@ -36,69 +36,87 @@ func (r *HasOneRelation) AddEagerConstraints(models interface{}) {
 	r.Builder.WhereIn(r.RelatedColumn, keys)
 }
 func (r *HasOneRelation) AddConstraints() {
+	r.Builder.WhereNotNull(r.RelatedColumn)
 	r.Builder.Where(r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
 }
-func MatchHasOne(models interface{}, related interface{}, relation *HasOneRelation) {
-	relatedModelsValue := related.(reflect.Value)
-	relatedModels := relatedModelsValue
+
+/*
+MatchHasOne match the has one relation
+selfModels: the models that has the relation,usually a pointer of  slice of models,or reflect.Value if it's a nested relation
+related: the related models ,reflect.Value of slice
+*/
+func MatchHasOne(selfModels interface{}, relatedModelsValue reflect.Value, relation *HasOneRelation) {
 	relatedModel := GetParsedModel(relation.RelatedModel)
 	selfModel := GetParsedModel(relation.SelfModel)
-	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(relation.Relation.RelatedModel))
+
+	//make map[string]relatedModel , key is RelatedColumn,value is relatedModel pointer
+	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(relation.RelatedModel))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	isPtr := selfModel.FieldsByStructName[relation.Relation.FieldName].FieldType.Kind() == reflect.Ptr
-	if !relatedModels.IsValid() || relatedModels.IsNil() {
+
+	//indicate if the relation field on self model is a pointer
+	isPtr := selfModel.FieldsByStructName[relation.FieldName].FieldType.Kind() == reflect.Ptr
+
+	if !relatedModelsValue.IsValid() || relatedModelsValue.IsNil() {
 		return
 	}
-	for i := 0; i < relatedModels.Len(); i++ {
-		result := relatedModels.Index(i)
-		foreignKeyIndex := relatedModel.FieldsByDbName[relation.RelatedColumn].Index
-		groupKey := reflect.ValueOf(fmt.Sprint(result.FieldByIndex([]int{foreignKeyIndex})))
-		groupedResults.SetMapIndex(groupKey, result.Addr())
+
+	//RelatedColumn in related model that is related to self model's self column
+	relatedColumn := relatedModel.FieldsByDbName[relation.RelatedColumn]
+
+	for i := 0; i < relatedModelsValue.Len(); i++ {
+		related := relatedModelsValue.Index(i)
+		groupKey := reflect.ValueOf(fmt.Sprint(related.FieldByIndex([]int{relatedColumn.Index})))
+		groupedResults.SetMapIndex(groupKey, related.Addr())
 	}
 
-	targetSlice := reflect.Indirect(reflect.ValueOf(models))
-	modelRelationFieldIndex := selfModel.FieldsByStructName[relation.Relation.FieldName].Index
-	modelKeyFieldIndex := selfModel.FieldsByDbName[relation.SelfColumn].Index
-	if rvP, ok := models.(*reflect.Value); ok {
+	targetSlice := reflect.ValueOf(selfModels).Elem()
+
+	selfColumn := selfModel.FieldsByDbName[relation.SelfColumn]
+	selfColumnIndex := selfColumn.Index
+	selfRelationField := selfModel.FieldsByStructName[relation.FieldName]
+
+	//self models is reflect.Value
+	if rvP, ok := selfModels.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
-			modelKey := model.Field(modelKeyFieldIndex)
+			modelKey := model.Field(selfColumnIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
 				if isPtr {
-					model.Field(modelRelationFieldIndex).Set(value)
+					model.Field(selfRelationField.Index).Set(value)
 				} else {
-					model.Field(modelRelationFieldIndex).Set(value.Elem())
+					model.Field(selfRelationField.Index).Set(value.Elem())
 				}
 			}
 
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
-		modelKey := model.Field(modelKeyFieldIndex)
+		modelKey := model.Field(selfColumnIndex)
 		modelKeyStr := fmt.Sprint(modelKey)
 		value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		if value.IsValid() {
 			if isPtr {
-				model.Field(modelRelationFieldIndex).Set(value)
+				model.Field(selfRelationField.Index).Set(value)
 			} else {
-				model.Field(modelRelationFieldIndex).Set(value.Elem())
+				model.Field(selfRelationField.Index).Set(value.Elem())
 			}
 		}
 
 	} else {
+		//selfModels is slice
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
-			modelKey := model.Field(modelKeyFieldIndex)
+			modelKey := model.Field(selfColumnIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				if isPtr {
-					model.Field(modelRelationFieldIndex).Set(value)
+					model.Field(selfRelationField.Index).Set(value)
 				} else {
-					model.Field(modelRelationFieldIndex).Set(value.Elem())
+					model.Field(selfRelationField.Index).Set(value.Elem())
 				}
 			}
 		}

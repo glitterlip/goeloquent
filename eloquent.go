@@ -28,6 +28,7 @@ var DefaultConstraint = func(builder *EloquentBuilder) *EloquentBuilder {
 func NewEloquentBuilder(model ...interface{}) (b *EloquentBuilder) {
 	b = &EloquentBuilder{
 		Builder:       NewQueryBuilder(),
+		EagerLoad:     make(map[string]func(builder *EloquentBuilder) *EloquentBuilder),
 		RemovedScopes: map[string]struct{}{},
 	}
 	if len(model) > 0 {
@@ -255,10 +256,6 @@ func (b *EloquentBuilder) FirstOrCreate(target interface{}, conditions ...map[st
 }
 
 func (b *EloquentBuilder) EagerLoadRelations(models interface{}) {
-	//dest := r.Builder.Dest
-	//value := reflect.ValueOf(dest)
-	//get pointer value
-	//realDest := reflect.Indirect(value)
 
 	var model *Model
 	//with reflect.Value of makeslice
@@ -288,15 +285,45 @@ func (b *EloquentBuilder) EagerLoadRelation(models interface{}, model *Model, re
 		relationI := relationMethod.Call(params)[0].Interface()
 		switch relationTemp := relationI.(type) {
 		case *BelongsToRelation:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *BelongsToManyRelation:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *HasManyRelation:
-		case *HasManyThrough:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *HasOneRelation:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *HasOneThrough:
+			//relationTemp.FieldName = relationName
+			//relation = relationTemp
+			//builder = relationTemp.EloquentBuilder
+		case *HasManyThrough:
+			//relationTemp.FieldName = relationName
+			//relation = relationTemp
+			//builder = relationTemp.EloquentBuilder
 		case *MorphByManyRelation:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *MorphManyRelation:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *MorphOneRelation:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *MorphToRelation:
+			relationTemp.FieldName = relationName
+			relation = relationTemp
+			builder = relationTemp.EloquentBuilder
 		case *MorphToManyRelation:
 			relationTemp.FieldName = relationName
 			relation = relationTemp
@@ -304,7 +331,6 @@ func (b *EloquentBuilder) EagerLoadRelation(models interface{}, model *Model, re
 		default:
 			panic(fmt.Sprintf(" relation : %s for model: %s didn't return a relationbuilder ", relationName, model.Name))
 		}
-		//FIXME: builder config lost cause log missing
 		//load nested relations
 		wanted := relationName + "."
 		nestedRelation := make(map[string]func(eloquentBuilder *EloquentBuilder) *EloquentBuilder)
@@ -323,7 +349,7 @@ func (b *EloquentBuilder) EagerLoadRelation(models interface{}, model *Model, re
 		//dynamic constraints
 		builder = constraints(builder)
 
-		relationResults := builder.GetEager(relation, builder.BaseModel.FieldsByStructName[relationName].FieldType)
+		relationResults := builder.GetEager(relation)
 		builder.Match(models, relationResults, relation, relationName)
 	} else {
 		panic(fmt.Sprintf(" relation : %s for model: %s didn't return a relationbuilder ", relationName, model.Name))
@@ -460,7 +486,7 @@ func (b *EloquentBuilder) LoadPivotWheres(relation RelationI) {
 		WherePivots(relation.EloquentBuilder, relation.PivotTable, b.PivotWheres)
 	}
 }
-func (b *EloquentBuilder) GetEager(relationT RelationI, t reflect.Type) interface{} {
+func (b *EloquentBuilder) GetEager(relationT RelationI) reflect.Value {
 	switch relation := relationT.(type) {
 	case *BelongsToRelation,
 		*BelongsToManyRelation,
@@ -470,7 +496,7 @@ func (b *EloquentBuilder) GetEager(relationT RelationI, t reflect.Type) interfac
 		*MorphOneRelation,
 		*MorphToManyRelation,
 		*MorphByManyRelation:
-		relationResults := reflect.MakeSlice(reflect.SliceOf(t), 0, 10)
+		relationResults := reflect.MakeSlice(reflect.SliceOf(b.BaseModel.ModelType), 0, 10)
 		_, err := b.Get(&relationResults)
 		if err != nil {
 			panic(err.Error())
@@ -478,7 +504,7 @@ func (b *EloquentBuilder) GetEager(relationT RelationI, t reflect.Type) interfac
 		return relationResults
 	case *MorphToRelation:
 		morphto := relation
-		relationResults := make(map[string]reflect.Value)
+		relationResults := reflect.MakeMap(reflect.TypeOf(map[string]reflect.Value{}))
 		for key, keys := range morphto.Groups {
 			modelPointer := GetMorphDBMap(key)
 			models := reflect.MakeSlice(reflect.SliceOf(modelPointer.Type()), 0, 10)
@@ -489,13 +515,14 @@ func (b *EloquentBuilder) GetEager(relationT RelationI, t reflect.Type) interfac
 			if err != nil {
 				panic(err.Error())
 			}
-			relationResults[key] = models
+			relationResults.SetMapIndex(reflect.ValueOf(key), models)
 		}
 		return relationResults
+	default:
+		panic(fmt.Sprintf("relation type %T not supported", relationT))
 	}
-	return nil
 }
-func (b *EloquentBuilder) Match(models interface{}, relationResults interface{}, relationI RelationI, relationName string) {
+func (b *EloquentBuilder) Match(models interface{}, relationResults reflect.Value, relationI RelationI, relationName string) {
 
 	//results := relationResults.(*reflect.Value)
 	switch relationI.(type) {
