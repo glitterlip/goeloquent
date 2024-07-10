@@ -23,6 +23,7 @@ func Open(config map[string]DBConfig) *DatabaseManager {
 	db := DatabaseManager{
 		Configs:     configP,
 		Connections: make(map[string]*Connection),
+		Listeners:   make(map[string][]interface{}),
 	}
 	db.Connection("default")
 	DB = &db

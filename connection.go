@@ -3,6 +3,7 @@ package goeloquent
 import (
 	"database/sql"
 	"errors"
+	"time"
 )
 
 type Connection struct {
@@ -14,6 +15,7 @@ type Connection struct {
 func (c *Connection) Select(query string, bindings []interface{}, dest interface{}, mapping map[string]interface{}) (result Result, err error) {
 	var stmt *sql.Stmt
 	var rows *sql.Rows
+	now := time.Now()
 	stmt, err = c.DB.Prepare(query)
 	if err != nil {
 		return
@@ -26,6 +28,9 @@ func (c *Connection) Select(query string, bindings []interface{}, dest interface
 	defer rows.Close()
 
 	result = ScanAll(rows, dest, mapping)
+	result.Sql = query
+	result.Bindings = bindings
+	result.Time = time.Since(now)
 	if result.Error != nil {
 		err = errors.New(result.Error.Error())
 	}
