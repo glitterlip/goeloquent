@@ -32,12 +32,14 @@ func (r *HasOneRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.WhereNotNull(r.RelatedColumn)
+	//remove first where clause to simulate the Relation::noConstraints function in laravel
+	r.Wheres = r.Wheres[1:]
+	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
 	r.Builder.WhereIn(r.RelatedColumn, keys)
 }
 func (r *HasOneRelation) AddConstraints() {
-	r.Builder.WhereNotNull(r.RelatedColumn)
 	r.Builder.Where(r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
+	r.Builder.WhereNotNull(r.RelatedColumn)
 }
 
 /*

@@ -8,7 +8,6 @@ import (
 
 func TestHasOne(t *testing.T) {
 
-	CreateRelationTables()
 	CreateUsers()
 	//test get eager load
 	var us []User
@@ -80,4 +79,8 @@ func TestHasOne(t *testing.T) {
 	assert.NotNil(t, phone)
 	assert.Equal(t, phone.UserId, u3.ID)
 	assert.True(t, phone.IsBooted)
+	var phone2 Phone
+	var u4 User
+	r, e = DB.Model(&u4).Find(&u4, 1)
+	r, e = u4.PhoneRelation().Where("country", "+2").Get(&phone2)
 }
