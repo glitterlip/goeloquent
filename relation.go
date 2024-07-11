@@ -152,6 +152,8 @@ func (m *EloquentModel) HasOne(selfModelPointer, relatedModelPointer interface{}
 		RelatedColumn: relatedColumn,
 		SelfColumn:    selfColumn,
 	}
+	relatedModel := GetParsedModel(relatedModelPointer)
+	relation.RelatedColumn = relatedModel.Table + "." + relatedColumn
 	relation.AddConstraints()
 	return &relation
 }

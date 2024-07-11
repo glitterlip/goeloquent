@@ -3,6 +3,7 @@ package goeloquent
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type HasOneRelation struct {
@@ -63,7 +64,7 @@ func MatchHasOne(selfModels interface{}, relatedModelsValue reflect.Value, relat
 	}
 
 	//RelatedColumn in related model that is related to self model's self column
-	relatedColumn := relatedModel.FieldsByDbName[relation.RelatedColumn]
+	relatedColumn := relatedModel.FieldsByDbName[strings.Replace(relation.RelatedColumn, relatedModel.Table+".", "", 1)]
 
 	for i := 0; i < relatedModelsValue.Len(); i++ {
 		related := relatedModelsValue.Index(i)
