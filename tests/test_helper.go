@@ -20,6 +20,11 @@ func Setup() {
 	chatConfig := GetChatConfig()
 	DB.AddConfig("chat", &chatConfig)
 
+	DB.Listen(goeloquent.EventExecuted, func(result goeloquent.Result) {
+		fmt.Println(result.Sql)
+		fmt.Println(result.Bindings)
+		fmt.Println(result.Time)
+	})
 }
 func init() {
 	defaultConfig := map[string]goeloquent.DBConfig{
@@ -28,6 +33,11 @@ func init() {
 	DB = goeloquent.Open(defaultConfig)
 	chatConfig := GetChatConfig()
 	DB.AddConfig("chat", &chatConfig)
+	DB.Listen(goeloquent.EventExecuted, func(result goeloquent.Result) {
+		fmt.Println(result.Sql)
+		fmt.Println(result.Bindings)
+		fmt.Println(result.Time)
+	})
 }
 
 func GetDefaultConfig() goeloquent.DBConfig {
@@ -188,4 +198,14 @@ CREATE TABLE "users" (
 `
 	drop = `DROP TABLE IF EXISTS users`
 	return
+}
+func CreateUsers() {
+	DB.Raw("default").Exec(`
+truncate table user_models;
+INSERT INTO user_models (id, no, name, email, status, age, info, tags, created_at, updated_at, deleted_at) VALUES (1, '1', 'qwe', 'qwe', 1, 12, '{"Age": 18, "Links": ["https://x.com", "https://twitch.com"], "Address": "NY", "Verified": true}', 'tag1,tag2', null, null, null);
+INSERT INTO user_models (id, no, name, email, status, age, info, tags, created_at, updated_at, deleted_at) VALUES (2, '2', 'asd', 'asd', 1, 12, '{"Age": 18, "Links": ["https://x.com", "https://twitch.com"], "Address": "NY", "Verified": true}', 'tag1,tag2', null, null, null);
+INSERT INTO user_models (id, no, name, email, status, age, info, tags, created_at, updated_at, deleted_at) VALUES (3, '3', 'zxc', 'zxc', 1, 12, '{"Age": 18, "Links": ["https://x.com", "https://twitch.com"], "Address": "NY", "Verified": true}', 'tag1,tag2', null, null, null); 
+INSERT INTO user_models (id, no, name, email, status, age, info, tags, created_at, updated_at, deleted_at) VALUES (4, '4', '123', '123', 1, 12, '{"Age": 18, "Links": ["https://x.com", "https://twitch.com"], "Address": "NY", "Verified": true}', 'tag1,tag2', null, null, null); 
+INSERT INTO user_models (id, no, name, email, status, age, info, tags, created_at, updated_at, deleted_at) VALUES (5, '5', 'qaz', 'qaz', 1, 12, '{"Age": 18, "Links": ["https://x.com", "https://twitch.com"], "Address": "NY", "Verified": true}', 'tag1,tag2', null, null, null); 
+`)
 }

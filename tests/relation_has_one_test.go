@@ -1,73 +1,83 @@
 package tests
 
 import (
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestHasOne(t *testing.T) {
-	c, d := CreateRelationTables()
-	RunWithDB(c, d, func() {
-		//test saving,saved
-		var u1, u2, u3, u4 User
-		var uu1, uu3 User
-		var us []User
-		u1.UserName = "u1"
-		u2.UserName = "u2"
-		u3.UserName = "u3"
-		u4.UserName = "u4"
-		DB.Create(&u1)
-		DB.Create(&u2)
-		DB.Create(&u3)
-		DB.Create(&u4)
-		addresses := []map[string]interface{}{
-			{
-				"user_id": u2.Id,
-				"country": 1,
-				"state":   "California",
-				"city":    "Sacramento",
-				"detail":  "Golden State",
-			},
-			{
-				"user_id": u1.Id,
-				"country": 1,
-				"state":   "Florida",
-				"city":    "Tallahassee",
-				"detail":  "Sunshine State",
-			},
-			{
-				"user_id": u4.Id,
-				"country": 1,
-				"state":   "Delaware",
-				"city":    "Dover",
-				"detail":  "First State",
-			},
+
+	CreateRelationTables()
+	CreateUsers()
+	//test get eager load
+	var us []User
+	r, e := DB.Model(&us).With("Phone").Get(&us)
+	assert.Nil(t, e)
+	assert.Equal(t, r.Count, int64(5))
+	for _, u := range us {
+		assert.NotNil(t, u.Phone)
+		assert.Equal(t, u.Phone.UserId, u.ID)
+		assert.True(t, u.Phone.IsBooted)
+	}
+
+	//test get eager load with constraints  (espically with orwhere clause)
+
+	var us2 []User
+	r, e = DB.Model(&us2).With(map[string]func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Phone": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return q.Where(func(b *goeloquent.Builder) *goeloquent.Builder {
+				return b.Where("country", "+2").OrWhere("tel", "1563103")
+			})
+		},
+	}).Get(&us2)
+	assert.Nil(t, e)
+	c := 0
+	for _, user := range us2 {
+		if user.Phone != nil {
+			c++
+			assert.True(t, user.Phone.Country == "+2" || user.Phone.Tel == "1563103")
 		}
-		DB.Table("address").Insert(&addresses)
-		//test find
-		DB.Model(&u1).With("Address").Find(&uu1, u1.Id)
-		assert.Equal(t, uu1.Address.UserId, u1.Id)
-		//test get
-		result, err := DB.Model(&User{}).With("Address").WhereIn("id", []int64{u2.Id, u4.Id}).Get(&us)
-		assert.Nil(t, err)
-		count, _ := result.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(2), count)
-		assert.Equal(t, 2, len(us))
-		for _, u := range us {
-			assert.Equal(t, u.Address.UserId, u.Id)
-		}
-		//test not find
-		c, err := DB.Model(&u1).With("Address").Find(&uu3, u3.Id)
-		count, _ = c.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(1), count)
-		assert.Equal(t, int64(0), uu3.Address.UserId)
-		//test lazyload
-		var lazy User
-		var lazyAddress Address
-		DB.Model(&u1).Find(&lazy, u2.Id)
-		lazy.AddressRelation().Get(&lazyAddress)
-		assert.Equal(t, lazy.Id, lazyAddress.UserId)
-	})
+	}
+	assert.Equal(t, c, 2)
+	//test find eager load with constraints
+	var u User
+	r, e = DB.Model(&u).With(map[string]func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Phone": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return q.Where(func(b *goeloquent.Builder) *goeloquent.Builder {
+				return b.Where("country", "+2").OrWhere("tel", "1563103")
+			})
+
+		},
+	}).Find(&u, 1)
+	assert.Nil(t, e)
+	assert.NotNil(t, u.Phone)
+	assert.True(t, u.Phone.Country == "+2" || u.Phone.Tel == "1563103")
+
+	//test model load
+	var u2 User
+	r, e = DB.Model(&u2).With(map[string]func(b *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Phone": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return q.Where(func(b *goeloquent.Builder) *goeloquent.Builder {
+				return b.Where("country", "+2").OrWhere("tel", "1563103")
+			})
+
+		},
+	}).Find(&u2, 1)
+	assert.Nil(t, e)
+	assert.NotNil(t, u2.Phone)
+	assert.True(t, u2.Phone.Country == "+2" || u2.Phone.Tel == "1563103")
+	assert.True(t, u2.Phone.IsBooted)
+
+	//test relation get
+	var u3 User
+	r, e = DB.Model(&u3).Find(&u3, 1)
+	assert.Nil(t, e)
+	assert.Nil(t, u3.Phone)
+	var phone Phone
+	r, e = u3.PhoneRelation().Get(&phone)
+	assert.Nil(t, e)
+	assert.NotNil(t, phone)
+	assert.Equal(t, phone.UserId, u3.ID)
+	assert.True(t, phone.IsBooted)
 }
