@@ -3,7 +3,6 @@ package goeloquent
 import (
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 type HasOneRelation struct {
@@ -36,11 +35,12 @@ func (r *HasOneRelation) AddEagerConstraints(models interface{}) {
 	//remove first where clause to simulate the Relation::noConstraints function in laravel
 	r.Wheres = r.Wheres[1:]
 	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
-	r.Builder.WhereIn(r.RelatedColumn, keys)
+	r.Builder.WhereIn(relatedParsedModel.Table+"."+r.RelatedColumn, keys)
 }
 func (r *HasOneRelation) AddConstraints() {
-	r.Builder.Where(r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
-	r.Builder.WhereNotNull(r.RelatedColumn)
+	relatedParsedModel := GetParsedModel(r.RelatedModel)
+	r.Builder.Where(relatedParsedModel.Table+"."+r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
+	r.Builder.WhereNotNull(relatedParsedModel.Table + "." + r.RelatedColumn)
 }
 
 /*
@@ -64,7 +64,7 @@ func MatchHasOne(selfModels interface{}, relatedModelsValue reflect.Value, relat
 	}
 
 	//RelatedColumn in related model that is related to self model's self column
-	relatedColumn := relatedModel.FieldsByDbName[strings.Replace(relation.RelatedColumn, relatedModel.Table+".", "", 1)]
+	relatedColumn := relatedModel.FieldsByDbName[relation.RelatedColumn]
 
 	for i := 0; i < relatedModelsValue.Len(); i++ {
 		related := relatedModelsValue.Index(i)

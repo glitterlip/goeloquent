@@ -152,8 +152,6 @@ func (m *EloquentModel) HasOne(selfModelPointer, relatedModelPointer interface{}
 		RelatedColumn: relatedColumn,
 		SelfColumn:    selfColumn,
 	}
-	relatedModel := GetParsedModel(relatedModelPointer)
-	relation.RelatedColumn = relatedModel.Table + "." + relatedColumn
 	relation.AddConstraints()
 	return &relation
 }
@@ -209,7 +207,7 @@ func (m *EloquentModel) MorphOne(selfModelPointer, relatedModelPointer interface
 /*
 MorphMany Define a polymorphic one-to-many relationship.
 */
-func (m *EloquentModel) MorphMany(selfModelPointer, relatedModelPointer interface{}, selfColumn, relatedModelIdColumn, relatedModelTypeColumn string) *MorphManyRelation {
+func (m *EloquentModel) MorphMany(selfModelPointer, relatedModelPointer interface{}, selfColumn, relatedModelIdColumn, relatedModelTypeColumn string, relatedModelTypeColumnValue ...string) *MorphManyRelation {
 	b := NewRelationBaseBuilder(relatedModelPointer)
 	relation := MorphManyRelation{
 		Relation: &Relation{
@@ -224,7 +222,11 @@ func (m *EloquentModel) MorphMany(selfModelPointer, relatedModelPointer interfac
 	}
 	selfModel := GetParsedModel(selfModelPointer)
 
-	relation.RelatedModelTypeColumnValue = GetMorphMap(selfModel.Name)
+	if len(relatedModelTypeColumnValue) > 0 {
+		relation.RelatedModelTypeColumnValue = relatedModelTypeColumnValue[0]
+	} else {
+		relation.RelatedModelTypeColumnValue = GetMorphMap(selfModel.Name)
+	}
 
 	b.Where(relatedModelTypeColumn, "=", relation.RelatedModelTypeColumnValue)
 
