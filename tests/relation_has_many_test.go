@@ -2,69 +2,119 @@ package tests
 
 import (
 	_ "fmt"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
+	_ "github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestHasMany(t *testing.T) {
-	c, d := CreateRelationTables()
-	RunWithDB(c, d, func() {
-		//test saving,saved
-		var u1, u2, u3 User
-		var uu1, uu2 User
-		var us []User
-		u1.UserName = "u1"
-		u2.UserName = "u2"
-		u3.UserName = "u3"
-		DB.Create(&u1)
-		DB.Create(&u2)
-		DB.Create(&u3)
-		var p1, p2, p3 Post
-		p1.Title = "Intro"
-		p2.Title = "Intro2"
-		p3.Title = "Intro3"
-		p1.AuthorId = u2.Id
-		p2.AuthorId = u1.Id
-		p3.AuthorId = u2.Id
-		DB.Save(&p1)
-		DB.Save(&p2)
-		DB.Save(&p3)
+	CreateUsers()
+	//test get eager load
+	//select * from `posts` where `posts`.`user_id` is not null and `posts`.`user_id` in (?,?,?,?,?)
+	//[1 2 3 4 5]
+	var us []User
+	r, e := DB.Model(&us).With("Posts").Get(&us)
+	assert.Nil(t, e)
+	assert.Equal(t, r.Count, int64(5))
+	for _, u := range us {
+		for _, p := range u.Posts {
+			assert.Equal(t, p.UserId, u.ID)
+			assert.True(t, len(p.Tags.Strs) > 0)
+			assert.True(t, p.IsBooted)
+		}
+	}
 
-		//test find
-		DB.Model(&u1).With("Posts").Find(&uu1, u1.Id)
-		assert.Equal(t, 2, len(uu1.Posts))
-		for _, post := range uu1.Posts {
-			assert.Equal(t, uu1.Id, post.AuthorId)
+	//test get eager load with constraints  (espically with orwhere clause)
+	//select * from `posts` where `posts`.`user_id` is not null and `posts`.`user_id` in (?,?,?,?,?) and (`status` = ? or `status` = ?)
+	//[1 2 3 4 5 0 1]
+	var us2 []User
+	r, e = DB.Model(&us2).With(map[string]func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Posts": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			q.Where(func(cq *goeloquent.Builder) *goeloquent.Builder {
+				return cq.Where("status", 0).OrWhere("status", 1)
+			})
+			return q
+		}}).Get(&us2)
+	assert.Nil(t, e)
+	assert.Equal(t, r.Count, int64(5))
+	for _, u := range us2 {
+		for _, p := range u.Posts {
+			assert.Equal(t, p.UserId, u.ID)
+			assert.True(t, len(p.Tags.Strs) > 0)
+			assert.True(t, p.IsBooted)
+			assert.True(t, p.Status == 0 || p.Status == 1)
 		}
+	}
 
-		//test get
-		result, err := DB.Model(&User{}).With("Posts").Get(&us)
-		assert.Nil(t, err)
-		count, _ := result.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(3), count)
-		for _, user := range us {
-			if user.Id == u2.Id {
-				assert.Equal(t, 3, len(user.Posts))
-			}
-			for _, post := range user.Posts {
-				assert.Equal(t, post.AuthorId, user.Id)
-			}
-		}
-		//test not find
-		c, err := DB.Model(&p1).With("Posts").Find(&uu2, u3.Id)
-		count, _ = c.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(1), count)
-		assert.Equal(t, 0, len(uu2.Posts))
-		//test lazyload
-		var lazy User
-		var lazyPosts []Post
-		DB.Model(&u1).Find(&lazy, u2.Id)
-		lazy.PostsRelation().Get(&lazyPosts)
-		for _, lazyPost := range lazyPosts {
-			assert.Equal(t, lazyPost.AuthorId, lazy.Id)
-		}
-	})
-	//TODO: test create update
+	//test find eager load with constraints
+	//select * from `posts` where `posts`.`user_id` is not null and `posts`.`user_id` in (?)
+	//[1]
+	var u User
+	r, e = DB.Model(&u).With("Posts").Find(&u, 1)
+	assert.Nil(t, e)
+	assert.True(t, len(u.Posts) == 2)
+	for _, p := range u.Posts {
+		assert.Equal(t, p.UserId, u.ID)
+		assert.True(t, len(p.Tags.Strs) > 0)
+		assert.True(t, p.IsBooted)
+	}
+
+	//select * from `posts` where `posts`.`user_id` is not null and `posts`.`user_id` in (?) and (`status` = ? or `status` = ?)
+	//[1 0 1]
+	var u3 User
+	r, e = DB.Model(&u3).With(map[string]func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Posts": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			q.Where(func(cq *goeloquent.Builder) *goeloquent.Builder {
+				return cq.Where("status", 0).OrWhere("status", 1)
+			})
+			return q
+		}}).Find(&u3, 1)
+	assert.Nil(t, e)
+	assert.True(t, len(u3.Posts) == 1)
+	for _, p := range u3.Posts {
+		assert.Equal(t, p.UserId, u3.ID)
+		assert.True(t, len(p.Tags.Strs) > 0)
+		assert.True(t, p.IsBooted)
+		assert.True(t, p.Status == 0 || p.Status == 1)
+	}
+	//test model load
+	//select * from `posts` where `posts`.`user_id` = ? and `posts`.`user_id` is not null
+	//[1]
+	var u4 User
+	r, e = DB.Model(&u4).Find(&u4, 1)
+	assert.Nil(t, e)
+	assert.Equal(t, u4.ID, int64(1))
+	var posts []Post
+	r, e = u4.PostRelation().Get(&posts)
+	assert.Nil(t, e)
+	assert.True(t, len(posts) == 2)
+	for _, p := range posts {
+		assert.Equal(t, p.UserId, u4.ID)
+		assert.True(t, len(p.Tags.Strs) > 0)
+		assert.True(t, p.IsBooted)
+
+	}
+
+	//test relation get
+	//select * from `posts` where `posts`.`user_id` = ? and `posts`.`user_id` is not null and (`status` = ? or `status` = ?)
+	//[1 0 1]
+	var u5 User
+	r, e = DB.Model(&u5).Find(&u5, 1)
+	assert.Nil(t, e)
+	assert.Equal(t, u5.ID, int64(1))
+
+	var posts2 []Post
+	r, e = u5.PostRelation().Where(func(cq *goeloquent.Builder) *goeloquent.Builder {
+		return cq.Where("status", 0).OrWhere("status", 1)
+	}).Get(&posts2)
+	assert.Nil(t, e)
+	assert.True(t, len(posts2) == 1)
+	for _, p := range posts2 {
+		assert.Equal(t, p.UserId, u5.ID)
+		assert.True(t, len(p.Tags.Strs) > 0)
+		assert.True(t, p.IsBooted)
+		assert.True(t, p.Status == 0 || p.Status == 1)
+	}
+
 }

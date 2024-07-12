@@ -11,33 +11,39 @@ type HasManyRelation struct {
 	SelfColumn    string
 }
 
-func (r *HasManyRelation) AddEagerConstraints(models interface{}) {
+func (r *HasManyRelation) AddEagerConstraints(selfModels interface{}) {
 	relatedParsedModel := GetParsedModel(r.Relation.RelatedModel)
-	ReleatedColumnField := relatedParsedModel.FieldsByDbName[r.RelatedColumn]
-	modelSlice := reflect.Indirect(reflect.ValueOf(models))
+	relatedSelfModel := GetParsedModel(r.Relation.SelfModel)
+	selfColumnField := relatedSelfModel.FieldsByDbName[r.SelfColumn]
+	selfModelSlice := reflect.Indirect(reflect.ValueOf(selfModels))
 	var keys []interface{}
-	if modelSlice.Type().Kind() == reflect.Slice {
-		for i := 0; i < modelSlice.Len(); i++ {
-			model := modelSlice.Index(i)
-			modelKey := reflect.Indirect(model).Field(ReleatedColumnField.Index).Interface()
-			keys = append(keys, modelKey)
+	//extract keys from self models
+	if selfModelSlice.Type().Kind() == reflect.Slice {
+		for i := 0; i < selfModelSlice.Len(); i++ {
+			selfModel := selfModelSlice.Index(i)
+			selfModelKey := reflect.Indirect(selfModel).Field(selfColumnField.Index).Interface()
+			keys = append(keys, selfModelKey)
 		}
-	} else if ms, ok := models.(*reflect.Value); ok {
+	} else if ms, ok := selfModels.(*reflect.Value); ok {
 		for i := 0; i < ms.Len(); i++ {
-			modelKey := ms.Index(i).Field(ReleatedColumnField.Index).Interface()
-			keys = append(keys, modelKey)
+			selfModelKey := ms.Index(i).Field(selfColumnField.Index).Interface()
+			keys = append(keys, selfModelKey)
 		}
 	} else {
-		model := modelSlice
-		modelKey := model.Field(ReleatedColumnField.Index).Interface()
+		model := selfModelSlice
+		modelKey := model.Field(selfColumnField.Index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.WhereNotNull(r.RelatedColumn)
-	r.Builder.WhereIn(r.RelatedColumn, keys)
+	//remove first where clause to simulate the Relation::noConstraints function in laravel
+	r.Wheres = r.Wheres[1:]
+	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
+	r.Builder.WhereIn(relatedParsedModel.Table+"."+r.RelatedColumn, keys)
 }
 
 func (r *HasManyRelation) AddConstraints() {
-	r.Builder.Where(r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
+	relatedParsedModel := GetParsedModel(r.Relation.RelatedModel)
+	r.Builder.Where(relatedParsedModel.Table+"."+r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
+	r.Builder.WhereNotNull(relatedParsedModel.Table + "." + r.RelatedColumn)
 }
 func MatchHasMany(models interface{}, related interface{}, relation *HasManyRelation) {
 	relatedModelsValue := related.(reflect.Value)
