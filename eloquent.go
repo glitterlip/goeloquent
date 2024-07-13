@@ -1,6 +1,7 @@
 package goeloquent
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -141,8 +142,6 @@ func AddNestedWiths(name string, results map[string]func(builder *EloquentBuilde
 }
 
 // TODO withGlobalScope
-// TODO withoutGlobalScope
-// TODO withoutGlobalScopes
 // TODO removedScopes
 // TODO whereKey
 // TODO whereKeyNot
@@ -150,11 +149,13 @@ func AddNestedWiths(name string, results map[string]func(builder *EloquentBuilde
 func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result Result, err error) {
 
 	b.ApplyGlobalScopes()
+	//table resolver connection resolver
 	if b.BaseModel == nil {
 		b.BaseModel = GetParsedModel(dest)
+		b.Table(b.BaseModel.Table)
 	}
 	if b.Connection == nil {
-
+		b.Connection = DB.Connection(b.BaseModel.ConnectionName)
 	}
 	d := reflect.TypeOf(dest).Elem()
 	if d.Kind() == reflect.Slice {
@@ -213,7 +214,15 @@ func (b *EloquentBuilder) First(dest interface{}, columns ...interface{}) (resul
 WhereKey Add a where clause on the primary key to the query.
 */
 func (b *EloquentBuilder) WhereKey(keys interface{}) *EloquentBuilder {
-	b.Where(b.BaseModel.PrimaryKey.ColumnName, keys)
+	if b.BaseModel == nil {
+		panic("set model first")
+	}
+	if reflect.ValueOf(keys).Kind() == reflect.Slice {
+		b.WhereIn(b.BaseModel.PrimaryKey.ColumnName, keys)
+
+	} else {
+		b.Where(b.BaseModel.PrimaryKey.ColumnName, keys)
+	}
 	return b
 }
 
@@ -370,7 +379,11 @@ SetModel set the model for the eloquent builder
 */
 func (b *EloquentBuilder) SetModel(model interface{}) *EloquentBuilder {
 	if model != nil {
-		b.BaseModel = GetParsedModel(model)
+		if m, ok := model.(*Model); ok {
+			b.BaseModel = m
+		} else {
+			b.BaseModel = GetParsedModel(model)
+		}
 		b.From(b.BaseModel.Table)
 	}
 	if b.Connection == nil {
@@ -972,4 +985,8 @@ func (b *EloquentBuilder) WithTrashed() *EloquentBuilder {
 }
 func (b *EloquentBuilder) OnlyTrashed() *EloquentBuilder {
 	return b.WithOutGlobalScopes(GlobalScopeWithoutTrashed).WhereNotNull(b.BaseModel.DeletedAt)
+}
+func (b *EloquentBuilder) WithContext(ctx context.Context) *EloquentBuilder {
+	b.Builder.WithContext(ctx)
+	return b
 }

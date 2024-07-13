@@ -67,12 +67,7 @@ func BatchSync(models interface{}, exists ...bool) {
 					model = model.Elem()
 				}
 				newModel := reflect.ValueOf(NewEloquentModel(model.Addr().Interface(), exist))
-				if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.Field(parsed.EloquentModelFieldIndex).IsZero() {
-					//if pivot is not nil ,copy old pivot to new eloquentmodel
-					newModel.Elem().Field(parsed.PivotFieldIndex).Set(model.Field(parsed.EloquentModelFieldIndex))
-				}
-				model.Field(parsed.FieldsByStructName[EloquentName].Index).Set(newModel)
-
+				model.Field(parsed.EloquentModelFieldIndex).Set(newModel)
 			}
 		}
 	} else if realModels.Type().Kind() == reflect.Struct {
@@ -83,13 +78,14 @@ func BatchSync(models interface{}, exists ...bool) {
 			if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.Field(parsed.PivotFieldIndex).IsZero() {
 				newModel.Elem().Field(parsed.PivotFieldIndex).Set(model.Field(parsed.PivotFieldIndex))
 			}
-			realModels.Field(parsed.EloquentModelFieldIndex).Set(newModel)
+			model.Field(parsed.EloquentModelFieldIndex).Set(newModel)
 		}
 	}
 	return
 }
 
 const EloquentModelPivotFieldIndex = 5
+const EloquentModelContextFieldIndex = 11
 
 // EloquentModel is the base model for all models
 type EloquentModel struct {
@@ -106,6 +102,7 @@ type EloquentModel struct {
 	Tx                 *Transaction           `json:"-"` //use same transaction
 	Context            context.Context        `json:"-"`
 	WasRecentlyCreated bool                   `json:"-"`
+	//RelationLoaded     map[string]interface{} //todo consider add a map of loaded relation Result to make debug much easier
 }
 
 /*
@@ -318,7 +315,13 @@ func (m *EloquentModel) Delete() (res Result, err error) {
 	if eventErr := m.FireModelEvent(EventDeleteing, b); eventErr != nil {
 		return Result{Error: eventErr}, eventErr
 	}
-	res, err = b.Delete()
+	if parsed.SoftDelete {
+		b.Update(map[string]interface{}{
+			parsed.DeletedAt: sql.NullTime{Time: time.Now(), Valid: true},
+		})
+	} else {
+		res, err = b.Delete()
+	}
 	if eventErr := m.FireModelEvent(EventDeleted, b); eventErr != nil {
 		return Result{Error: eventErr}, eventErr
 	}
@@ -469,7 +472,9 @@ func (m *EloquentModel) GetAttributes() (attrs map[string]interface{}) {
 	}
 	return
 }
-
+func (m *EloquentModel) GetModel() interface{} {
+	return m.ModelPointer.Interface()
+}
 func (m *EloquentModel) FireModelEvent(eventName string, b *EloquentBuilder) error {
 	reverted := m.ModelPointer.Interface()
 	switch eventName {

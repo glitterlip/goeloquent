@@ -2208,13 +2208,8 @@ Find Execute a query for a single record by ID.
 */
 func (b *Builder) Find(dest interface{}, params interface{}) (result Result, err error) {
 	b.ApplyBeforeQueryCallbacks()
-	d := reflect.Indirect(reflect.ValueOf(dest))
 	b.Where("id", params)
-	if d.Type().Kind() == reflect.Slice {
-		return b.Get(dest)
-	} else {
-		return b.First(dest)
-	}
+	return b.Get(dest)
 }
 
 /*
