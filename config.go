@@ -227,7 +227,7 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 				m.DeletedAt = modelField.ColumnName
 				m.SoftDelete = true
 				m.GlobalScopes[GlobalScopeWithoutTrashed] = func(builder *EloquentBuilder) *EloquentBuilder {
-					return builder.WhereNull(m.DeletedAt)
+					return builder.WhereNull(builder.QualifyColumn(m.DeletedAt))
 				}
 
 			case string(RelationHasMany),
@@ -249,7 +249,7 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 				}
 
 			default:
-				panic(fmt.Sprintf("unknown tag %s", key))
+				panic(fmt.Sprintf("unknown tag %s in model:%s field:%s", key, m.Name, field.Name))
 			}
 		}
 

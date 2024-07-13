@@ -3068,3 +3068,13 @@ func ExtractStruct(target interface{}) map[string]interface{} {
 	}
 	return result
 }
+func (b *Builder) QualifyColumn(column interface{}) string {
+	if e, ok := column.(Expression); ok {
+		return string(e)
+	}
+	c := column.(string)
+	if strings.Contains(c, ".") {
+		return c
+	}
+	return b.FromTable.(string) + "." + c
+}
