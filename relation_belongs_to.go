@@ -32,63 +32,74 @@ func (r *BelongsToRelation) AddEagerConstraints(parentModels interface{}) {
 		modelKey := model.Field(selfRelatedKeyIndex).Interface()
 		parentModelRelatedKeys = append(parentModelRelatedKeys, modelKey)
 	}
-	r.Builder.WhereIn(r.RelatedColumn, parentModelRelatedKeys)
+	relatedParsedModel := GetParsedModel(r.RelatedModel)
+	//remove first where clause to simulate the Relation::noConstraints function in laravel
+	r.Wheres = r.Wheres[1:]
+	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
+	r.Builder.WhereIn(relatedParsedModel.Table+"."+r.RelatedColumn, parentModelRelatedKeys)
 }
 func (r *BelongsToRelation) AddConstraints() {
-	r.Builder.Where(r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
+	relatedParsedModel := GetParsedModel(r.RelatedModel)
+	r.Builder.Where(relatedParsedModel.Table+"."+r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
+	r.Builder.WhereNotNull(relatedParsedModel.Table + "." + r.RelatedColumn)
 }
 
-func MatchBelongsTo(models interface{}, related interface{}, relation *BelongsToRelation) {
-	relatedModels := related.(reflect.Value)
-	parsedRelatedModel := GetParsedModel(relation.RelatedModel)
+func MatchBelongsTo(selfModels interface{}, relatedModelsValue reflect.Value, relation *BelongsToRelation) {
+	relatedModel := GetParsedModel(relation.RelatedModel)
+	selfModel := GetParsedModel(relation.SelfModel)
+
 	groupedResultsMapType := reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(relation.Relation.RelatedModel))
 	groupedResults := reflect.MakeMap(groupedResultsMapType)
-	parent := GetParsedModel(relation.SelfModel)
-	relationFieldIsPtr := parent.FieldsByStructName[relation.Relation.FieldName].FieldType.Kind() == reflect.Ptr
-	if !relatedModels.IsValid() || relatedModels.IsNil() {
+
+	//indicate if the relation field on self model is a pointer
+	isPtr := selfModel.FieldsByStructName[relation.Relation.FieldName].FieldType.Kind() == reflect.Ptr
+	if !relatedModelsValue.IsValid() || relatedModelsValue.IsNil() {
 		return
 	}
 
 	//create a map[relatedKey]*relatedModel
-	for i := 0; i < relatedModels.Len(); i++ {
-		result := relatedModels.Index(i)
-		relatedKeyIndex := parsedRelatedModel.FieldsByDbName[relation.RelatedColumn].Index
-		groupKeyStr := fmt.Sprint(result.FieldByIndex([]int{relatedKeyIndex}))
+	for i := 0; i < relatedModelsValue.Len(); i++ {
+		related := relatedModelsValue.Index(i)
+		relatedKey := relatedModel.FieldsByDbName[relation.RelatedColumn]
+		groupKeyStr := fmt.Sprint(related.FieldByIndex([]int{relatedKey.Index}))
 		groupKey := reflect.ValueOf(groupKeyStr)
-		groupedResults.SetMapIndex(groupKey, result.Addr())
+		groupedResults.SetMapIndex(groupKey, related.Addr())
 	}
 
-	targetSlice := reflect.Indirect(reflect.ValueOf(models))
-	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.FieldName].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfColumn].Index
-	if rvP, ok := models.(*reflect.Value); ok {
+	targetSlice := reflect.Indirect(reflect.ValueOf(selfModels))
+
+	selfColumn := selfModel.FieldsByDbName[relation.SelfColumn]
+	selfColumnIndex := selfColumn.Index
+	selfRelationField := selfModel.FieldsByStructName[relation.Relation.FieldName]
+
+	if rvP, ok := selfModels.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
-			modelKey := model.Field(modelKeyFieldIndex)
+			modelKey := model.Field(selfColumnIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
-				if relationFieldIsPtr {
-					model.Field(modelRelationFieldIndex).Set(value)
+				if isPtr {
+					model.Field(selfRelationField.Index).Set(value)
 				} else {
-					model.Field(modelRelationFieldIndex).Set(value.Elem())
+					model.Field(selfRelationField.Index).Set(value.Elem())
 				}
 			}
 		}
 	} else if targetSlice.Type().Kind() != reflect.Slice {
 		model := targetSlice
-		modelKey := model.Field(modelKeyFieldIndex)
+		modelKey := model.Field(selfColumnIndex)
 		modelKeyStr := fmt.Sprint(modelKey)
 		value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 		if value.IsValid() {
-			if !model.Field(modelRelationFieldIndex).CanSet() {
-				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.FieldName].Name))
+			if !model.Field(selfRelationField.Index).CanSet() {
+				panic(fmt.Sprintf("model: %s field: %s cant be set", selfModel.Name, selfModel.FieldsByDbName[relation.SelfColumn].Name))
 			}
-			if relationFieldIsPtr {
-				model.Field(modelRelationFieldIndex).Set(value)
+			if isPtr {
+				model.Field(selfRelationField.Index).Set(value)
 			} else {
-				model.Field(modelRelationFieldIndex).Set(value.Elem())
+				model.Field(selfRelationField.Index).Set(value.Elem())
 			}
 		}
 
@@ -96,17 +107,17 @@ func MatchBelongsTo(models interface{}, related interface{}, relation *BelongsTo
 		//iterate parentmodels find its match relation and set its relation field
 		for i := 0; i < targetSlice.Len(); i++ {
 			model := targetSlice.Index(i)
-			modelKey := model.Field(modelKeyFieldIndex)
+			modelKey := model.Field(selfColumnIndex)
 			modelKeyStr := fmt.Sprint(modelKey)
 			value := groupedResults.MapIndex(reflect.ValueOf(modelKeyStr))
 			if value.IsValid() {
-				if !model.Field(modelRelationFieldIndex).CanSet() {
-					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.FieldName].Name))
+				if !model.Field(selfColumnIndex).CanSet() {
+					panic(fmt.Sprintf("model: %s field: %s cant be set", selfModel.Name, selfModel.FieldsByStructName[relation.Relation.FieldName].Name))
 				}
-				if relationFieldIsPtr {
-					model.Field(modelRelationFieldIndex).Set(value)
+				if isPtr {
+					model.Field(selfRelationField.Index).Set(value)
 				} else {
-					model.Field(modelRelationFieldIndex).Set(value.Elem())
+					model.Field(selfRelationField.Index).Set(value.Elem())
 				}
 			}
 		}

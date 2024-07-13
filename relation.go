@@ -107,10 +107,9 @@ func (m *EloquentModel) BelongsTo(selfModelPointer, relatedModelPointer interfac
 			RelationTypeName: RelationBelongsTo,
 			EloquentBuilder:  b,
 		},
-		SelfColumn: selfColumn,
+		SelfColumn:    selfColumn,
+		RelatedColumn: relatedColumn,
 	}
-	relatedModel := GetParsedModel(relatedModelPointer)
-	relation.RelatedColumn = relatedModel.Table + "." + relatedColumn
 	relation.AddConstraints()
 
 	return &relation

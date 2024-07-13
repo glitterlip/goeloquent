@@ -2,62 +2,88 @@ package tests
 
 import (
 	_ "fmt"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestBelongsTo(t *testing.T) {
-	c, d := CreateRelationTables()
-	RunWithDB(c, d, func() {
-		//test saving,saved
-		var u1, u2, u3 User
-		u1.UserName = "u1"
-		u2.UserName = "u2"
-		u3.UserName = "u3"
-		DB.Create(&u1)
-		DB.Create(&u2)
-		DB.Create(&u3)
-		var p1, p2, p3, p4 Post
-		var pp1, pp4 Post
-		var ps []Post
-		p1.Title = "Intro"
-		p2.Title = "Intro2"
-		p3.Title = "Intro3"
-		p4.Title = "Intro4"
-		p1.AuthorId = u2.Id
-		p2.AuthorId = u3.Id
-		p3.AuthorId = u1.Id
-		DB.Save(&p1)
-		DB.Save(&p2)
-		DB.Save(&p3)
-		DB.Save(&p4)
-		//test find
-		DB.Model(&p1).With("Author").Find(&pp1, p1.ID)
-		assert.Equal(t, pp1.AuthorId, u2.Id)
-		assert.Equal(t, pp1.Author.Id, pp1.AuthorId)
-		//test get
-		result, err := DB.Model(&Post{}).With("Author").WhereIn("pid", []int64{p2.ID, p3.ID}).Get(&ps)
-		assert.Nil(t, err)
-		count, _ := result.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(2), count)
-		assert.Equal(t, 2, len(ps))
-		for _, p := range ps {
-			assert.Equal(t, p.AuthorId, p.Author.Id)
+	CreateUsers()
+	//test get eager load
+	//select * from `user_models` where `user_models`.`id` is not null and `user_models`.`id` in (?,?,?,?,?,?,?,?) and `deleted_at` is null
+	//[5 5 4 2 1 1 2 4]
+	var ps []Post
+	r, e := DB.Model(&ps).With("User").Get(&ps)
+	assert.Nil(t, e)
+	assert.Equal(t, r.Count, int64(8))
+	for _, p := range ps {
+		assert.True(t, p.User.ID == p.UserId)
+		assert.True(t, p.User.IsBooted)
+	}
+	//test get eager load with constraints
+	//select * from `user_models` where `user_models`.`id` is not null and `user_models`.`id` in (?,?,?,?,?,?,?,?) and (`status` = ? or `email` = ?) and `deleted_at` is null
+	//[5 5 4 2 1 1 2 4 1 1]
+	var ps2 []Post
+	r, e = DB.Model(&ps2).With(map[string]func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"User": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			q.Where(func(cq *goeloquent.Builder) *goeloquent.Builder {
+				return cq.Where("status", 1).OrWhere("email", 1)
+			})
+			return q
+		}}).Get(&ps2)
+	assert.Nil(t, e)
+	assert.Equal(t, r.Count, int64(8))
+	var uc int
+	for _, p := range ps2 {
+		if p.User.ID > 0 {
+			uc++
+			assert.True(t, p.User.ID == p.UserId)
+			assert.True(t, p.User.IsBooted)
+			assert.True(t, p.User.Status == 1 || p.User.Email == "123")
 		}
-		//test not find
-		c, err := DB.Model(&p1).With("Author").Find(&pp4, p4.ID)
-		count, _ = c.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(1), count)
-		assert.Equal(t, int64(0), pp4.Author.Id)
-		assert.Equal(t, int64(0), pp4.AuthorId)
-		//test lazyload
-		var lazy Post
-		var lazyUser User
-		DB.Model(&p1).Find(&lazy, p2.ID)
-		lazy.AuthorRelation().Get(&lazyUser)
-		assert.Equal(t, lazy.AuthorId, lazyUser.Id)
-	})
-	//TODO: test create update
+	}
+	assert.Equal(t, uc, 4)
+	//test find eager load with constraints
+	//select * from `user_models` where `user_models`.`id` is not null and `user_models`.`id` in (?) and (`status` = ? or `email` = ?) and `deleted_at` is null
+	//[5 1 123]
+	var ps3 Post
+	r, e = DB.Model(&ps3).With(map[string]func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"User": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			q.Where(func(cq *goeloquent.Builder) *goeloquent.Builder {
+				return cq.Where("status", 1).OrWhere("email", "123")
+			})
+			return q
+		}}).Find(&ps3, 1)
+	assert.Nil(t, e)
+	assert.True(t, ps3.User.ID == ps3.UserId)
+	assert.True(t, ps3.User.IsBooted)
+	assert.True(t, ps3.User.Status == 1 || ps3.User.Email == "123")
+
+	//test relation get
+
+	var ps4 Post
+	r, e = DB.Model(&ps4).Find(&ps4, 6)
+	assert.Nil(t, e)
+	assert.Equal(t, ps4.UserId, int64(1))
+	var owner User
+	//select * from `user_models` where `user_models`.`id` = ? and `user_models`.`id` is not null and `deleted_at` is null
+	//[1]
+	r, e = ps4.UserRelation().Get(&owner)
+	assert.Nil(t, e)
+	assert.NotNil(t, owner)
+	assert.True(t, owner.ID == ps4.UserId)
+	assert.True(t, owner.IsBooted)
+	var ps5 Post
+	r, e = DB.Model(&ps5).Find(&ps5, 5)
+	assert.Nil(t, e)
+	var owner2 User
+	//select * from `user_models` where `user_models`.`id` = ? and `user_models`.`id` is not null and (`status` = ? or `email` = ?) and `deleted_at` is null
+	//[1 1 qwe]
+	r, e = ps5.UserRelation().Where(func(q *goeloquent.Builder) {
+		q.Where("status", 1).OrWhere("email", "qwe")
+	}).Get(&owner2)
+	assert.Nil(t, e)
+	assert.Equal(t, owner2.ID, ps5.UserId)
+	assert.True(t, owner2.Status == 1 || owner2.Email == "qwe")
+
 }
