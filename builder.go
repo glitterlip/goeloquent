@@ -304,7 +304,9 @@ func (b *Builder) CloneWithoutBindings(bindings ...string) *Builder {
 // Select set the columns to be selected
 func (b *Builder) Select(columns ...interface{}) *Builder {
 	b.Components[TYPE_COLUMN] = struct{}{}
-	b.Columns = []interface{}{}
+	if b.Columns == nil {
+		b.Columns = []interface{}{}
+	}
 
 	for i := 0; i < len(columns); i++ {
 		switch columnType := columns[i].(type) {
