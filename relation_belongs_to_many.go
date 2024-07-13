@@ -18,13 +18,13 @@ type BelongsToManyRelation struct {
 }
 
 func (r *BelongsToManyRelation) AddConstraints() {
-	r.Builder.Where(r.RelatedColumn, "=", r.GetSelfKey(r.SelfColumn))
+	r.Builder.Where(r.PivotTable+"."+r.PivotSelfColumn, "=", r.GetSelfKey(r.SelfColumn))
 }
 
-func (r *BelongsToManyRelation) AddEagerConstraints(parentModels interface{}) {
+func (r *BelongsToManyRelation) AddEagerConstraints(selfModels interface{}) {
 	selfParsedModel := GetParsedModel(r.SelfModel)
 	index := selfParsedModel.FieldsByDbName[r.SelfColumn].Index
-	modelSlice := reflect.Indirect(reflect.ValueOf(parentModels))
+	modelSlice := reflect.Indirect(reflect.ValueOf(selfModels))
 	var selfKeys []interface{}
 	if modelSlice.Type().Kind() == reflect.Slice {
 		for i := 0; i < modelSlice.Len(); i++ {
@@ -32,7 +32,7 @@ func (r *BelongsToManyRelation) AddEagerConstraints(parentModels interface{}) {
 			modelKey := reflect.Indirect(model).Field(index).Interface()
 			selfKeys = append(selfKeys, modelKey)
 		}
-	} else if ms, ok := parentModels.(*reflect.Value); ok {
+	} else if ms, ok := selfModels.(*reflect.Value); ok {
 		for i := 0; i < ms.Len(); i++ {
 			modelKey := ms.Index(i).Field(index).Interface()
 			selfKeys = append(selfKeys, modelKey)
@@ -42,14 +42,16 @@ func (r *BelongsToManyRelation) AddEagerConstraints(parentModels interface{}) {
 		modelKey := model.Field(index).Interface()
 		selfKeys = append(selfKeys, modelKey)
 	}
+	//remove first where clause to simulate the Relation::noConstraints function in laravel
+	r.Wheres = r.Wheres[1:]
+	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
 	r.Builder.WhereIn(r.PivotTable+"."+r.PivotSelfColumn, selfKeys)
 }
-func MatchBelongsToMany(models interface{}, relatedModelsR interface{}, relation *BelongsToManyRelation) {
-	relatedModels := relatedModelsR.(reflect.Value)
+func MatchBelongsToMany(selfModels interface{}, relatedModels reflect.Value, relation *BelongsToManyRelation) {
 	parsedRelatedModel := GetParsedModel(relation.RelatedModel)
-	self := GetParsedModel(relation.SelfModel)
+	selfParsedModel := GetParsedModel(relation.SelfModel)
 
-	isPtr := self.FieldsByStructName[relation.Relation.FieldName].FieldType.Elem().Kind() == reflect.Ptr
+	isPtr := selfParsedModel.FieldsByStructName[relation.Relation.FieldName].FieldType.Elem().Kind() == reflect.Ptr
 	var relatedType reflect.Type
 	if isPtr {
 		relatedType = reflect.ValueOf(relation.Relation.RelatedModel).Type()
@@ -65,8 +67,9 @@ func MatchBelongsToMany(models interface{}, relatedModelsR interface{}, relation
 	}
 	for i := 0; i < relatedModels.Len(); i++ {
 		relatedModel := relatedModels.Index(i)
-		eloquentModelPtr := relatedModel.FieldByIndex([]int{parsedRelatedModel.EloquentModelFieldIndex})
-		pivotMap := eloquentModelPtr.Elem().FieldByIndex([]int{parsedRelatedModel.PivotFieldIndex}).Interface().(map[string]interface{})
+		eloquentModelPtr := relatedModel.Field(parsedRelatedModel.EloquentModelFieldIndex)
+
+		pivotMap := eloquentModelPtr.Elem().Field(EloquentModelPivotFieldIndex).Interface().(map[string]interface{})
 		groupKey := reflect.ValueOf(pivotMap[pivotSelfKey].(string))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
@@ -85,12 +88,12 @@ func MatchBelongsToMany(models interface{}, relatedModelsR interface{}, relation
 		groupedResults.SetMapIndex(groupKey, reflect.ValueOf(ptr.Elem()))
 	}
 
-	targetSlice := reflect.Indirect(reflect.ValueOf(models))
+	targetSlice := reflect.Indirect(reflect.ValueOf(selfModels))
 
-	modelRelationFieldIndex := self.FieldsByStructName[relation.Relation.FieldName].Index
-	modelKeyFieldIndex := self.FieldsByDbName[relation.SelfColumn].Index
+	modelRelationFieldIndex := selfParsedModel.FieldsByStructName[relation.Relation.FieldName].Index
+	modelKeyFieldIndex := selfParsedModel.FieldsByDbName[relation.SelfColumn].Index
 
-	if rvP, ok := models.(*reflect.Value); ok {
+	if rvP, ok := selfModels.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			e := rvP.Index(i)
 			modelKey := e.Field(modelKeyFieldIndex)
@@ -110,7 +113,7 @@ func MatchBelongsToMany(models interface{}, relatedModelsR interface{}, relation
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
 			if !model.Field(modelRelationFieldIndex).CanSet() {
-				panic(fmt.Sprintf("model: %s field: %s cant be set", self.Name, self.FieldsByStructName[relation.Relation.FieldName].Name))
+				panic(fmt.Sprintf("model: %s field: %s cant be set", selfParsedModel.Name, selfParsedModel.FieldsByStructName[relation.Relation.FieldName].Name))
 			}
 			model.Field(modelRelationFieldIndex).Set(value)
 		}
@@ -123,7 +126,7 @@ func MatchBelongsToMany(models interface{}, relatedModelsR interface{}, relation
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
 				if !model.Field(modelRelationFieldIndex).CanSet() {
-					panic(fmt.Sprintf("model: %s field: %s cant be set", self.Name, self.FieldsByStructName[relation.Relation.FieldName].Name))
+					panic(fmt.Sprintf("model: %s field: %s cant be set", selfParsedModel.Name, selfParsedModel.FieldsByStructName[relation.Relation.FieldName].Name))
 				}
 				model.Field(modelRelationFieldIndex).Set(value)
 			}

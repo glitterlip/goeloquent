@@ -67,6 +67,9 @@ func BatchSync(models interface{}, exists ...bool) {
 					model = model.Elem()
 				}
 				newModel := reflect.ValueOf(NewEloquentModel(model.Addr().Interface(), exist))
+				if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsZero() {
+					newModel.Elem().Field(EloquentModelPivotFieldIndex).Set(model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}))
+				}
 				model.Field(parsed.EloquentModelFieldIndex).Set(newModel)
 			}
 		}
@@ -75,8 +78,9 @@ func BatchSync(models interface{}, exists ...bool) {
 		if parsed.IsEloquent {
 			model := realModels
 			newModel := reflect.ValueOf(NewEloquentModel(model.Addr().Interface(), exist))
-			if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.Field(parsed.PivotFieldIndex).IsZero() {
-				newModel.Elem().Field(parsed.PivotFieldIndex).Set(model.Field(parsed.PivotFieldIndex))
+			//copy pivot columns to new EloquentModel
+			if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsZero() {
+				newModel.Elem().Field(EloquentModelPivotFieldIndex).Set(model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}))
 			}
 			model.Field(parsed.EloquentModelFieldIndex).Set(newModel)
 		}
@@ -84,7 +88,7 @@ func BatchSync(models interface{}, exists ...bool) {
 	return
 }
 
-const EloquentModelPivotFieldIndex = 5
+const EloquentModelPivotFieldIndex = 4
 const EloquentModelContextFieldIndex = 11
 
 // EloquentModel is the base model for all models

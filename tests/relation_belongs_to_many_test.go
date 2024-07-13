@@ -2,129 +2,82 @@ package tests
 
 import (
 	_ "fmt"
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
-	"strconv"
+	_ "github.com/stretchr/testify/assert"
+	_ "strconv"
 	"testing"
-	"time"
+	_ "time"
 )
 
 func TestBelongsToMany(t *testing.T) {
-	c, d := CreateRelationTables()
-	RunWithDB(c, d, func() {
-		//test saving,saved
-		var u1, u2, u3, u4, u5 User
-		var us []User
-		var uu1, uu2 User
-		u1.UserName = "u1"
-		u2.UserName = "u2"
-		u3.UserName = "u3"
-		u4.UserName = "u4"
-		u5.UserName = "u5"
-		DB.Save(&u1)
-		DB.Save(&u2)
-		DB.Save(&u3)
-		DB.Save(&u4)
-		DB.Save(&u5)
-		DB.Table("friends").Insert([]map[string]interface{}{
-			{
-				"user_id":    u1.Id,
-				"friend_id":  u2.Id,
-				"status":     FriendStatusWaiting,
-				"time":       time.Now(),
-				"additional": "hi I am John",
-			},
-			{
-				"user_id":    u1.Id,
-				"friend_id":  u3.Id,
-				"status":     FriendStatusNormal,
-				"time":       time.Now(),
-				"additional": "Jack",
-			},
-			{
-				"user_id":    u1.Id,
-				"friend_id":  u4.Id,
-				"status":     FriendStatusNormal,
-				"time":       time.Now(),
-				"additional": "Sam",
-			},
-			{
-				"user_id":    u1.Id,
-				"friend_id":  u5.Id,
-				"status":     FriendStatusBlocked,
-				"time":       time.Now(),
-				"additional": "moron",
-			},
-			{
-				"user_id":    u2.Id,
-				"friend_id":  u3.Id,
-				"status":     FriendStatusNormal,
-				"time":       time.Now(),
-				"additional": "Sara",
-			},
-			{
-				"user_id":    u2.Id,
-				"friend_id":  u4.Id,
-				"status":     FriendStatusNormal,
-				"time":       time.Now(),
-				"additional": "Anna",
-			},
-			{
-				"user_id":    u2.Id,
-				"friend_id":  u5.Id,
-				"status":     FriendStatusWaiting,
-				"time":       time.Now(),
-				"additional": "hi I am Alice",
-			},
-			{
-				"user_id":    u2.Id,
-				"friend_id":  u1.Id,
-				"status":     FriendStatusDeleted,
-				"time":       time.Now(),
-				"additional": "",
-			},
-		})
 
-		//test find
-		mapping := map[string]interface{}{
-			"status":     0,
-			"user_id":    0,
-			"friend_id":  0,
-			"additional": "",
+	var rs []Role
+	//select `user_models`.*, `role_users`.`role_id` as `goelo_orm_pivot_role_id`, `role_users`.`user_id` as `goelo_orm_pivot_user_id`, `role_users`.`meta` as `goelo_pivot_meta`, `role_users`.`status` as `goelo_pivot_status`, `role_users`.`role_id` as `goelo_pivot_role_id`, `role_users`.`user_id` as `goelo_pivot_user_id` from `user_models` inner join `role_users` on `role_users`.`user_id` = `user_models`.`id` where `role_users`.`role_id` in (?,?,?) and (`user_models`.`status` = ? or `user_models`.`email` is not null) and `user_models`.`deleted_at` is null and `role_users`.`status` = ?
+	//[1 2 3 1 1]
+	_, e := DB.Model(&rs).With(map[string]func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Users": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return q.Where(func(b *goeloquent.Builder) *goeloquent.Builder {
+				return b.Where("user_models.status", 1).OrWhereNotNull("user_models.email")
+			}).WherePivot("role_users.status", 1).WithPivot("role_users.meta", "role_users.status", "role_users.role_id", "role_users.user_id")
+		},
+	}).Get(&rs)
+	assert.Nil(t, e)
+	for _, r := range rs {
+		for _, u := range r.Users {
+			assert.True(t, u.IsBooted)
+			assert.True(t, u.Pivot["meta"] != "")
+			assert.True(t, u.Pivot["status"].(int64) == 1)
+			assert.True(t, u.ID > 0)
+			assert.True(t, u.Status == 1 || u.Email != "")
+			assert.True(t, u.Pivot["role_id"].(int64) == r.ID)
+			assert.True(t, u.Pivot["user_id"].(int64) == u.ID)
 		}
-		_, err := DB.Model(&u1).With("Friends").WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "friend_id", "additional").Mapping(mapping).Find(&uu1, u1.Id)
-		assert.Nil(t, err)
-		assert.Equal(t, 2, len(uu1.Friends))
-		for _, friend := range uu1.Friends {
-			assert.Equal(t, friend.Pivot["status"].(int), int(FriendStatusNormal))
-			assert.Equal(t, friend.Pivot["user_id"].(int), int(u1.Id))
-		}
-		//test get
-		result, err := DB.Model(&u1).With("Friends").WhereIn("id", []int64{u1.Id, u2.Id}).Get(&us)
-		assert.Nil(t, err)
-		count, _ := result.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(2), count)
-		for _, u := range us {
-			for _, friend := range u.Friends {
-				assert.Equal(t, friend.Pivot["goelo_orm_pivot_user_id"].(string), strconv.Itoa(int(u.Id)))
-			}
-		}
-		//test not find
-		c, err := DB.Model(&u1).With("Friends").Find(&uu2, u3.Id)
-		count, _ = c.RowsAffected()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(1), count)
-		assert.Equal(t, 0, len(uu2.Friends))
-		//test lazyload
-		var lazy User
-		var lazyUser []User
-		DB.Model(&u1).Find(&lazy, u1.Id)
-		lazy.FriendsRelation().WherePivot("status", FriendStatusNormal).WithPivot("status", "user_id", "additional").Mapping(mapping).Get(&lazyUser)
-		assert.Equal(t, 2, len(lazyUser))
-		for _, friend := range lazyUser {
-			assert.Equal(t, friend.Pivot["status"].(int), FriendStatusNormal)
-			assert.Equal(t, friend.Pivot["user_id"].(int), int(lazy.Id))
-		}
-	})
-	//TODO: test create update
+	}
+
+	//select `user_models`.*, `role_users`.`role_id` as `goelo_orm_pivot_role_id`, `role_users`.`user_id` as `goelo_orm_pivot_user_id`, `role_users`.`meta` as `goelo_pivot_meta`, `role_users`.`status` as `goelo_pivot_status`, `role_users`.`role_id` as `goelo_pivot_role_id`, `role_users`.`user_id` as `goelo_pivot_user_id` from `user_models` inner join `role_users` on `role_users`.`user_id` = `user_models`.`id` where `role_users`.`role_id` in (?) and (`user_models`.`status` = ? or `user_models`.`email` is not null) and `user_models`.`deleted_at` is null and `role_users`.`status` = ?
+	//[1 1 1]
+	var r Role
+	_, e = DB.Model(&r).With(map[string]func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Users": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return q.Where(func(b *goeloquent.Builder) *goeloquent.Builder {
+				return b.Where("user_models.status", 1).OrWhereNotNull("user_models.email")
+			}).WherePivot("role_users.status", 1).WithPivot("role_users.meta", "role_users.status", "role_users.role_id", "role_users.user_id")
+		},
+	}).Find(&r, 1)
+	assert.Nil(t, e)
+	assert.True(t, len(r.Users) > 0)
+	for _, u := range r.Users {
+		assert.True(t, u.IsBooted)
+		assert.True(t, u.Pivot["meta"] != "")
+		assert.True(t, u.Pivot["status"].(int64) == 1)
+		assert.True(t, u.ID > 0)
+		assert.True(t, u.Status == 1 || u.Email != "")
+		assert.True(t, u.Pivot["role_id"].(int64) == r.ID)
+		assert.True(t, u.Pivot["user_id"].(int64) == u.ID)
+	}
+
+	//select `user_models`.*, `role_users`.`role_id` as `goelo_orm_pivot_role_id`, `role_users`.`user_id` as `goelo_orm_pivot_user_id`, `role_users`.`meta` as `goelo_pivot_meta`, `role_users`.`status` as `goelo_pivot_status`, `role_users`.`role_id` as `goelo_pivot_role_id`, `role_users`.`user_id` as `goelo_pivot_user_id` from `user_models` inner join `role_users` on `role_users`.`user_id` = `user_models`.`id` where `role_users`.`role_id` = ? and (`user_models`.`status` = ? or `user_models`.`email` is not null) and `user_models`.`deleted_at` is null and `role_users`.`status` = ?
+	//[1 1 1]
+	var r2 Role
+	_, e = DB.Model(&r2).Find(&r2, 1)
+	assert.Nil(t, e)
+	assert.True(t, len(r2.Users) == 0)
+	var us []User
+	_, e = r2.UsersRelation().Where(func(b *goeloquent.Builder) *goeloquent.Builder {
+		return b.Where("user_models.status", 1).OrWhereNotNull("user_models.email")
+	}).WherePivot("role_users.status", 1).
+		WithPivot("role_users.meta", "role_users.status", "role_users.role_id", "role_users.user_id").
+		Get(&us)
+	assert.Nil(t, e)
+	assert.True(t, len(us) > 0)
+	for _, u := range us {
+		assert.True(t, u.IsBooted)
+		assert.True(t, u.Pivot["meta"] != "")
+		assert.True(t, u.Pivot["status"].(int64) == 1)
+		assert.True(t, u.ID > 0)
+		assert.True(t, u.Status == 1 || u.Email != "")
+		assert.True(t, u.Pivot["role_id"].(int64) == r2.ID)
+		assert.True(t, u.Pivot["user_id"].(int64) == u.ID)
+	}
 }

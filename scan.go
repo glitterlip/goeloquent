@@ -136,8 +136,8 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
-			eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
-			v.FieldByIndex([]int{model.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).Set(eloquentPtr)
+			eloquentModel.Field(EloquentModelPivotFieldIndex).Set(reflect.ValueOf(t))
+			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
 		}
 		if itemIsPtr {
 			realDest.Set(reflect.Append(realDest, vp))
@@ -203,7 +203,7 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
-			eloquentModel.Field(model.PivotFieldIndex).Set(reflect.ValueOf(t))
+			eloquentModel.Field(EloquentModelPivotFieldIndex).Set(reflect.ValueOf(t))
 			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
 		}
 		*destValue = reflect.Append(*destValue, v)

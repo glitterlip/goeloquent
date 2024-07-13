@@ -169,6 +169,14 @@ func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result 
 			}
 		}
 	}
+	if len(b.EagerLoad) == 0 {
+		if len(b.Pivots) > 0 {
+			WithPivots(b, b.Pivots)
+		}
+		if len(b.PivotWheres) > 0 {
+			WherePivots(b, b.PivotWheres)
+		}
+	}
 	result, err = b.Builder.Get(dest, columns...)
 
 	if err == nil && b.BaseModel.IsEloquent && d.Kind() == reflect.Struct {
@@ -178,15 +186,6 @@ func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result 
 			m.Call([]reflect.Value{})
 		}
 
-	}
-
-	if len(b.EagerLoad) == 0 {
-		if len(b.Pivots) > 0 {
-			WithPivots(b, b.Joins[0].Table, b.Pivots)
-		}
-		if len(b.PivotWheres) > 0 {
-			WherePivots(b, b.Joins[0].Table, b.PivotWheres)
-		}
 	}
 	if len(b.EagerLoad) > 0 && result.Count > 0 {
 		b.EagerLoadRelations(dest)
@@ -419,8 +418,16 @@ func (b *EloquentBuilder) WherePivot(params ...interface{}) *EloquentBuilder {
 		Value:    value,
 		Boolean:  boolean,
 	})
+	b.AddBinding([]interface{}{value}, TYPE_WHERE)
+	b.Components[TYPE_WHERE] = struct{}{}
 	return b
 }
+
+/*
+WithPivot Set the columns on the pivot table to retrieve.
+
+1. WithPivot("user_roles.status","user_roles.expired_at")
+*/
 func (b *EloquentBuilder) WithPivot(columns ...string) *EloquentBuilder {
 	b.Pivots = append(b.Pivots, columns...)
 	return b
@@ -484,19 +491,19 @@ func (b *EloquentBuilder) UpdateOrCreate(target interface{}, conditions, values 
 
 }
 func (b *EloquentBuilder) LoadPivotColumns(relation RelationI) {
-	switch relationT := relation.(type) {
+	switch relation.(type) {
 	case *BelongsToManyRelation:
 	case *MorphToManyRelation:
 	case *MorphByManyRelation:
-		WithPivots(b, relationT.PivotTable, b.Pivots)
+		WithPivots(b, b.Pivots)
 	}
 }
 func (b *EloquentBuilder) LoadPivotWheres(relation RelationI) {
-	switch relation := relation.(type) {
+	switch r := relation.(type) {
 	case *BelongsToManyRelation:
 	case *MorphToManyRelation:
 	case *MorphByManyRelation:
-		WherePivots(relation.EloquentBuilder, relation.PivotTable, b.PivotWheres)
+		WherePivots(r.EloquentBuilder, b.PivotWheres)
 	}
 }
 func (b *EloquentBuilder) GetEager(relationT RelationI) reflect.Value {
@@ -512,7 +519,7 @@ func (b *EloquentBuilder) GetEager(relationT RelationI) reflect.Value {
 		relationResults := reflect.MakeSlice(reflect.SliceOf(b.BaseModel.ModelType), 0, 10)
 		_, err := b.Get(&relationResults)
 		if err != nil {
-			panic(err.Error())
+			panic(err.Error() + "\n " + b.PreparedSql)
 		}
 		return relationResults
 	case *MorphToRelation:
@@ -586,27 +593,19 @@ func (b *EloquentBuilder) WithAggregate(relation []interface{}, column string, f
 func (b *EloquentBuilder) WithCount(relation []interface{}) *EloquentBuilder {
 	return b.WithAggregate(relation, "*", "count")
 }
-func WithPivots(builder *EloquentBuilder, table string, columns []string) {
+func WithPivots(builder *EloquentBuilder, columns []string) {
 	for _, pivot := range columns {
 		if strings.Contains(pivot, ".") {
-			if strings.Contains(pivot, table) {
-				builder.Select(fmt.Sprintf("%s.%s as %s%s", table, pivot, PivotAlias, pivot))
-			}
-		} else {
-			builder.Select(fmt.Sprintf("%s.%s as %s%s", table, pivot, PivotAlias, pivot))
+			ss := strings.SplitN(pivot, ".", 2)
+			column := ss[1]
+			//user_roles.status => goelo_pivot_status
+			builder.Select(fmt.Sprintf("%s as %s%s", pivot, PivotAlias, column))
 		}
 	}
 }
-func WherePivots(builder *EloquentBuilder, table string, wheres []Where) {
+func WherePivots(builder *EloquentBuilder, wheres []Where) {
 	for _, where := range wheres {
-		if strings.Contains(where.Column, ".") {
-			if strings.Contains(where.Column, table) {
-				sa := strings.SplitN(where.Column, ".", 2)
-				builder.Where(table+"."+sa[1], where.Operator, where.Value, where.Boolean)
-			}
-		} else {
-			builder.Where(table+"."+where.Column, where.Operator, where.Value, where.Boolean)
-		}
+		builder.Where(where)
 	}
 }
 

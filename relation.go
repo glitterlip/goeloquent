@@ -135,7 +135,7 @@ func (m *EloquentModel) BelongsToMany(selfModelPointer, relatedModelPointer inte
 	b.Select(relatedModel.Table + "." + "*")
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfColumn, OrmPivotAlias, relation.PivotSelfColumn))
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedColumn, OrmPivotAlias, relation.PivotRelatedColumn))
-	b.Where(relation.PivotSelfColumn, selfModelColumn)
+	relation.AddConstraints()
 	return &relation
 
 }
