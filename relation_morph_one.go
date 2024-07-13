@@ -34,15 +34,18 @@ func (r *MorphOneRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
-	r.Builder.WhereNotNull(r.RelatedModelIdColumn)
-	r.Builder.Where(r.RelatedModelTypeColumn, r.RelatedModelTypeColumnValue)
+	//remove first where clause to simulate the Relation::noConstraints function in laravel
+	r.Wheres = r.Wheres[1:]
+	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
 	r.Builder.WhereIn(r.RelatedModelIdColumn, keys)
 }
 func (r *MorphOneRelation) AddConstraints() {
 	selfParsedModel := GetParsedModel(r.SelfModel)
 	selfDirect := reflect.Indirect(reflect.ValueOf(r.SelfModel))
+	r.Builder.Where(r.RelatedModelIdColumn, "=", selfDirect.Field(selfParsedModel.FieldsByDbName[r.SelfColumn].Index).Interface())
 	r.Builder.Where(r.RelatedModelTypeColumn, r.RelatedModelTypeColumnValue)
-	r.Builder.Where(r.RelatedModelIdColumn, "=", selfDirect.Field(selfParsedModel.FieldsByDbName[r.RelatedModelIdColumn].Index).Interface())
+	r.Builder.WhereNotNull(r.RelatedModelIdColumn)
+
 }
 func MatchMorphOne(models interface{}, related interface{}, relation *MorphOneRelation) {
 	relatedModelsValue := related.(reflect.Value)

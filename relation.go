@@ -182,21 +182,25 @@ func (m *EloquentModel) MorphTo(selfModelPointer interface{}, selfRelatedIdColum
 /*
 MorphOne Define a polymorphic one-to-one relationship.
 */
-func (m *EloquentModel) MorphOne(selfModelPointer, relatedModelPointer interface{}, selfColumn, relatedModelTypeColumn, relatedModelIdColumn string) *MorphOneRelation {
+func (m *EloquentModel) MorphOne(selfModelPointer, relatedModelPointer interface{}, selfColumn, relatedModelIdColumn, relatedModelTypeColumn string, morphType ...string) *MorphOneRelation {
 	b := NewRelationBaseBuilder(relatedModelPointer)
 	relation := MorphOneRelation{
 		Relation: &Relation{
 			SelfModel:        selfModelPointer,
 			RelatedModel:     relatedModelPointer,
 			RelationTypeName: RelationMorphOne,
+			EloquentBuilder:  b,
 		},
 		RelatedModelIdColumn:   relatedModelIdColumn,
 		SelfColumn:             selfColumn,
 		RelatedModelTypeColumn: relatedModelTypeColumn,
 	}
 	selfModel := GetParsedModel(selfModelPointer)
-	relation.RelatedModelTypeColumnValue = GetMorphMap(selfModel.Name)
-	b.Where(relatedModelTypeColumn, "=", relation.RelatedModelTypeColumnValue)
+	if len(morphType) > 0 {
+		relation.RelatedModelTypeColumnValue = morphType[0]
+	} else {
+		relation.RelatedModelTypeColumnValue = GetMorphMap(selfModel.Name)
+	}
 	relation.AddConstraints()
 
 	return &relation
