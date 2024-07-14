@@ -231,8 +231,6 @@ func (m *EloquentModel) MorphMany(selfModelPointer, relatedModelPointer interfac
 		relation.RelatedModelTypeColumnValue = GetMorphMap(selfModel.Name)
 	}
 
-	b.Where(relatedModelTypeColumn, "=", relation.RelatedModelTypeColumnValue)
-
 	relation.AddConstraints()
 
 	return &relation

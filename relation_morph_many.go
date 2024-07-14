@@ -34,8 +34,10 @@ func (r *MorphManyRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
+	//remove first where clause to simulate the Relation::noConstraints function in laravel
+	r.Wheres = r.Wheres[1:]
+	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
 	r.Builder.WhereNotNull(r.RelatedModelIdColumn)
-	r.Builder.Where(r.RelatedModelTypeColumn, "=", r.RelatedModelTypeColumnValue)
 	r.Builder.WhereIn(r.RelatedModelIdColumn, keys)
 }
 func (r *MorphManyRelation) AddConstraints() {
