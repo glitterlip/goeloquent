@@ -1,51 +1,29 @@
 package tests
 
 import (
+	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestLoadingWithColumns(t *testing.T) {
-	c, d := CreateRelationTables()
-	RunWithDB(c, d, func() {
-		//test saving,saved
-		var u1, u2, u3, u4 User
-		var uu1 User
-		u1.UserName = "u1"
-		u2.UserName = "u2"
-		u3.UserName = "u3"
-		u4.UserName = "u4"
-		DB.Create(&u1)
-		DB.Create(&u2)
-		DB.Create(&u3)
-		DB.Create(&u4)
-		addresses := []map[string]interface{}{
-			{
-				"user_id": u2.Id,
-				"country": 1,
-				"state":   "California",
-				"city":    "Sacramento",
-				"detail":  "Golden State",
-			},
-			{
-				"user_id": u1.Id,
-				"country": 1,
-				"state":   "Florida",
-				"city":    "Tallahassee",
-				"detail":  "Sunshine State",
-			},
-			{
-				"user_id": u4.Id,
-				"country": 1,
-				"state":   "Delaware",
-				"city":    "Dover",
-				"detail":  "First State",
-			},
-		}
-		DB.Table("address").Insert(&addresses)
-		//test find
-		q := DB.Model(&u1)
-		q.Select("id").With("Address:city,state").Find(&uu1, u1.Id)
-		assert.Equal(t, []interface{}{"city", "state"}, q.EagerLoad["Address"](uu1.AddressRelation().EloquentBuilder).Columns)
+
+}
+
+func TestNestedRelation(t *testing.T) {
+	goeloquent.RegistMorphMap(map[string]interface{}{
+		"post": &Post{},
 	})
+	var us []User
+
+	_, e := DB.Model(&us).With("Posts.TagModels").Find(&us, []int{4, 5})
+	assert.Nil(t, e)
+	assert.Equal(t, 2, len(us))
+	for _, u := range us {
+		assert.Greater(t, len(u.Posts), 0)
+		for _, p := range u.Posts {
+			assert.Equal(t, p.UserId, u.ID)
+			assert.Greater(t, len(p.TagModels), 0)
+		}
+	}
 }

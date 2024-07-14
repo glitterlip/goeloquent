@@ -342,7 +342,7 @@ func (b *EloquentBuilder) EagerLoadRelation(models interface{}, model *Model, re
 		//load nested relations
 		wanted := relationName + "."
 		nestedRelation := make(map[string]func(eloquentBuilder *EloquentBuilder) *EloquentBuilder)
-		for name, f := range builder.EagerLoad {
+		for name, f := range b.EagerLoad {
 			if strings.Index(name, wanted) == 0 {
 				nestedRelation[strings.Replace(name, wanted, "", -1)] = f
 			}
