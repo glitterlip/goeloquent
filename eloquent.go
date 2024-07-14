@@ -524,7 +524,7 @@ func (b *EloquentBuilder) GetEager(relationT RelationI) reflect.Value {
 		return relationResults
 	case *MorphToRelation:
 		morphto := relation
-		relationResults := reflect.MakeMap(reflect.TypeOf(map[string]reflect.Value{}))
+		relationResults := map[string]reflect.Value{}
 		for key, keys := range morphto.Groups {
 			modelPointer := GetMorphDBMap(key)
 			models := reflect.MakeSlice(reflect.SliceOf(modelPointer.Type()), 0, 10)
@@ -535,9 +535,9 @@ func (b *EloquentBuilder) GetEager(relationT RelationI) reflect.Value {
 			if err != nil {
 				panic(err.Error())
 			}
-			relationResults.SetMapIndex(reflect.ValueOf(key), models)
+			relationResults[key] = models
 		}
-		return relationResults
+		return reflect.ValueOf(relationResults)
 	default:
 		panic(fmt.Sprintf("relation type %T not supported", relationT))
 	}

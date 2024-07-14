@@ -16,12 +16,8 @@ type MorphToResult struct {
 	MorphToResultP reflect.Value
 }
 
-func (m *MorphToResult) GetMorph() {
-
-}
-
 func (r *MorphToRelation) AddEagerConstraints(models interface{}) {
-	r.Builder.Wheres = nil
+
 	modelSlice := reflect.Indirect(reflect.ValueOf(models))
 	groups := make(map[string][]interface{})
 	if modelSlice.Type().Kind() == reflect.Slice {
@@ -64,45 +60,46 @@ func (r *MorphToRelation) AddEagerConstraints(models interface{}) {
 		groups[t] = []interface{}{id}
 	}
 	r.Groups = groups
+
 }
 func (r *MorphToRelation) AddConstraints() {
-
 	r.Builder.Where(r.RelatedModelIdColumn, "=", r.GetSelfKey(r.SelfRelatedIdColumn))
-	modelPointer := GetMorphDBMap(r.GetSelfKey(r.SelfRelatedTypeColumn).(string))
+	if key, ok := r.GetSelfKey(r.SelfRelatedTypeColumn).(string); ok && len(key) > 0 {
+		modelPointer := GetMorphDBMap(r.GetSelfKey(r.SelfRelatedTypeColumn).(string))
+		r.Relation.RelatedModel = modelPointer
+		r.EloquentBuilder.SetModel(modelPointer)
+	}
 
-	r.Relation.RelatedModel = modelPointer
-	r.EloquentBuilder.SetModel(modelPointer)
 }
-func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRelation) {
-	releatedValue := releated.(map[string]reflect.Value)
-	releatedResults := releatedValue
-	morphMapResults := make(map[string]map[string]reflect.Value)
-	parent := GetParsedModel(relation.SelfModel)
-	isPtr := parent.FieldsByStructName[relation.Relation.FieldName].FieldType.Kind() == reflect.Ptr
+func MatchMorphTo(selfModels interface{}, releated reflect.Value, relation *MorphToRelation) {
+	releatedResults := releated.Interface().(map[string]reflect.Value)
+	//releatedResults := releated
+	//map[string][]reflect.Value{}
+	morphMapResults := make(map[string]map[string]reflect.Value) //map[relatedTypeString]map[relatedIdString]reflect.Value
+	parsedSelfModel := GetParsedModel(relation.SelfModel)
+	isPtr := parsedSelfModel.FieldsByStructName[relation.Relation.FieldName].FieldType.Kind() == reflect.Ptr
+
 	for morphType, relatedSliceValue := range releatedResults {
 		groupedResults := make(map[string]reflect.Value)
+		parsedMorphModel := GetParsedModel(GetMorphDBMap(morphType).Type())
+
 		for i := 0; i < relatedSliceValue.Len(); i++ {
 			morphModelValue := relatedSliceValue.Index(i)
-			parsedMorphModel := GetParsedModel(GetMorphDBMap(morphType).Type())
 			ownerKeyIndex := parsedMorphModel.FieldsByDbName[relation.RelatedModelIdColumn].Index
 			idIndex := morphModelValue.Field(ownerKeyIndex)
 			idStr := fmt.Sprint(idIndex.Interface())
-			if isPtr {
-				groupedResults[idStr] = morphModelValue.Addr()
-			} else {
-				groupedResults[idStr] = morphModelValue
 
-			}
+			groupedResults[idStr] = morphModelValue
 		}
 		morphMapResults[morphType] = groupedResults
 	}
 
-	targetSlice := reflect.Indirect(reflect.ValueOf(models))
-	rv, ok := models.(*reflect.Value)
+	targetSlice := reflect.Indirect(reflect.ValueOf(selfModels))
+	rv, ok := selfModels.(*reflect.Value)
 
-	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.FieldName].Index
-	modelMorphIdFieldIndex := parent.FieldsByDbName[relation.SelfRelatedTypeColumn].Index
-	modelMorphTypeFieldIndex := parent.FieldsByDbName[relation.SelfRelatedIdColumn].Index
+	modelRelationFieldIndex := parsedSelfModel.FieldsByStructName[relation.Relation.FieldName].Index
+	modelMorphIdFieldIndex := parsedSelfModel.FieldsByDbName[relation.SelfRelatedIdColumn].Index
+	modelMorphTypeFieldIndex := parsedSelfModel.FieldsByDbName[relation.SelfRelatedTypeColumn].Index
 
 	if targetSlice.Type().Kind() != reflect.Slice && !ok {
 		model := targetSlice
@@ -115,13 +112,9 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 			morphedModel, ok := groupedResults[modelKeyStr]
 			if ok {
 				if !model.Field(modelRelationFieldIndex).CanSet() {
-					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.FieldName].Name))
+					panic(fmt.Sprintf("model: %s field: %s cant be set", parsedSelfModel.Name, parsedSelfModel.FieldsByStructName[relation.Relation.FieldName].Name))
 				}
-				if isPtr {
-					model.Field(modelRelationFieldIndex).Set(morphedModel.Addr())
-				} else {
-					model.Field(modelRelationFieldIndex).Set(morphedModel)
-				}
+				model.Field(modelRelationFieldIndex).Set(morphedModel)
 			}
 		}
 
@@ -140,7 +133,7 @@ func MatchMorphTo(models interface{}, releated interface{}, relation *MorphToRel
 				morphedModel, ok := morphedResults[modelKeyStr]
 				if ok {
 					if !model.Field(modelRelationFieldIndex).CanSet() {
-						panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.FieldName].Name))
+						panic(fmt.Sprintf("model: %s field: %s cant be set", parsedSelfModel.Name, parsedSelfModel.FieldsByStructName[relation.Relation.FieldName].Name))
 					}
 					if isPtr {
 						model.Field(modelRelationFieldIndex).Set(morphedModel.Addr())
