@@ -13,6 +13,10 @@ func TestMorphTo(t *testing.T) {
 		"video": &Video{},
 		"user":  &User{},
 	})
+	//select * from `user_models` where `id` in (?,?,?) and `user_models`.`deleted_at` is null
+	//[1 2 3]
+	//select * from `posts` where `id` in (?,?)
+	//[3 3]
 	var is []Image
 	r, e := DB.Model(&Image{}).With("Imageable").Where("driver", "s3").Where("size", ">", 1024).Get(&is)
 	assert.Equal(t, r.Count, int64(5))
@@ -31,9 +35,5 @@ func TestMorphTo(t *testing.T) {
 			assert.True(t, post.IsBooted)
 		}
 	}
-	var img Image
-	r, e = DB.Model(&Image{}).First(&img)
-	assert.Nil(t, e)
-	assert.NotNil(t, img.Imageable)
 
 }

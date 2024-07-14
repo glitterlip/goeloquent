@@ -32,8 +32,8 @@ const (
 
 	RelationMorphToMany Relations = "MorphToMany"
 	RelationMorphByMany Relations = "MorphByMany"
-	PivotAlias                    = "goelo_pivot_"
-	OrmPivotAlias                 = "goelo_orm_pivot_"
+	PivotAlias                    = "goelo_pivot_"     // used for pivot alias
+	OrmPivotAlias                 = "goelo_orm_pivot_" // used for orm pivot alias
 )
 
 type Relation struct {

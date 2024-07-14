@@ -37,8 +37,10 @@ func (r *MorphToManyRelation) AddEagerConstraints(models interface{}) {
 		modelKey := model.Field(index).Interface()
 		keys = append(keys, modelKey)
 	}
+	//remove first where clause to simulate the Relation::noConstraints function in laravel
+	r.Wheres = r.Wheres[1:]
+	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
 	r.Builder.WhereIn(r.PivotTable+"."+r.PivotRelatedIdColumn, keys)
-	r.Builder.Where(r.PivotSelfTypeColumn, r.SelfModelTypeColumnValue)
 
 }
 func (r *MorphToManyRelation) AddConstraints() {
@@ -47,12 +49,12 @@ func (r *MorphToManyRelation) AddConstraints() {
 	r.Builder.Where(r.PivotSelfIdColumn, selfDirect.Field(selfModel.FieldsByDbName[r.SelfIdColumn].Index).Interface())
 	r.Builder.Where(r.PivotSelfTypeColumn, r.SelfModelTypeColumnValue)
 }
-func MatchMorphToMany(models interface{}, related interface{}, relation *MorphToManyRelation) {
-	relatedValue := related.(reflect.Value)
-	relatedResults := relatedValue
-	relatedModel := GetParsedModel(relation.RelatedModel)
-	parent := GetParsedModel(relation.SelfModel)
-	isPtr := parent.FieldsByStructName[relation.Relation.FieldName].FieldType.Elem().Kind() == reflect.Ptr
+func MatchMorphToMany(selfModels interface{}, related reflect.Value, relation *MorphToManyRelation) {
+	relatedResults := related
+	relatedParsedModel := GetParsedModel(relation.RelatedModel)
+	selfParsedModel := GetParsedModel(relation.SelfModel)
+
+	isPtr := selfParsedModel.FieldsByStructName[relation.Relation.FieldName].FieldType.Elem().Kind() == reflect.Ptr
 	var relatedType reflect.Type
 
 	if isPtr {
@@ -69,7 +71,7 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 	}
 	for i := 0; i < relatedResults.Len(); i++ {
 		result := relatedResults.Index(i)
-		pivotMap := result.FieldByIndex([]int{relatedModel.PivotFieldIndex}).Interface().(map[string]interface{})
+		pivotMap := result.FieldByIndex([]int{relatedParsedModel.EloquentModelFieldIndex, relatedParsedModel.PivotFieldIndex}).Interface().(map[string]interface{})
 		groupKey := reflect.ValueOf(pivotMap[pivotKey].(string))
 		existed := groupedResults.MapIndex(groupKey)
 		if !existed.IsValid() {
@@ -89,12 +91,12 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 		groupedResults.SetMapIndex(groupKey, reflect.ValueOf(ptr.Elem()))
 	}
 
-	targetSlice := reflect.Indirect(reflect.ValueOf(models))
+	targetSlice := reflect.Indirect(reflect.ValueOf(selfModels))
 
-	modelRelationFieldIndex := parent.FieldsByStructName[relation.Relation.FieldName].Index
-	modelKeyFieldIndex := parent.FieldsByDbName[relation.SelfIdColumn].Index
+	modelRelationFieldIndex := selfParsedModel.FieldsByStructName[relation.Relation.FieldName].Index
+	modelKeyFieldIndex := selfParsedModel.FieldsByDbName[relation.SelfIdColumn].Index
 
-	if rvP, ok := models.(*reflect.Value); ok {
+	if rvP, ok := selfModels.(*reflect.Value); ok {
 		for i := 0; i < rvP.Len(); i++ {
 			model := rvP.Index(i)
 			modelKey := model.Field(modelKeyFieldIndex)
@@ -114,7 +116,7 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 		if value.IsValid() {
 			value = value.Interface().(reflect.Value)
 			if !model.Field(modelRelationFieldIndex).CanSet() {
-				panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.FieldName].Name))
+				panic(fmt.Sprintf("model: %s field: %s cant be set", selfParsedModel.Name, selfParsedModel.FieldsByStructName[relation.Relation.FieldName].Name))
 			}
 			model.Field(modelRelationFieldIndex).Set(value)
 		}
@@ -130,7 +132,7 @@ func MatchMorphToMany(models interface{}, related interface{}, relation *MorphTo
 			if value.IsValid() {
 				value = value.Interface().(reflect.Value)
 				if !model.Field(modelRelationFieldIndex).CanSet() {
-					panic(fmt.Sprintf("model: %s field: %s cant be set", parent.Name, parent.FieldsByStructName[relation.Relation.FieldName].Name))
+					panic(fmt.Sprintf("model: %s field: %s cant be set", selfParsedModel.Name, selfParsedModel.FieldsByStructName[relation.Relation.FieldName].Name))
 				}
 				model.Field(modelRelationFieldIndex).Set(value)
 			}
