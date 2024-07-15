@@ -310,6 +310,9 @@ func (b *Builder) Select(columns ...interface{}) *Builder {
 
 	for i := 0; i < len(columns); i++ {
 		switch columnType := columns[i].(type) {
+		case func(builder *Builder):
+		case func(builder *Builder) *Builder:
+			return b.SelectSub(columns[0], columns[1].(string))
 		case string:
 			b.Columns = append(b.Columns, columnType)
 		case map[string]interface{}:
@@ -403,6 +406,9 @@ func (b *Builder) CreateSub(query interface{}) (string, []interface{}) {
 	if bT, ok := query.(*Builder); ok {
 		builder = bT
 	} else if function, ok := query.(func(builder *Builder)); ok {
+		builder = b.ForSubQuery()
+		function(builder)
+	} else if function, ok := query.(func(builder *Builder) *Builder); ok {
 		builder = b.ForSubQuery()
 		function(builder)
 	} else if str, ok := query.(string); ok {
