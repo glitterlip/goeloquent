@@ -1285,15 +1285,15 @@ func (b *Builder) WhereNotBetween(column string, params ...interface{}) *Builder
 	paramsLength := len(params)
 	var boolean = BOOLEAN_AND
 	not := true
-	if paramsLength > 2 {
-		boolean = params[2].(string)
+	if paramsLength > 1 {
+		boolean = params[1].(string)
 
 	}
 
 	var betweenType = CONDITION_TYPE_BETWEEN
 
 	b.Components[TYPE_WHERE] = struct{}{}
-	tvalues := params[1].([]interface{})[0:2]
+	tvalues := params[0].([]interface{})[0:2]
 	for _, tvalue := range tvalues {
 		if _, ok := tvalue.(Expression); !ok {
 			b.AddBinding([]interface{}{tvalue}, TYPE_WHERE)
@@ -1302,9 +1302,9 @@ func (b *Builder) WhereNotBetween(column string, params ...interface{}) *Builder
 
 	b.Wheres = append(b.Wheres, Where{
 		Type:    betweenType,
-		Column:  params[0].(string),
+		Column:  column,
 		Boolean: boolean,
-		Values:  params[1].([]interface{})[0:2],
+		Values:  params[0].([]interface{})[0:2],
 		Not:     not,
 	})
 	return b
