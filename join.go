@@ -14,7 +14,7 @@ type JoinBuilder struct {
 }
 
 func NewJoin(parent *Builder, joinType string, table string) *JoinBuilder {
-	b := NewQueryBuilder(parent.Connection)
+	b := NewQueryBuilder(parent.Connection).From(table)
 	b.IsJoin = true
 	return &JoinBuilder{
 		JoinType: joinType,
@@ -365,24 +365,13 @@ func (b *Builder) CrossJoin(table string, params ...interface{}) *Builder {
 /*
 CrossJoinSub Add a subquery cross join to the query.
 */
-func (b *Builder) CrossJoinSub(query interface{}, as string, params ...interface{}) *Builder {
+func (b *Builder) CrossJoinSub(query interface{}, as string) *Builder {
 	queryStr, bindings := b.CreateSub(query)
 	expr := fmt.Sprintf("(%s) as %s", queryStr, b.Grammar.WrapTable(as))
-	var operator string
-	first := params[0].(string)
-	joinType := JOIN_TYPE_CROSS
-	var second interface{}
-	switch len(params) {
-	case 2:
-		operator = "="
-		second = params[0]
-	case 3:
-		operator = params[0].(string)
-		second = params[1]
-	}
+	b.Joins = append(b.Joins, NewJoin(b, JOIN_TYPE_CROSS, expr))
 	b.AddBinding(bindings, TYPE_JOIN)
 
-	return b.join(expr, first, operator, second, joinType, false)
+	return b
 }
 
 //	func NewJoin(builder *Builder, joinType string, table interface{}) *Builder {
