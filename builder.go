@@ -944,6 +944,8 @@ func (b *Builder) WhereRaw(rawSql string, params ...interface{}) *Builder {
 	var boolean string
 	var bindings []interface{}
 	switch len(params) {
+	case 0:
+		boolean = BOOLEAN_AND
 	case 1:
 		bindings = params[0].([]interface{})
 		b.AddBinding(bindings, TYPE_WHERE)
