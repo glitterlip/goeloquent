@@ -413,6 +413,8 @@ func (b *Builder) CreateSub(query interface{}) (string, []interface{}) {
 		function(builder)
 	} else if str, ok := query.(string); ok {
 		return b.ParseSub(str)
+	} else if str, ok := query.(Expression); ok {
+		return b.ParseSub(str)
 	} else {
 		panic("can not create sub")
 	}
@@ -427,6 +429,8 @@ func (b *Builder) ParseSub(query interface{}) (string, []interface{}) {
 		return s, []interface{}{}
 	} else if builder, ok := query.(*Builder); ok {
 		return builder.ToSql(), builder.GetBindings()
+	} else if expression, ok := query.(Expression); ok {
+		return string(expression), []interface{}{}
 	}
 	panic("A subquery must be a query builder instance, a Closure, or a string.")
 }
@@ -548,6 +552,8 @@ func (b *Builder) From(table interface{}, params ...string) *Builder {
 	if len(params) == 1 {
 		b.TableAlias = params[0]
 		b.FromTable = fmt.Sprintf("%s as %s", table, params[0])
+	} else if e, ok := table.(Expression); ok {
+		b.FromTable = e
 	} else {
 		b.FromTable = table.(string)
 	}

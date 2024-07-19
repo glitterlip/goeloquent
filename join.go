@@ -9,11 +9,11 @@ type JoinType string
 
 type JoinBuilder struct {
 	JoinType string // inner,left,right,full,cross
-	Table    string
+	Table    interface{}
 	*Builder //parent builder
 }
 
-func NewJoin(parent *Builder, joinType string, table string) *JoinBuilder {
+func NewJoin(parent *Builder, joinType string, table interface{}) *JoinBuilder {
 	b := NewQueryBuilder(parent.Connection).From(table)
 	b.IsJoin = true
 	return &JoinBuilder{
@@ -70,7 +70,7 @@ func (b *Builder) Join(table string, first interface{}, params ...interface{}) *
 /*
 join Add a join clause to the query.
 */
-func (b *Builder) join(table string, first, operator, second, joinType, isWhere interface{}) *Builder {
+func (b *Builder) join(table interface{}, first, operator, second, joinType, isWhere interface{}) *Builder {
 	b.Components[TYPE_JOIN] = struct{}{}
 
 	if function, ok := first.(func(builder *Builder)); ok {
@@ -140,7 +140,7 @@ func (b *Builder) JoinSub(query interface{}, as string, first interface{}, param
 	}
 	b.AddBinding(bindings, TYPE_JOIN)
 
-	return b.join(expr, first, operator, second, joinType, isWhere)
+	return b.join(Raw(expr), first, operator, second, joinType, isWhere)
 }
 
 /*
