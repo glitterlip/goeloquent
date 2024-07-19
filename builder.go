@@ -1594,7 +1594,9 @@ func (b *Builder) ForNestedWhere() *Builder {
 ForSubQuery Create a new query instance for a sub-query.
 */
 func (b *Builder) ForSubQuery() *Builder {
-	return NewQueryBuilder(b.Connection)
+	cb := NewQueryBuilder(b.Connection)
+	cb.Grammar.Prefix = b.Grammar.Prefix
+	return cb
 }
 
 /*
