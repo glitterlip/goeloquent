@@ -13,6 +13,13 @@ type DefaultModel struct {
 	ID   int64  `goelo:"column:id;primaryKey"`
 	Name string `goelo:"column:name_alias"`
 }
+
+func (d *DefaultModel) EloquentGetFillable() map[string]struct{} {
+	return map[string]struct{}{
+		"name_alias": {},
+	}
+}
+
 type TableName struct {
 	*goeloquent.EloquentModel
 	ID            int64         `goelo:"column:id;primaryKey"`
@@ -84,11 +91,7 @@ func (t *TableName) EloquentGetGuarded() map[string]struct{} {
 		"permissions": {},
 	}
 }
-func (t *TableName) EloquentGetFillable() map[string]struct{} {
-	return map[string]struct{}{
-		"title": {},
-	}
-}
+
 func TestParseModel(t *testing.T) {
 
 	parsed := goeloquent.GetParsedModel(&DefaultModel{})
@@ -117,8 +120,8 @@ func TestParseModel(t *testing.T) {
 		}, parsed1.Guards,
 	))
 
-	assert.True(t, reflect.DeepEqual(parsed1.Fillables, map[string]struct{}{
-		"title": {},
+	assert.True(t, reflect.DeepEqual(parsed.Fillables, map[string]struct{}{
+		"name_alias": {},
 	}))
 
 }

@@ -14,6 +14,7 @@ func TestNestedRelation(t *testing.T) {
 	goeloquent.RegistMorphMap(map[string]interface{}{
 		"post": &Post{},
 	})
+	goeloquent.RegisterModels([]interface{}{&User{}, &Post{}})
 	var us []User
 
 	_, e := DB.Model(&us).With("Posts.TagModels").Find(&us, []int{4, 5})

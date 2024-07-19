@@ -23,6 +23,7 @@ type User struct {
 	Posts     []Post       `goelo:"HasMany:PostRelation"`
 	Images    []*Image     `goelo:"MorphMany:ImageRelation"`
 	Tags      UserTag      `goelo:"column:tags"`
+	Avatar    Image        `goelo:"MorphOne:AvatarRelation"`
 }
 
 type UserTag struct {
@@ -75,6 +76,9 @@ func (u *User) PostRelation() *goeloquent.HasManyRelation {
 func (u *User) ImageRelation() *goeloquent.MorphManyRelation {
 	return u.MorphMany(u, &Image{}, "id", "imageable_id", "imageable_type")
 }
+func (u *User) AvatarRelation() *goeloquent.MorphOneRelation {
+	return u.MorphOne(u, &Image{}, "id", "imageable_id", "imageable_type", "user")
+}
 func (u *User) EloquentGetGuarded() map[string]struct{} {
 	return map[string]struct{}{
 		"id":     {},
@@ -123,14 +127,15 @@ func (p *Phone) UserRelation() *goeloquent.BelongsToRelation {
 
 type Post struct {
 	*goeloquent.EloquentModel
-	ID     int64                  `goelo:"column:id;primaryKey"`
-	UserId int64                  `goelo:"column:user_id"`
-	Title  string                 `goelo:"column:title"`
-	Tags   []string               `goelo:"column:tags"`
-	Status uint8                  `goelo:"column:status"`
-	User   User                   `goelo:"BelongsTo:UserRelation"`
-	Meta   map[string]interface{} `goelo:"column:meta"`
-	Images []Image                `goelo:"MorphMany:ImageRelation"`
+	ID        int64          `goelo:"column:id;primaryKey"`
+	UserId    int64          `goelo:"column:user_id"`
+	Title     string         `goelo:"column:title"`
+	Tags      UserTag        `goelo:"column:tags"`
+	Status    uint8          `goelo:"column:status"`
+	User      User           `goelo:"BelongsTo:UserRelation"`
+	Meta      sql.NullString `goelo:"column:meta"`
+	Images    []Image        `goelo:"MorphMany:ImageRelation"`
+	TagModels []Tag          `goelo:"MorphToMany:TagsRelation"`
 }
 
 func (p *Post) TableName() string {
@@ -144,17 +149,20 @@ func (p *Post) UserRelation() *goeloquent.BelongsToRelation {
 func (p *Post) ImageRelation() *goeloquent.MorphManyRelation {
 	return p.MorphMany(p, &Image{}, "id", "imageable_id", "imageable_type")
 }
+func (p *Post) TagsRelation() *goeloquent.MorphToManyRelation {
+	return p.MorphToMany(p, &Tag{}, "id", "id", "tagables", "tagable_id", "tagable_type", "tag_id", "post")
+}
 
 type Image struct {
 	*goeloquent.EloquentModel
-	ID            int64       `goelo:"column:id;primaryKey"`
-	Path          string      `goelo:"column:path"`
-	Size          int64       `goelo:"column:size"`
-	Driver        string      `goelo:"column:driver"`
-	ImageableId   int64       `goelo:"column:imageable_id"`
-	ImageableType string      `goelo:"column:imageable_type"`
-	Remark        string      `goelo:"column:remark"`
-	Imageable     interface{} `goelo:"MorphTo:ImageableRelation"`
+	ID            int64          `goelo:"column:id;primaryKey"`
+	Path          string         `goelo:"column:path"`
+	Size          int64          `goelo:"column:size"`
+	Driver        string         `goelo:"column:driver"`
+	ImageableId   int64          `goelo:"column:imageable_id"`
+	ImageableType string         `goelo:"column:imageable_type"`
+	Remark        sql.NullString `goelo:"column:remark"`
+	Imageable     interface{}    `goelo:"MorphTo:ImageableRelation"`
 }
 
 func (i *Image) TableName() string {
@@ -233,4 +241,19 @@ func (c *Comment) ParentRelation() *goeloquent.BelongsToRelation {
 
 func (c *Comment) ChildrenRelation() *goeloquent.HasManyRelation {
 	return c.HasMany(c, &Comment{}, "id", "parent_id")
+}
+
+type Role struct {
+	*goeloquent.EloquentModel
+	ID          int64       `goelo:"column:id;primaryKey"`
+	Name        string      `goelo:"column:name"`
+	Permissions CommaString `goelo:"column:permissions"`
+	Users       []*User     `goelo:"BelongsToMany:UsersRelation"`
+}
+
+func (r *Role) TableName() string {
+	return "roles"
+}
+func (r *Role) UsersRelation() *goeloquent.BelongsToManyRelation {
+	return r.BelongsToMany(r, &User{}, "role_users", "role_id", "user_id", "id", "id")
 }
