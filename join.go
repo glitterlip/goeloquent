@@ -259,7 +259,7 @@ func (b *Builder) LeftJoinSub(query interface{}, as string, first interface{}, p
 	}
 	b.AddBinding(bindings, TYPE_JOIN)
 
-	return b.join(expr, first, operator, second, joinType, false)
+	return b.join(Raw(expr), first, operator, second, joinType, false)
 }
 
 /*
@@ -320,7 +320,7 @@ func (b *Builder) RightJoinSub(query interface{}, as string, first interface{}, 
 	}
 	b.AddBinding(bindings, TYPE_JOIN)
 
-	return b.join(expr, first, operator, second, joinType, false)
+	return b.join(Raw(expr), first, operator, second, joinType, false)
 }
 
 /*
@@ -368,9 +368,9 @@ CrossJoinSub Add a subquery cross join to the query.
 func (b *Builder) CrossJoinSub(query interface{}, as string) *Builder {
 	queryStr, bindings := b.CreateSub(query)
 	expr := fmt.Sprintf("(%s) as %s", queryStr, b.Grammar.WrapTable(as))
-	b.Joins = append(b.Joins, NewJoin(b, JOIN_TYPE_CROSS, expr))
+	b.Joins = append(b.Joins, NewJoin(b, JOIN_TYPE_CROSS, Raw(expr)))
 	b.AddBinding(bindings, TYPE_JOIN)
-
+	b.Components[TYPE_JOIN] = struct{}{}
 	return b
 }
 
