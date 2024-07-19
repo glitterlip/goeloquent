@@ -379,7 +379,7 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 		}
 
 	}
-	if modelType.UpdatedAt != "" {
+	if modelType.UpdatedAt != "" && model.Field(modelType.FieldsByDbName[modelType.UpdatedAt].Index).IsZero() {
 		//if user set it manually,we won't change it
 		//if !m.IsDirty(modelType.FieldsByDbName[modelType.UpdatedAt].Name) {
 		switch modelType.FieldsByDbName[modelType.UpdatedAt].FieldType.Name() {
@@ -438,7 +438,7 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 			attrs[columnName] = v
 		}
 	}
-	if modelType.CreatedAt != "" {
+	if modelType.CreatedAt != "" && model.Field(modelType.FieldsByDbName[modelType.CreatedAt].Index).IsZero() {
 		//if user set it manually,we won't change it
 		//if _, ok := attrs[modelType.CreatedAt]; !ok {
 		switch modelType.FieldsByDbName[modelType.CreatedAt].FieldType.Name() {
