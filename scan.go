@@ -8,6 +8,11 @@ import (
 )
 
 func ScanAll(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
+	defer func() {
+		if r := recover(); r != nil {
+			result.Error = errors.New("scan error:" + r.(string))
+		}
+	}()
 	v := reflect.ValueOf(dest)
 	if v.Kind() != reflect.Ptr {
 		result.Error = errors.New("result should be a pointer")

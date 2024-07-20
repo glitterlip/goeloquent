@@ -478,6 +478,7 @@ func (b *EloquentBuilder) WithOutGlobalScopes(names ...string) *EloquentBuilder 
 
 /*
 UpdateOrCreate Create or update a record matching the attributes, and fill it with values.
+Deprecated:
 */
 func (b *EloquentBuilder) UpdateOrCreate(target interface{}, conditions, values map[string]interface{}) (updated bool, err error) {
 	rows, err := b.SetModel(target).Where(conditions).First(target)

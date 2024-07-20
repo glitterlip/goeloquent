@@ -739,7 +739,7 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 	}
 	switch paramsLength {
 	case 1:
-		panic("where clause must have at least 2 arguments")
+		panic("where clause must have at least 2 arguments or type of func(builder *Builder)/func(builder *Builder) *Builder")
 	case 2:
 		//assume operator is "=" and omitted
 		operator = "="
@@ -2788,6 +2788,9 @@ reset bindings and components
 func (b *Builder) Reset(targets ...string) *Builder {
 	for _, componentName := range targets {
 		switch componentName {
+		case TYPE_COLUMN:
+			delete(b.Components, TYPE_COLUMN)
+			delete(b.Bindings, TYPE_COLUMN)
 		case TYPE_ORDER:
 			delete(b.Components, TYPE_ORDER)
 			delete(b.Bindings, TYPE_ORDER)
@@ -2946,10 +2949,12 @@ func (b *Builder) SetAggregate(function string, column ...string) *Builder {
 
 /*
 GetCountForPagination Get the count of the total records for the paginator.
-//TODO
 */
-func (b *Builder) GetCountForPagination() {
-	panic("not implemented")
+func (b *Builder) GetCountForPagination() (int64, error) {
+	var c int64
+	_, err := b.CloneWithout(TYPE_COLUMN, TYPE_ORDER, TYPE_OFFSET, TYPE_LIMIT).
+		CloneWithoutBindings(TYPE_SELECT, TYPE_ORDER).Count(&c)
+	return c, err
 }
 
 func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest interface{}) error) (err error) {

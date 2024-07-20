@@ -33,6 +33,7 @@ func (c *Connection) Select(query string, bindings []interface{}, dest interface
 	defer rows.Close()
 
 	tr := ScanAll(rows, dest, mapping)
+	result.Error = tr.Error
 	result.Count = tr.Count
 	result.Sql = query
 	result.Bindings = bindings
