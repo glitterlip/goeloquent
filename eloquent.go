@@ -141,22 +141,36 @@ func AddNestedWiths(name string, results map[string]func(builder *EloquentBuilde
 	return results
 }
 
-// TODO withGlobalScope
-// TODO removedScopes
 // TODO whereKey
 // TODO whereKeyNot
-// TODO where
+
+/*
+Prepare check table,connection,model config before executing the query
+*/
+func (b *EloquentBuilder) Prepare(dest interface{}) {
+	if b.BaseModel == nil {
+		b.BaseModel = GetParsedModel(dest)
+	}
+	if b.FromTable == nil {
+		if b.BaseModel.TableResolver != nil {
+			b.Table(b.BaseModel.TableResolver(b))
+		} else {
+			b.Table(b.BaseModel.Table)
+		}
+	}
+	if b.Connection == nil {
+		if b.BaseModel.ConnectionResolver != nil {
+			b.Connection = DB.Connection(b.BaseModel.ConnectionResolver(b))
+		} else {
+			b.Connection = DB.Connection(b.BaseModel.ConnectionName)
+		}
+	}
+}
 func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result Result, err error) {
 
 	b.ApplyGlobalScopes()
 	//table resolver connection resolver
-	if b.BaseModel == nil {
-		b.BaseModel = GetParsedModel(dest)
-		b.Table(b.BaseModel.Table)
-	}
-	if b.Connection == nil {
-		b.Connection = DB.Connection(b.BaseModel.ConnectionName)
-	}
+	b.Prepare(dest)
 	d := reflect.TypeOf(dest).Elem()
 	if d.Kind() == reflect.Slice {
 		d = d.Elem()
@@ -383,9 +397,11 @@ func (b *EloquentBuilder) SetModel(model interface{}) *EloquentBuilder {
 		} else {
 			b.BaseModel = GetParsedModel(model)
 		}
-		b.From(b.BaseModel.Table)
+		if b.BaseModel.TableResolver == nil {
+			b.From(b.BaseModel.Table)
+		}
 	}
-	if b.Connection == nil {
+	if b.Connection == nil && b.BaseModel.ConnectionResolver == nil {
 		b.Connection = DB.Connection(b.BaseModel.ConnectionName)
 	}
 	return b
@@ -983,7 +999,7 @@ func (b *EloquentBuilder) WithTrashed() *EloquentBuilder {
 	return b.WithOutGlobalScopes(GlobalScopeWithoutTrashed)
 }
 func (b *EloquentBuilder) OnlyTrashed() *EloquentBuilder {
-	return b.WithOutGlobalScopes(GlobalScopeWithoutTrashed).WhereNotNull(b.BaseModel.DeletedAt)
+	return b.WithOutGlobalScopes(GlobalScopeWithoutTrashed).WhereNotNull(b.BaseModel.Table + "." + b.BaseModel.DeletedAt)
 }
 func (b *EloquentBuilder) WithContext(ctx context.Context) *EloquentBuilder {
 	b.Builder.WithContext(ctx)
