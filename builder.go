@@ -2224,9 +2224,16 @@ func (b *Builder) AddNestedWhereQuery(builder *Builder, boolean string) *Builder
 /*
 Find Execute a query for a single record by ID.
 */
-func (b *Builder) Find(dest interface{}, params interface{}) (result Result, err error) {
+func (b *Builder) Find(dest interface{}, params ...interface{}) (result Result, err error) {
+	if reflect.Indirect(reflect.ValueOf(dest)).Kind() != reflect.Slice {
+		b.Limit(1)
+	}
 	b.ApplyBeforeQueryCallbacks()
-	b.Where("id", params)
+	if len(params) > 1 {
+		b.WhereIn("id", params)
+	} else {
+		b.Where("id", params)
+	}
 	return b.Get(dest)
 }
 
