@@ -2251,7 +2251,14 @@ RunSelect run the query as a "select" statement against the connection.
 func (b *Builder) RunSelect() (result Result, err error) {
 	result, err = b.Run(b.ToSql(), b.GetBindings(), func() (result Result, err error) {
 		if b.Pretending {
-			return
+			return Result{
+				Sql:      b.PreparedSql,
+				Bindings: b.GetBindings(),
+				Count:    0,
+				Error:    nil,
+				Time:     0,
+				Raw:      nil,
+			}, nil
 		}
 		if b.Tx != nil {
 			result, err = b.Tx.Select(b.PreparedSql, b.GetBindings(), b.Dest, b.DataMapping)
@@ -2473,7 +2480,14 @@ func (b *Builder) Insert(values interface{}) (result Result, err error) {
 	b.ApplyBeforeQueryCallbacks()
 	result, err = b.Run(b.Grammar.CompileInsert(items), b.GetBindings(), func() (result Result, err error) {
 		if b.Pretending {
-			return
+			return Result{
+				Sql:      b.PreparedSql,
+				Bindings: b.GetBindings(),
+				Count:    0,
+				Error:    nil,
+				Time:     0,
+				Raw:      nil,
+			}, nil
 		}
 		if b.Tx != nil {
 			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
@@ -2508,7 +2522,14 @@ func (b *Builder) InsertOrIgnore(values interface{}) (result Result, err error) 
 	b.ApplyBeforeQueryCallbacks()
 	result, err = b.Run(b.Grammar.CompileInsertOrIgnore(items), b.GetBindings(), func() (result Result, err error) {
 		if b.Pretending {
-			return
+			return Result{
+				Sql:      b.PreparedSql,
+				Bindings: b.GetBindings(),
+				Count:    0,
+				Error:    nil,
+				Time:     0,
+				Raw:      nil,
+			}, nil
 		}
 		if b.Tx != nil {
 			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
@@ -2532,7 +2553,14 @@ func (b *Builder) Update(v map[string]interface{}) (result Result, err error) {
 	b.ApplyBeforeQueryCallbacks()
 	result, err = b.Run(b.Grammar.CompileUpdate(v), b.GetBindings(), func() (result Result, err error) {
 		if b.Pretending {
-			return
+			return Result{
+				Sql:      b.PreparedSql,
+				Bindings: b.GetBindings(),
+				Count:    0,
+				Error:    nil,
+				Time:     0,
+				Raw:      nil,
+			}, nil
 		}
 		if b.Tx != nil {
 			result, err = b.Tx.Update(b.PreparedSql, b.GetBindings())
@@ -2660,7 +2688,14 @@ func (b *Builder) Delete(id ...interface{}) (result Result, err error) {
 	b.ApplyBeforeQueryCallbacks()
 	result, err = b.Run(b.Grammar.CompileDelete(), b.GetBindings(), func() (result Result, err error) {
 		if b.Pretending {
-			return
+			return Result{
+				Sql:      b.PreparedSql,
+				Bindings: b.GetBindings(),
+				Count:    0,
+				Error:    nil,
+				Time:     0,
+				Raw:      nil,
+			}, nil
 		}
 		if b.Tx != nil {
 			result, err = b.Tx.Delete(b.PreparedSql, b.GetBindings())
