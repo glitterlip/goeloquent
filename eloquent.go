@@ -484,7 +484,7 @@ func (b *EloquentBuilder) UpdateOrCreate(target interface{}, conditions, values 
 	if err != nil {
 		return
 	}
-	c, _ := rows.RowsAffected()
+	c := rows.Count
 	if c == 1 {
 		err = Fill(target, values)
 	} else {
