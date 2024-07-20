@@ -2,6 +2,7 @@ package goeloquent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -118,17 +119,7 @@ func (b *EloquentBuilder) With(relations ...interface{}) *EloquentBuilder {
 AddNestedWiths Parse the nested relationships in a relation.
 */
 func AddNestedWiths(name string, results map[string]func(builder *EloquentBuilder) *EloquentBuilder) map[string]func(builder *EloquentBuilder) *EloquentBuilder {
-	/*
-		("user.info.address",map[string]interface{})
 
-		should return
-
-		map[string]interface{}{
-			"user": func(builder *EloquentBuilder) *EloquentBuilder {},
-			"user.info": func(builder *EloquentBuilder) *EloquentBuilder {},
-			"user.info.address": func(builder *EloquentBuilder) *EloquentBuilder {},
-		}
-	*/
 	var progress []string
 	for _, segment := range strings.Split(name, ".") {
 		progress = append(progress, segment)
@@ -174,6 +165,9 @@ func (b *EloquentBuilder) Get(dest interface{}, columns ...interface{}) (result 
 	d := reflect.TypeOf(dest).Elem()
 	if d.Kind() == reflect.Slice {
 		d = d.Elem()
+		if d.Kind() == reflect.Ptr {
+			d = d.Elem()
+		}
 	} else if b.BaseModel.IsEloquent {
 		m := reflect.ValueOf(dest).MethodByName(EventRetrieving)
 		if m.IsValid() {
@@ -1004,4 +998,46 @@ func (b *EloquentBuilder) OnlyTrashed() *EloquentBuilder {
 func (b *EloquentBuilder) WithContext(ctx context.Context) *EloquentBuilder {
 	b.Builder.WithContext(ctx)
 	return b
+}
+func (b *EloquentBuilder) Paginate(items interface{}, perPage, currentPage int64, columns ...interface{}) (*Paginator, error) {
+	b.ApplyGlobalScopes()
+	b.Prepare(items)
+	return b.Builder.Paginate(items, perPage, currentPage, columns...)
+}
+func (b *EloquentBuilder) ForPage(page, perPage int64) *EloquentBuilder {
+
+	b.Offset(int((page - 1) * perPage)).Limit(int(perPage))
+	return b
+}
+func (b *EloquentBuilder) Chunk(dest interface{}, chunkSize int64, callback func(dest interface{}) error) (err error) {
+
+	if len(b.Orders) == 0 {
+		panic(errors.New("must specify an orderby clause when using Chunk method"))
+	}
+	var page int64 = 1
+	var count int64 = 0
+	tempDest := reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type()).Interface()
+	get, err := b.ForPage(1, chunkSize).Get(tempDest)
+	if err != nil {
+		return
+	}
+	count = get.Count
+	for count > 0 {
+		err = callback(tempDest)
+		if err != nil {
+			return
+		}
+		if count != chunkSize {
+			break
+		} else {
+			page++
+			tempDest = reflect.New(reflect.Indirect(reflect.ValueOf(dest)).Type()).Interface()
+			get, err = b.ForPage(page, chunkSize).Get(tempDest)
+			if err != nil {
+				return err
+			}
+			count = get.Count
+		}
+	}
+	return nil
 }
