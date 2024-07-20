@@ -83,7 +83,7 @@ func TestBasicScan(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, int64(3), r.Count)
 		//test scan plain struct
-		type User struct {
+		type UserPlainStruct struct {
 			Id   int64  `goelo:"column:id"`
 			Name string `goelo:"column:name"`
 			Age  int    `goelo:"column:age"`
@@ -93,7 +93,7 @@ func TestBasicScan(t *testing.T) {
 			UserName string `goelo:"column:name"`
 			Age      int    `goelo:"column:age"`
 		}
-		var user User
+		var user UserPlainStruct
 		var mapUser MappingUser
 		res, err := DB.Select("select * from users order by id asc limit ?", []interface{}{1}, &user)
 		assert.Nil(t, err)

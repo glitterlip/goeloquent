@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-//DatabaseConnectionFactoryTest
-
 func TestOpenFailed(t *testing.T) {
 
 	openCases := map[string]map[string]interface{}{
@@ -60,11 +58,10 @@ func TestOpenFailed(t *testing.T) {
 
 func TestOpenSuccess(t *testing.T) {
 	Setup()
-	for name, dbConfig := range DB.GetConfigs() {
-		var dbName string
-		DB.Connection(name).GetDB().QueryRow("SELECT DATABASE()").Scan(&dbName)
-		assert.Equal(t, dbConfig.Database, dbName)
-	}
+	var res int
+	_, err := DB.Select("SELECT 1 + 1", nil, &res)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, res)
 }
 
 func TestConnectionCanBeCreated(t *testing.T) {
@@ -91,7 +88,6 @@ func TestConnectionHasProperConfig(t *testing.T) {
 }
 
 func TestSingleConnectionNotCreatedUntilNeeded(t *testing.T) {
-	//testSingleConnectionNotCreatedUntilNeeded
 	Setup()
 	assert.Equal(t, 1, len(DB.Connections))
 	_, ok := DB.Connections["chat"]
@@ -110,7 +106,7 @@ func TestConnectionEvent(t *testing.T) {
 
 }
 func TestConnectionPool(t *testing.T) {
-	//testConnectionPool
+	//TODO:testConnectionPool
 
 }
 

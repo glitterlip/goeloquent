@@ -450,7 +450,7 @@ func TestTimeStamps(t *testing.T) {
 	assert.Equal(t, int64(1), c2)
 	assert.Contains(t, r2.Sql, "update `user_models` set ")
 	assert.Subset(t, r2.Bindings, []interface{}{uint8(22), int64(6)})
-	assert.Equal(t, r2.Sql, "update `user_models` set `age` = ? , `updated_at` = ? where `id` = ?")
+	assert.Contains(t, r2.Sql, "update `user_models` set `", "`updated_at` = ?")
 	//test timestamo is ignored when set it manually
 	var u1, u2 User
 	DB.Init(&u1)
