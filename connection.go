@@ -17,17 +17,23 @@ func (c *Connection) Select(query string, bindings []interface{}, dest interface
 	var rows *sql.Rows
 	now := time.Now()
 	stmt, err = c.DB.Prepare(query)
+	result.Sql = query
+	result.Bindings = bindings
 	if err != nil {
+		result.Error = err
 		return
 	}
 	defer stmt.Close()
 	rows, err = stmt.Query(bindings...)
 	if err != nil {
+		result.Error = err
+
 		return
 	}
 	defer rows.Close()
 
-	result = ScanAll(rows, dest, mapping)
+	tr := ScanAll(rows, dest, mapping)
+	result.Count = tr.Count
 	result.Sql = query
 	result.Bindings = bindings
 	result.Time = time.Since(now)
@@ -89,21 +95,29 @@ func (c *Connection) Delete(query string, bindings []interface{}) (result Result
 }
 
 func (c *Connection) AffectingStatement(query string, bindings []interface{}) (result Result, err error) {
+	result.Bindings = bindings
+	result.Sql = query
+	now := time.Now()
 	stmt, errP := c.DB.Prepare(query)
 	if errP != nil {
 		err = errP
+		result.Error = err
 		return
 	}
 	defer stmt.Close()
 	rawResult, err := stmt.Exec(bindings...)
 	if err != nil {
+		result.Error = err
 		return
 	}
 
 	result = Result{
-		Count: 0,
-		Raw:   rawResult,
-		Error: nil,
+		Count:    0,
+		Raw:      rawResult,
+		Error:    nil,
+		Sql:      query,
+		Time:     time.Since(now),
+		Bindings: bindings,
 	}
 	DB.FireEvent(EventExecuted, result)
 	return
