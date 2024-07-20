@@ -10,7 +10,7 @@ type Relations string
 func GetMorphMap(name string) string {
 	v, ok := RegisteredMorphModelsMap.Load(name)
 	if !ok {
-		panic(fmt.Sprintf("no registered model found for %s", name))
+		panic(fmt.Sprintf("no registered morph model found for %s,check your code or register it", name))
 	}
 	return v.(string)
 }
