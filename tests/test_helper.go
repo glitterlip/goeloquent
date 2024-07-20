@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"strings"
 	"testing"
 )
@@ -55,12 +54,15 @@ func GetDefaultConfig() goeloquent.DBConfig {
 }
 func GetChatConfig() goeloquent.DBConfig {
 	return goeloquent.DBConfig{
-		Host:     os.Getenv("GOELOQUENT_TEST_SECOND_DB_HOST"),
-		Port:     os.Getenv("GOELOQUENT_TEST_SECOND_DB_PORT"),
-		Database: os.Getenv("GOELOQUENT_TEST_SECOND_DB_DATABASE"),
-		Username: os.Getenv("GOELOQUENT_TEST_SECOND_DB_USERNAME"),
-		Password: os.Getenv("GOELOQUENT_TEST_SECOND_DB_PASSWORD"),
-		Driver:   "mysql",
+		Host:            "127.0.0.1",
+		Port:            "8889",
+		Database:        "goeloquent",
+		Username:        "root",
+		Password:        "root",
+		MultiStatements: true,
+		Driver:          "mysql",
+		EnableLog:       true,
+		ParseTime:       true,
 	}
 }
 func ShouldEqual(t *testing.T, expected interface{}, b *goeloquent.Builder) {

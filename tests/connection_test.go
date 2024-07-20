@@ -3,7 +3,6 @@ package tests
 import (
 	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"testing"
 )
 
@@ -96,8 +95,9 @@ func TestSingleConnectionNotCreatedUntilNeeded(t *testing.T) {
 func TestDSNConfig(t *testing.T) {
 	DB.AddConfig("test", &goeloquent.DBConfig{
 		Driver: "mysql",
-		Dsn:    os.Getenv("GOELOQUENT_TEST_DEFAULT_DSN"),
+		Dsn:    "root:root@tcp(127.0.0.1:8889)/goeloquent?charset=utf8mb4&parseTime=true",
 	})
+	//fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", config.Username, config.Password, config.Host, config.Port, config.Database, strings.Join(params, "&"))
 	conn := DB.Connection("test")
 	err := conn.DB.Ping()
 	assert.Nil(t, err)
