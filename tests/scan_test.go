@@ -12,11 +12,12 @@ import (
 
 type UserScan struct {
 	*goeloquent.EloquentModel
-	Id    int64       `goelo:"column:id"`
-	Name  string      `goelo:"column:name"`
-	Age   int         `goelo:"column:age"`
-	Info  JsonStruct  `goelo:"column:info"`
-	Roles CommaString `goelo:"column:roles"`
+	Id     int64       `goelo:"column:id"`
+	Name   string      `goelo:"column:name"`
+	Age    int         `goelo:"column:age"`
+	Status int         `goelo:"column:status"`
+	Info   JsonStruct  `goelo:"column:info"`
+	Roles  CommaString `goelo:"column:roles"`
 }
 
 func (u *UserScan) TableName() string {
@@ -65,7 +66,7 @@ func TestBasicScan(t *testing.T) {
 		DB.Insert("insert into `users` (`name`,`age`,`status`)  values (?,?,?),(?,?,?)", []interface{}{"John", 12, 1, "Joe", 22, 1})
 		//test scan ptr
 		_, err := DB.Select("select * from users where name = ? ", []interface{}{"Alice"}, map[string]interface{}{})
-		assert.Errorf(t, err, "dest must be a pointer")
+		assert.Errorf(t, err, "result should be a pointer")
 		//test scan map
 		var row = make(map[string]interface{})
 		r, err := DB.Select("select * from users where name = ? ", []interface{}{"Alice"}, &row)
