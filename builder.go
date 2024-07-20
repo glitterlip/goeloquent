@@ -2476,7 +2476,7 @@ values can be []map[string]interface{},map[string]interface{},struct,pointer of 
 */
 func (b *Builder) Insert(values interface{}) (result Result, err error) {
 	items := PrepareInsertValues(values)
-
+	b.Prepare(values)
 	b.ApplyBeforeQueryCallbacks()
 	result, err = b.Run(b.Grammar.CompileInsert(items), b.GetBindings(), func() (result Result, err error) {
 		if b.Pretending {
@@ -2963,7 +2963,7 @@ func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest in
 	if err != nil {
 		return
 	}
-	count, _ = get.RowsAffected()
+	count = get.Count
 	for count > 0 {
 		err = callback(tempDest)
 		if err != nil {
@@ -2978,7 +2978,7 @@ func (b *Builder) Chunk(dest interface{}, chunkSize int64, callback func(dest in
 			if err != nil {
 				return err
 			}
-			count, _ = get.RowsAffected()
+			count = get.Count
 		}
 	}
 	return nil
@@ -3016,7 +3016,7 @@ func (b *Builder) ChunkById(dest interface{}, chunkSize int64, callback func(des
 	if err != nil {
 		return
 	}
-	count, _ = get.RowsAffected()
+	count = get.Count
 	for count > 0 {
 		err = callback(tempDest.Interface())
 		if err != nil {
@@ -3039,7 +3039,7 @@ func (b *Builder) ChunkById(dest interface{}, chunkSize int64, callback func(des
 			if err != nil {
 				return err
 			}
-			count, _ = get.RowsAffected()
+			count = get.Count
 		}
 	}
 	return nil
@@ -3135,4 +3135,10 @@ func (b *Builder) QualifyColumn(column interface{}) string {
 		return c
 	}
 	return b.FromTable.(string) + "." + c
+}
+func (b *Builder) Prepare(dest interface{}) {
+	if b.FromTable == nil {
+		m := GetParsedModel(dest)
+		b.From(m.Table)
+	}
 }
