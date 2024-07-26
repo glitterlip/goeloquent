@@ -192,7 +192,7 @@ func NewQueryBuilder(c ...*Connection) *Builder {
 		Grammar:    &MysqlGrammar{},
 	}
 	b.Grammar.SetBuilder(&b)
-	if len(c) > 0 {
+	if len(c) > 0 && c[0] != nil {
 		b.Connection = c[0]
 		b.Grammar.SetTablePrefix(c[0].Config.Prefix)
 	}
@@ -2272,7 +2272,7 @@ func (b *Builder) RunSelect() (result Result, err error) {
 		if b.Tx != nil {
 			result, err = b.Tx.Select(b.PreparedSql, b.GetBindings(), b.Dest, b.DataMapping)
 		} else {
-			result, err = b.Connection.Select(b.PreparedSql, b.GetBindings(), b.Dest, b.DataMapping)
+			result, err = b.GetConnection().Select(b.PreparedSql, b.GetBindings(), b.Dest, b.DataMapping)
 		}
 		return
 	})
@@ -2281,8 +2281,10 @@ func (b *Builder) RunSelect() (result Result, err error) {
 }
 
 func (b *Builder) GetConnection() *Connection {
-
-	return b.Connection
+	if b.Connection != nil {
+		return b.Connection
+	}
+	return DB.Connection(DefaultConnectionName)
 }
 func (b *Builder) Run(query string, bindings []interface{}, callback func() (result Result, err error)) (result Result, err error) {
 	defer func() {
@@ -2501,7 +2503,7 @@ func (b *Builder) Insert(values interface{}) (result Result, err error) {
 		if b.Tx != nil {
 			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
 		} else {
-			result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+			result, err = b.GetConnection().Insert(b.PreparedSql, b.GetBindings())
 		}
 		return
 	})
@@ -2543,7 +2545,7 @@ func (b *Builder) InsertOrIgnore(values interface{}) (result Result, err error) 
 		if b.Tx != nil {
 			result, err = b.Tx.Insert(b.PreparedSql, b.GetBindings())
 		} else {
-			result, err = b.Connection.Insert(b.PreparedSql, b.GetBindings())
+			result, err = b.GetConnection().Insert(b.PreparedSql, b.GetBindings())
 		}
 		return
 	})
@@ -2574,7 +2576,7 @@ func (b *Builder) Update(v map[string]interface{}) (result Result, err error) {
 		if b.Tx != nil {
 			result, err = b.Tx.Update(b.PreparedSql, b.GetBindings())
 		} else {
-			result, err = b.Connection.Update(b.PreparedSql, b.GetBindings())
+			result, err = b.GetConnection().Update(b.PreparedSql, b.GetBindings())
 		}
 		return
 	})
@@ -2709,7 +2711,7 @@ func (b *Builder) Delete(id ...interface{}) (result Result, err error) {
 		if b.Tx != nil {
 			result, err = b.Tx.Delete(b.PreparedSql, b.GetBindings())
 		} else {
-			result, err = b.Connection.Delete(b.PreparedSql, b.GetBindings())
+			result, err = b.GetConnection().Delete(b.PreparedSql, b.GetBindings())
 		}
 		return
 	})
