@@ -1554,7 +1554,7 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 		params = append(params, BOOLEAN_AND)
 	}
 	cb := b.ForNestedWhere()
-	switch params[0].(type) {
+	switch converted := params[0].(type) {
 	case Where:
 		cb.Wheres = append(cb.Wheres, params[0].(Where))
 	case []Where:
@@ -1566,6 +1566,15 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 		}
 	case []interface{}:
 		cb.Where(params[0].([]interface{}))
+	case func(builder *Builder) *Builder:
+		var boolean string
+		if paramsLength > 1 {
+			boolean = params[1].(string)
+		} else {
+			boolean = BOOLEAN_AND
+		}
+		cb = converted(cb)
+		return b.AddNestedWhereQuery(cb, boolean)
 	case func(builder *Builder):
 		var boolean string
 		if paramsLength > 1 {
@@ -1573,8 +1582,7 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 		} else {
 			boolean = BOOLEAN_AND
 		}
-		closure := params[0].(func(builder *Builder))
-		closure(cb)
+		converted(cb)
 		return b.AddNestedWhereQuery(cb, boolean)
 	}
 	b.Wheres = append(b.Wheres, Where{
@@ -1583,6 +1591,7 @@ func (b *Builder) WhereNested(params ...interface{}) *Builder {
 		Value:   cb,
 	})
 	b.Components[TYPE_WHERE] = struct{}{}
+	b.AddBinding(cb.GetBindings(), TYPE_WHERE)
 	return b
 }
 

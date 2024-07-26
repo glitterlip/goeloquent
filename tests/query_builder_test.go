@@ -239,9 +239,22 @@ func TestDateBasedOrWheresAcceptsTwoArguments(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `id` = ? or year(`created_at`) = ?", b7.ToSql())
 }
 
-// TODO
 func TestWhereNested(t *testing.T) {
 
+	m := []map[string]interface{}{}
+	b := GetBuilder()
+	b.From("users").WhereNested([][]interface{}{
+		{"name", "foo"},
+		{"email", "=", "bar", goeloquent.BOOLEAN_OR},
+	}).WhereNested([][]interface{}{
+		{"age", 18},
+		{"admin", 1},
+		{"id", "in", []interface{}{1, 2, 3}},
+	}, goeloquent.BOOLEAN_OR).WhereNested(func(builder *goeloquent.Builder) *goeloquent.Builder {
+		return builder.WhereNull("deleted_at")
+	}).Pretend().Get(&m)
+	assert.Equal(t, "select * from `users` where (`name` = ? or `email` = ?) or (`age` = ? and `admin` = ? and `id` in (?,?,?)) and (`deleted_at` is null)", b.ToSql())
+	assert.Equal(t, []interface{}{"foo", "bar", 18, 1, 1, 2, 3}, b.GetBindings())
 }
 func TestDateBasedWheresExpressionIsNotBound(t *testing.T) {
 	b8 := GetBuilder()
