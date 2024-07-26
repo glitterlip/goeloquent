@@ -243,19 +243,33 @@ func TestWhereNested(t *testing.T) {
 
 	m := []map[string]interface{}{}
 	b := GetBuilder()
-	b.From("users").WhereNested([][]interface{}{
+	_, e := b.From("user_models").WhereNested([][]interface{}{
 		{"name", "foo"},
 		{"email", "=", "bar", goeloquent.BOOLEAN_OR},
 	}).WhereNested([][]interface{}{
 		{"age", 18},
-		{"admin", 1},
+		{"status", 1},
 		{"id", "in", []interface{}{1, 2, 3}},
 	}, goeloquent.BOOLEAN_OR).WhereNested(func(builder *goeloquent.Builder) *goeloquent.Builder {
 		return builder.WhereNull("deleted_at")
-	}).Pretend().Get(&m)
-	assert.Equal(t, "select * from `users` where (`name` = ? or `email` = ?) or (`age` = ? and `admin` = ? and `id` in (?,?,?)) and (`deleted_at` is null)", b.ToSql())
+	}).Get(&m)
+	assert.Nil(t, e)
+	assert.Equal(t, "select * from `user_models` where (`name` = ? or `email` = ?) or (`age` = ? and `status` = ? and `id` in (?,?,?)) and (`deleted_at` is null)", b.ToSql())
 	assert.Equal(t, []interface{}{"foo", "bar", 18, 1, 1, 2, 3}, b.GetBindings())
+	var r int64
+	b1 := GetBuilder()
+	res, e := b1.Table("user_models").Where(func(q *goeloquent.Builder) {
+		q.WhereNested([][]interface{}{
+			{"id", 1},
+			{"name", "Jim"},
+		})
+	}).Value(&r, "id")
+	assert.Nil(t, e)
+	assert.Equal(t, res.Sql, "select `id` from `user_models` where ((`id` = ? and `name` = ?)) limit 1")
+	assert.Equal(t, []interface{}{1, "Jim"}, res.Bindings)
+
 }
+
 func TestDateBasedWheresExpressionIsNotBound(t *testing.T) {
 	b8 := GetBuilder()
 	b8.Select().From("users").WhereDate("created_at", goeloquent.Raw("NOW()")).Where("age", ">", 18)

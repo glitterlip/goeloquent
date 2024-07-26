@@ -693,6 +693,9 @@ func (b *Builder) Where(params ...interface{}) *Builder {
 			boolean = BOOLEAN_AND
 		}
 		cb := NewQueryBuilder()
+		if b.FromTable != nil {
+			cb.From(b.FromTable)
+		}
 		condition(cb)
 		return b.AddNestedWhereQuery(cb, boolean)
 	case func(builder *Builder) *Builder:
