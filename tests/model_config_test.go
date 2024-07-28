@@ -58,13 +58,7 @@ func (t *TableName) EloquentGetWithRelations() map[string]goeloquent.RelationFun
 		},
 	}
 }
-func (t *TableName) EloquentGetWithRelationCounts() map[string]goeloquent.RelationFunc {
-	return map[string]goeloquent.RelationFunc{
-		"ValidChildren": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
-			return builder
-		},
-	}
-}
+
 func (t *TableName) TableName() string {
 	return "t_name"
 }

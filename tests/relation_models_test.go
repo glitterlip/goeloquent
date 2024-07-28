@@ -93,14 +93,6 @@ func (u *User) EloquentGetDefaultAttributes() map[string]interface{} {
 		"status": uint8(2),
 	}
 }
-func (u *User) EloquentGetWithRelationCounts() map[string]goeloquent.RelationFunc {
-	return map[string]goeloquent.RelationFunc{
-		"Posts": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
-			return builder.Where("stauts", 1)
-		},
-	}
-}
-
 func (u *User) EloquentGetWithRelations() map[string]goeloquent.RelationFunc {
 	return map[string]goeloquent.RelationFunc{
 		"Phone": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
