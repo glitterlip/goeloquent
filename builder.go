@@ -2926,7 +2926,11 @@ func (b *Builder) Paginate(items interface{}, perPage, currentPage int64, column
 		CurrentPage: currentPage,
 	}
 	cb := CloneWithout(b, TYPE_COLUMN, TYPE_ORDER, TYPE_OFFSET, TYPE_LIMIT)
-	cb.Bindings = b.GetRawBindings()
+	for k, v := range b.GetRawBindings() {
+		cb.Bindings[k] = v
+	}
+	delete(cb.Bindings, TYPE_SELECT)
+	delete(cb.Bindings, TYPE_ORDER)
 	_, err := cb.Count(&p.Total)
 	if err != nil {
 		return nil, err
