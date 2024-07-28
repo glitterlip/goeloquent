@@ -48,4 +48,20 @@ func TestMorphToMany(t *testing.T) {
 		assert.True(t, tag.Related > 0 || tag.ID < 3)
 	}
 
+	var ps1 []Post
+	r, e := DB.Model(&ps1).WithCount(map[string]func(b *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"TagModels": func(b *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return b.Where("show_in_list", 1)
+		},
+	}).Get(&ps1)
+	assert.Equal(t, r.Sql, "select *, (select Count(*) from `tags` inner join `tagables` on `tagables`.`tag_id` = `tags`.`id` where `tags`.`id` = `posts`.`id` and `tagables`.`tagable_type` = ? and `show_in_list` = ?) as `goelo_orm_aggregate_TagModelsCount` from `posts`")
+	assert.True(t, len(ps1) > 0)
+	assert.Nil(t, e)
+	for _, p := range ps1 {
+		if p.ID <= 2 {
+			assert.True(t, p.WithAggregates["TagModelsCount"] > 0)
+		} else {
+			assert.True(t, p.WithAggregates["TagModelsCount"] == 0)
+		}
+	}
 }

@@ -1,11 +1,13 @@
 package tests
 
 import (
+	"fmt"
 	_ "fmt"
 	"github.com/glitterlip/goeloquent"
 	"github.com/stretchr/testify/assert"
 	_ "github.com/stretchr/testify/assert"
 	_ "strconv"
+	"strings"
 	"testing"
 	_ "time"
 )
@@ -80,4 +82,25 @@ func TestBelongsToMany(t *testing.T) {
 		assert.True(t, u.Pivot["role_id"].(int64) == r2.ID)
 		assert.True(t, u.Pivot["user_id"].(int64) == u.ID)
 	}
+
+	var rs1 []Role
+
+	res, e := DB.Model(&Role{}).WithCount(map[string]func(b *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder{
+		"Users as s1": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return q.Where("user_models.status", 1)
+		},
+		"Users as s2": func(q *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+			return q.Where("user_models.status", 2)
+		},
+	}).Get(&rs1)
+	assert.Nil(t, e)
+	assert.True(t, res.Count > 0)
+	assert.True(t, strings.Contains(res.Sql, "(select Count(*) from `user_models` inner join `role_users` on `role_users`.`user_id` = `user_models`.`id` where `roles`.`id` = `role_users`.`role_id` and `user_models`.`status` = ?) as `goelo_orm_aggregate_s1`"))
+	assert.True(t, strings.Contains(res.Sql, "(select Count(*) from `user_models` inner join `role_users` on `role_users`.`user_id` = `user_models`.`id` where `roles`.`id` = `role_users`.`role_id` and `user_models`.`status` = ?) as `goelo_orm_aggregate_s2`"))
+	for _, rss := range rs1 {
+		fmt.Println(rss.WithAggregates)
+		assert.True(t, rss.WithAggregates["s1"] > 0)
+		assert.True(t, rss.WithAggregates["s2"] > 0)
+	}
+
 }

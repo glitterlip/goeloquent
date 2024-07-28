@@ -141,6 +141,13 @@ func TestFindMethod(t *testing.T) {
 	assert.Equal(t, len(users), 2)
 	assert.ElementsMatch(t, []interface{}{users[0].ID, users[1].ID}, []interface{}{int64(5), int64(7)})
 
+	//testGet
+	var us1 []User
+	b2 := DB.Model(&user)
+	b2.WhereIn("id", []interface{}{5, 7}).Get(&us1)
+	assert.Equal(t, b2.GetRawBindings()[goeloquent.TYPE_WHERE], []interface{}{5, 7})
+	assert.Equal(t, len(us1), 2)
+	assert.ElementsMatch(t, []interface{}{us1[0].ID, us1[1].ID}, []interface{}{int64(5), int64(7)})
 }
 
 func TestFirst(t *testing.T) {

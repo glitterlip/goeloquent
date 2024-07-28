@@ -86,4 +86,12 @@ func TestBelongsTo(t *testing.T) {
 	assert.Equal(t, owner2.ID, ps5.UserId)
 	assert.True(t, owner2.Status == 1 || owner2.Email == "qwe")
 
+	var ps1 []Post
+	r, e = DB.Model(&ps).WithCount("User").Get(&ps1)
+	assert.Nil(t, e)
+	assert.Equal(t, "select *, (select Count(*) from `user_models` where `user_models`.`id` = `posts`.`user_id`) as `goelo_orm_aggregate_UserCount` from `posts`", r.Sql)
+	for _, post := range ps1 {
+		assert.True(t, post.WithAggregates["UserCount"] > 0)
+	}
+
 }

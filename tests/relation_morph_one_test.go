@@ -59,4 +59,9 @@ func TestMorphOne(t *testing.T) {
 	assert.True(t, a.ImageableType == "user")
 	assert.True(t, a.Driver == "s3")
 
+	var u4 User
+	r, e := DB.Model(&u4).WithCount("Avatar").Find(&u4, 3)
+	assert.True(t, u4.WithAggregates["AvatarCount"] == 2)
+	assert.Equal(t, r.Sql, "select *, (select Count(*) from `images` where `user_models`.`id` = `images`.`imageable_id` and `images`.`imageable_type` = ?) as `goelo_orm_aggregate_AvatarCount` from `user_models` where `id` = ? and `user_models`.`deleted_at` is null")
+
 }

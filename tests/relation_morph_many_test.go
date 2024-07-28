@@ -48,4 +48,17 @@ func TestMorphMany(t *testing.T) {
 		assert.Equal(t, u.ID, i.ImageableId)
 		assert.Equal(t, "user", i.ImageableType)
 	}
+
+	var us1 []User
+
+	r, e := DB.Model(&us1).WithCount("Images").Get(&us1)
+	assert.Equal(t, r.Sql, "select *, (select Count(*) from `images` where `user_models`.`id` = `images`.`imageable_id` and `images`.`imageable_type` = ?) as `goelo_orm_aggregate_ImagesCount` from `user_models` where `user_models`.`deleted_at` is null")
+	for _, u := range us1 {
+		if u.ID <= 3 {
+			assert.True(t, u.WithAggregates["ImagesCount"] > 0)
+		} else {
+			assert.True(t, u.WithAggregates["ImagesCount"] == 0)
+		}
+	}
+
 }

@@ -117,4 +117,18 @@ func TestHasMany(t *testing.T) {
 		assert.True(t, p.Status == 0 || p.Status == 1)
 	}
 
+	var us1 []User
+	r, e = DB.Model(&us).WithCount("Posts").Get(&us1)
+
+	assert.Equal(t, r.Count, int64(5))
+	assert.Nil(t, e)
+	assert.Equal(t, r.Sql, "select *, (select Count(*) from `posts` where `user_models`.`id` = `posts`.`user_id`) as `goelo_orm_aggregate_PostsCount` from `user_models` where `user_models`.`deleted_at` is null")
+	for _, user := range us1 {
+		if user.ID != 3 {
+			assert.True(t, user.WithAggregates["PostsCount"] > 0)
+		} else {
+			assert.True(t, user.WithAggregates["PostsCount"] == 0)
+		}
+
+	}
 }

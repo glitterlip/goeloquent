@@ -78,4 +78,12 @@ func TestHasOne(t *testing.T) {
 	//[1 +2]
 	r, e = DB.Model(&u4).Find(&u4, 1)
 	r, e = u4.PhoneRelation().Where("country", "+2").Get(&phone2)
+
+	var p Phone
+	DB.Model(&p).First(&p)
+
+	var u5 User
+	r, e = DB.Model(&u5).WithCount("Phone").First(&u5)
+	assert.Equal(t, u5.WithAggregates["PhoneCount"], float64(1))
+	assert.Equal(t, r.Sql, "select *, (select Count(*) from `phones` where `user_models`.`id` = `phones`.`user_id`) as `goelo_orm_aggregate_PhoneCount` from `user_models` where `user_models`.`deleted_at` is null limit 1")
 }
