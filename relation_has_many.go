@@ -129,3 +129,27 @@ func MatchHasMany(models interface{}, related interface{}, relation *HasManyRela
 	}
 
 }
+func (r *HasManyRelation) GetRelationExistenceQuery(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+
+	if relatedQuery.FromTable.(string) == selfQuery.FromTable.(string) {
+		return r.GetRelationExistenceQueryForSelfRelation(relatedQuery, selfQuery, alias, columns)
+	}
+	relatedParsed := GetParsedModel(r.Relation.RelatedModel)
+	selfParsed := GetParsedModel(r.Relation.SelfModel)
+	return relatedQuery.Select(Raw(columns)).WhereColumn(selfParsed.Table+"."+r.SelfColumn, "=", relatedParsed.Table+"."+r.RelatedColumn)
+
+}
+
+func (r *HasManyRelation) GetRelationExistenceQueryForSelfRelation(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+	relatedParsed := GetParsedModel(r.Relation.RelatedModel)
+	selfParsed := GetParsedModel(r.Relation.SelfModel)
+	relatedQuery.From(relatedQuery.FromTable.(string) + " as " + alias)
+	relatedQuery.Select(Raw(columns)).WhereColumn(r.SelfColumn, "=", r.RelatedColumn)
+	return relatedQuery.Select(Raw(columns)).WhereColumn(selfParsed.Table+"."+r.SelfColumn, "=", relatedParsed.Table+"."+r.RelatedColumn)
+}
+func (r *HasManyRelation) GetSelf() *Model {
+	return GetParsedModel(r.SelfModel)
+}
+func (r *HasManyRelation) GetRelated() *Model {
+	return GetParsedModel(r.RelatedModel)
+}

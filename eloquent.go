@@ -11,6 +11,8 @@ import (
 
 type ScopeFunc = func(builder *EloquentBuilder) *EloquentBuilder
 type RelationFunc = func(builder *EloquentBuilder) *EloquentBuilder
+type EloquentBuilderFunc = func(builder *EloquentBuilder)
+type EloquentBuilderChainFunc = func(builder *EloquentBuilder) *EloquentBuilder
 
 type EloquentBuilder struct {
 	*Builder
@@ -598,13 +600,44 @@ func (b *EloquentBuilder) Match(models interface{}, relationResults reflect.Valu
 		MatchMorphByMany(models, relationResults, relation)
 	}
 }
+func (b *EloquentBuilder) WithMax(relation string, column string, constraints ...EloquentBuilderChainFunc) *EloquentBuilder {
+	if len(constraints) > 0 {
+		return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: constraints[0]}, column, "Max")
+	}
+	return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: DefaultConstraint}, column, "Max")
+}
+func (b *EloquentBuilder) WithMin(relation string, column string, constraints ...EloquentBuilderChainFunc) *EloquentBuilder {
+	if len(constraints) > 0 {
+		return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: constraints[0]}, column, "Min")
+	}
+	return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: DefaultConstraint}, column, "Min")
+}
+
+func (b *EloquentBuilder) WithSum(relation string, column string, constraints ...EloquentBuilderChainFunc) *EloquentBuilder {
+	if len(constraints) > 0 {
+		return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: constraints[0]}, column, "Sum")
+	}
+	return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: DefaultConstraint}, column, "Sum")
+}
+func (b *EloquentBuilder) WithAvg(relation string, column string, constraints ...EloquentBuilderChainFunc) *EloquentBuilder {
+	if len(constraints) > 0 {
+		return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: constraints[0]}, column, "Avg")
+	}
+	return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: DefaultConstraint}, column, "Avg")
+}
+func (b *EloquentBuilder) WithExists(relation string, constraints ...EloquentBuilderChainFunc) *EloquentBuilder {
+	if len(constraints) > 0 {
+		return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: constraints[0]}, "*", "Exists")
+	}
+	return b.WithAggregate(map[string]EloquentBuilderChainFunc{relation: DefaultConstraint}, "*", "Exists")
+}
 
 /*
 WithAggregate Add a relationship count / aggregate function to the query.
 
 nested relations are not supported yet
 */
-func (b *EloquentBuilder) WithAggregate(relations map[string]RelationFunc, column string, functionName string) *EloquentBuilder {
+func (b *EloquentBuilder) WithAggregate(relations map[string]EloquentBuilderChainFunc, column string, functionName string) *EloquentBuilder {
 	if len(b.Columns) == 0 {
 		b.Select("*")
 	}
@@ -621,27 +654,30 @@ func (b *EloquentBuilder) WithAggregate(relations map[string]RelationFunc, colum
 			alias = OrmAggregateAlias + tempStrs[1]
 		} else {
 			name = tempStrs[0]
-			str := fmt.Sprintf("%s%s_%s%s", OrmAggregateAlias, name, functionName, column)
+			str := fmt.Sprintf("%s%s%s%s", OrmAggregateAlias, name, functionName, strings.Title(column))
 			re := regexp.MustCompile(`[^[:alnum:][:space:]_]`)
 			alias = re.ReplaceAllString(str, "")
 		}
+		if _, ok := b.BaseModel.Relations[name]; !ok {
+			panic(fmt.Sprintf("Relation method [%s] not found in model:[%s]", name, b.BaseModel.Name))
+		}
 
 		relation := b.BaseModel.Relations[name].Call([]reflect.Value{})[0].Interface().(RelationI)
-		//relation.RemoveDefaultConstraints()
 		var aggregateColumn = column
 
 		var expression = ""
 		if column != "*" {
-			aggregateColumn = fmt.Sprintf("%s.%s", b.BaseModel.Table, column)
+			aggregateColumn = fmt.Sprintf("%s.%s", relation.GetRelated().Table, column)
 		}
 
-		if functionName == "exists" {
+		if functionName == "Exists" {
 			expression = aggregateColumn
 		} else {
 			expression = fmt.Sprintf("%s(%s)", functionName, aggregateColumn)
 		}
 
 		rq := relation.GetEloquentBuilder()
+		//relation.RemoveDefaultConstraints()
 		rq.Reset(TYPE_WHERE, TYPE_SELECT)
 
 		q := relation.GetRelationExistenceQuery(rq, b, fmt.Sprintf("%s%d", OrmAggregateAlias, aliasCount), expression)
@@ -649,8 +685,8 @@ func (b *EloquentBuilder) WithAggregate(relations map[string]RelationFunc, colum
 		constraint(q)
 		q.Orders = []Order{}
 		q.Bindings[TYPE_ORDER] = []interface{}{}
-		if functionName == "exists" {
-			b.SelectRaw(fmt.Sprintf("exists(%s) as %s", q.ToSql(), alias), q.GetBindings())
+		if functionName == "Exists" {
+			b.SelectRaw(fmt.Sprintf("Exists(%s) as %s", q.ToSql(), alias), q.GetBindings())
 		} else {
 			b.SelectSub(q.Builder, alias)
 		}

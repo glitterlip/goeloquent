@@ -140,3 +140,28 @@ func MatchMorphByMany(models interface{}, related interface{}, relation *MorphBy
 		}
 	}
 }
+func (r *MorphByManyRelation) GetRelationExistenceQuery(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+
+	if selfQuery.FromTable == relatedQuery.FromTable {
+		return r.GetRelationExistenceQueryForSelfJoin(relatedQuery, selfQuery, alias, columns)
+	}
+	relatedQuery.Join(r.PivotTable, r.PivotTable+"."+r.PivotRelatedIdColumn, "=", GetParsedModel(r.RelatedModel).Table+"."+r.RelatedIdColumn)
+
+	return relatedQuery.Select(Raw(columns)).WhereColumn(GetParsedModel(r.RelatedModel).Table, "=", r.SelfColumn).Where(r.PivotTable+"."+r.PivotRelatedTypeColumn, "=", r.RelatedModelTypeColumnValue)
+
+}
+
+func (r *MorphByManyRelation) GetRelationExistenceQueryForSelfJoin(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+	relatedQuery.Select(Raw(columns))
+	tableAlias := relatedQuery.FromTable.(string) + " as " + OrmAggregateAlias
+	relatedQuery.From(tableAlias)
+	relatedQuery.Join(tableAlias, tableAlias+"."+r.PivotRelatedIdColumn, "=", GetParsedModel(r.RelatedModel).Table+"."+r.RelatedIdColumn).Where(
+		tableAlias+"."+r.PivotRelatedTypeColumn, "=", r.RelatedModelTypeColumnValue)
+	return relatedQuery.WhereColumn(tableAlias+"."+r.RelatedIdColumn, "=", r.SelfColumn)
+}
+func (r *MorphByManyRelation) GetSelf() *Model {
+	return GetParsedModel(r.SelfModel)
+}
+func (r *MorphByManyRelation) GetRelated() *Model {
+	return GetParsedModel(r.RelatedModel)
+}

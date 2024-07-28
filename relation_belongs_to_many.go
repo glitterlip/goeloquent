@@ -134,3 +134,25 @@ func MatchBelongsToMany(selfModels interface{}, relatedModels reflect.Value, rel
 		}
 	}
 }
+func (r *BelongsToManyRelation) GetRelationExistenceQuery(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+
+	if selfQuery.FromTable == relatedQuery.FromTable {
+		return r.GetRelationExistenceQueryForSelfJoin(relatedQuery, selfQuery, alias, columns)
+	}
+
+	return relatedQuery.Select(Raw(columns)).WhereColumn(GetParsedModel(r.SelfModel).Table+"."+r.SelfColumn, "=", r.PivotTable+"."+r.PivotSelfColumn)
+
+}
+
+func (r *BelongsToManyRelation) GetRelationExistenceQueryForSelfJoin(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+	relatedQuery.Select(Raw(columns))
+	tableAlias := relatedQuery.FromTable.(string) + " as " + OrmAggregateAlias
+	relatedQuery.From(tableAlias)
+	return relatedQuery.WhereColumn(GetParsedModel(r.SelfModel).Table+"."+r.SelfColumn, "=", r.PivotTable+"."+r.PivotSelfColumn)
+}
+func (r *BelongsToManyRelation) GetSelf() *Model {
+	return GetParsedModel(r.SelfModel)
+}
+func (r *BelongsToManyRelation) GetRelated() *Model {
+	return GetParsedModel(r.RelatedModel)
+}

@@ -123,3 +123,26 @@ func MatchBelongsTo(selfModels interface{}, relatedModelsValue reflect.Value, re
 		}
 	}
 }
+
+func (r *BelongsToRelation) GetRelationExistenceQuery(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+
+	if selfQuery.FromTable == relatedQuery.FromTable {
+		return r.GetRelationExistenceQueryForSelfRelation(relatedQuery, selfQuery, alias, columns)
+	}
+	return relatedQuery.Select(Raw(columns)).WhereColumn(fmt.Sprintf("%s.%s", GetParsedModel(r.RelatedModel).Table, r.RelatedColumn), "=", fmt.Sprintf("%s.%s", GetParsedModel(r.SelfModel).Table, r.SelfColumn))
+
+}
+
+func (r *BelongsToRelation) GetRelationExistenceQueryForSelfRelation(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+	tableAlias := relatedQuery.FromTable.(string) + " as " + alias
+	relatedQuery.Select(Raw(columns)).From(tableAlias)
+
+	return relatedQuery.WhereColumn(fmt.Sprintf("%s.%s", GetParsedModel(r.RelatedModel).Table, r.RelatedColumn), "=", fmt.Sprintf("%s.%s", GetParsedModel(r.SelfModel).Table, r.SelfColumn))
+}
+
+func (r *BelongsToRelation) GetSelf() *Model {
+	return GetParsedModel(r.SelfModel)
+}
+func (r *BelongsToRelation) GetRelated() *Model {
+	return GetParsedModel(r.RelatedModel)
+}

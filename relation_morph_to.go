@@ -145,3 +145,24 @@ func MatchMorphTo(selfModels interface{}, releated reflect.Value, relation *Morp
 		}
 	}
 }
+func (r *MorphToRelation) GetRelationExistenceQuery(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+
+	if selfQuery.FromTable == relatedQuery.FromTable {
+		return r.GetRelationExistenceQueryForSelfRelation(relatedQuery, selfQuery, alias, columns)
+	}
+	return relatedQuery.Select(Raw(columns)).WhereColumn(GetParsedModel(r.RelatedModel).Table, "=", r.SelfRelatedIdColumn)
+
+}
+
+func (r *MorphToRelation) GetRelationExistenceQueryForSelfRelation(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder {
+	tableAlias := relatedQuery.FromTable.(string) + " as " + alias
+	relatedQuery.Select(Raw(columns)).From(tableAlias)
+
+	return relatedQuery.WhereColumn(tableAlias+"."+r.RelatedModelIdColumn, "=", r.SelfRelatedIdColumn)
+}
+func (r *MorphToRelation) GetSelf() *Model {
+	return GetParsedModel(r.SelfModel)
+}
+func (r *MorphToRelation) GetRelated() *Model {
+	return GetParsedModel(r.RelatedModel)
+}

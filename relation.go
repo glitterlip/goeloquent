@@ -61,6 +61,8 @@ type RelationI interface {
 	//Get(dest interface{}, columns ...interface{}) //Get the results of the relationship.
 
 	GetRelationExistenceQuery(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder
+	GetSelf() *Model
+	GetRelated() *Model
 	//GetRelationExistenceCountQuery(Builder $query, Builder $parentQuery) //Get the relationship count of an eager load query.
 
 	//GetKeys(models []interface{},key string) //Get all the primary keys for an array of models.

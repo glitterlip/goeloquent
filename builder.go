@@ -49,8 +49,8 @@ var Bindings = map[string]struct{}{
 var BindingKeysInOrder = []string{TYPE_SELECT, TYPE_FROM, TYPE_JOIN, TYPE_UPDATE, TYPE_WHERE, TYPE_GROUP_BY, TYPE_HAVING, TYPE_ORDER, TYPE_UNION, TYPE_UNION_ORDER, TYPE_INSERT}
 
 type Paginatot Paginator
-type BuilderChainClosure func(builder *Builder) *Builder
-type BuilderClosure func(builder *Builder)
+type BuilderChainFunc func(builder *Builder) *Builder
+type BuilderFunc func(builder *Builder)
 
 // Builder Base query builder
 type Builder struct {

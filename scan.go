@@ -125,8 +125,8 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 				scanArgs[i] = &ts
 			} else if strings.Contains(column, OrmAggregateAlias) {
 				//process orm pivot keys as string
-				needProcessPivot = true
-				pivotColumnMap[column] = i
+				needProcessAggregate = true
+				aggregateColumnMap[column] = i
 				var ts float64
 				scanArgs[i] = &ts
 			} else {
@@ -149,7 +149,7 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 				}
 			}
 			for columnName, index := range aggregateColumnMap {
-				t1[columnName] = *scanArgs[index].(*float64)
+				t1[strings.Replace(columnName, OrmAggregateAlias, "", 1)] = *scanArgs[index].(*float64)
 			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
@@ -230,7 +230,7 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 				}
 			}
 			for columnName, index := range aggregateColumnMap {
-				t1[columnName] = *scanArgs[index].(*float64)
+				t1[strings.Replace(columnName, OrmAggregateAlias, "", 1)] = *scanArgs[index].(*float64)
 			}
 
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
