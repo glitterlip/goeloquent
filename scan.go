@@ -284,8 +284,15 @@ func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}
 				//process orm pivot keys as string
 				needProcessAggregate = true
 				aggregateColumnMap[column] = i
-				var ts float64
-				scanArgs[i] = &ts
+				tf := strings.Replace(column, OrmAggregateAlias, "", 1)
+				if _, ok := model.EagerRelationAggregates[tf]; ok {
+					index := model.FieldsByStructName[tf].Index
+					scanArgs[i] = v.Field(index).Addr().Interface()
+				} else {
+					var ts float64
+					scanArgs[i] = &ts
+				}
+
 			} else {
 				scanArgs[i] = new(interface{})
 			}
@@ -366,4 +373,68 @@ func scanValues(rows *sql.Rows, dest interface{}) (result Result) {
 		realDest.Set(reflect.Append(realDest, reflect.ValueOf(reflect.ValueOf(scanArgs[0]).Elem().Interface())))
 	}
 	return
+}
+
+// TODO extraction
+func prepareScanArgs(columns []string, dest interface{}, mapping map[string]interface{}, modelConfig ...*Model) ([]interface{}, map[string]int) {
+
+	var realDest reflect.Value
+	if v, ok := dest.(reflect.Value); ok {
+		realDest = v
+	} else {
+		realDest = reflect.Indirect(reflect.ValueOf(dest))
+	}
+	scanArgs := make([]interface{}, len(columns))
+	var pivotMap = make(map[string]int, 2)
+	var model *Model
+	if len(modelConfig) > 0 {
+		model = modelConfig[0]
+	}
+	for i, column := range columns {
+		if f, ok := model.FieldsByDbName[column]; ok {
+			if t, ok := mapping[column]; ok {
+				scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
+			} else {
+				scanArgs[i] = realDest.Field(f.Index).Addr().Interface()
+			}
+		} else if strings.Contains(column, OrmPivotAlias) {
+			//process orm pivot keys as string
+			pivotMap[column] = i
+			var ts string
+			scanArgs[i] = &ts
+		} else if strings.Contains(column, OrmAggregateAlias) {
+			//process orm count keys as float64
+			pivotMap[column] = i
+			var ts float64
+			scanArgs[i] = &ts
+		} else {
+			scanArgs[i] = new(sql.NullString)
+		}
+	}
+	return scanArgs, pivotMap
+}
+
+func processPivot(scanArgs []interface{}, pivotMap map[string]int) *EloquentModel {
+	em := EloquentModel{}
+	if len(pivotMap) > 0 {
+		pivotColumnMap := make(map[string]interface{}, 2)
+		aggregateMap := make(map[string]float64, 2)
+		for columnName, index := range pivotMap {
+			if strings.Contains(columnName, OrmAggregateAlias) {
+				aggregateMap[strings.Replace(columnName, OrmAggregateAlias, "", 1)] = *scanArgs[index].(*float64)
+			} else {
+				if strings.Contains(columnName, OrmPivotAlias) {
+					pivotColumnMap[columnName] = *scanArgs[index].(*string)
+				}
+				if strings.Contains(columnName, PivotAlias) {
+					pivotColumnMap[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
+				}
+
+			}
+		}
+		em.WithAggregates = aggregateMap
+		em.Pivot = pivotColumnMap
+
+	}
+	return &em
 }

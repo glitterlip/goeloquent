@@ -52,6 +52,13 @@ type Paginatot Paginator
 type BuilderChainFunc func(builder *Builder) *Builder
 type BuilderFunc func(builder *Builder)
 
+var DefaultBuilderFunc = func(builder *Builder) {
+
+}
+var DefaultBuilderChainFunc = func(builder *Builder) *Builder {
+	return builder
+}
+
 // Builder Base query builder
 type Builder struct {
 	Connection *Connection   //database connection

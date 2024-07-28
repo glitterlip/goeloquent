@@ -10,20 +10,22 @@ import (
 
 type User struct {
 	*goeloquent.EloquentModel
-	ID        int64        `goelo:"column:id;primaryKey"`
-	Name      string       `goelo:"column:name"`
-	Age       uint8        `goelo:"column:age"`
-	Email     string       `goelo:"column:email"`
-	Status    uint8        `goelo:"column:status"`
-	Info      UserInfo     `goelo:"column:info"`
-	CreatedAt sql.NullTime `goelo:"column:created_at;CREATED_AT"`
-	UpdatedAt sql.NullTime `goelo:"column:updated_at;UPDATED_AT"`
-	DeletedAt sql.NullTime `goelo:"column:deleted_at;DELETED_AT"`
-	Phone     *Phone       `goelo:"HasOne:PhoneRelation"`
-	Posts     []Post       `goelo:"HasMany:PostRelation"`
-	Images    []*Image     `goelo:"MorphMany:ImageRelation"`
-	Tags      UserTag      `goelo:"column:tags"`
-	Avatar    Image        `goelo:"MorphOne:AvatarRelation"`
+	ID                   int64        `goelo:"column:id;primaryKey"`
+	Name                 string       `goelo:"column:name"`
+	Age                  uint8        `goelo:"column:age"`
+	Email                string       `goelo:"column:email"`
+	Status               uint8        `goelo:"column:status"`
+	Info                 UserInfo     `goelo:"column:info"`
+	CreatedAt            sql.NullTime `goelo:"column:created_at;CREATED_AT"`
+	UpdatedAt            sql.NullTime `goelo:"column:updated_at;UPDATED_AT"`
+	DeletedAt            sql.NullTime `goelo:"column:deleted_at;DELETED_AT"`
+	Phone                *Phone       `goelo:"HasOne:PhoneRelation"`
+	Posts                []Post       `goelo:"HasMany:PostRelation"`
+	Images               []*Image     `goelo:"MorphMany:ImageRelation"`
+	Tags                 UserTag      `goelo:"column:tags"`
+	Avatar               Image        `goelo:"MorphOne:AvatarRelation"`
+	PostCount            float64      `goelo:"Aggregate"`
+	PostCountWithTrashed float64      `goelo:"Aggregate"`
 }
 
 type UserTag struct {
@@ -104,6 +106,26 @@ func (u *User) EloquentGetWithRelations() map[string]goeloquent.RelationFunc {
 		"Phone": func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
 			builder.Where("country", "+2")
 			return builder
+		},
+	}
+}
+func (u *User) EloquentGetWithRelationAggregates() map[string]goeloquent.RelationAggregate {
+	return map[string]goeloquent.RelationAggregate{
+		"PostCount": {
+			FuncName:          "Count",
+			Column:            "*",
+			RelationFieldName: "Posts",
+			Constraint: func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+				return builder.Where("status", ">", 1)
+			},
+		},
+		"PostCountWithTrashed": {
+			FuncName:          "Count",
+			Column:            "*",
+			RelationFieldName: "Posts",
+			Constraint: func(builder *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+				return builder.WithTrashed().Where("status", ">", 1)
+			},
 		},
 	}
 }

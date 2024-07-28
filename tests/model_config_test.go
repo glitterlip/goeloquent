@@ -129,6 +129,5 @@ func TestParseRelation(t *testing.T) {
 	parsed1 := goeloquent.GetParsedModel(&TableName{})
 
 	assert.Contains(t, parsed1.EagerRelations, "Parent")
-	assert.Contains(t, parsed1.EagerRelationCounts, "ValidChildren")
 
 }

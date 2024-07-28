@@ -14,6 +14,16 @@ type RelationFunc = func(builder *EloquentBuilder) *EloquentBuilder
 type EloquentBuilderFunc = func(builder *EloquentBuilder)
 type EloquentBuilderChainFunc = func(builder *EloquentBuilder) *EloquentBuilder
 
+var DefaultEloquentBuilderFunc = func(builder *EloquentBuilder) {
+
+}
+var DefaultEloquentBuilderChainFunc = func(builder *EloquentBuilder) *EloquentBuilder {
+	return builder
+}
+var DefaultConstraint = func(builder *EloquentBuilder) *EloquentBuilder {
+	return builder
+}
+
 type EloquentBuilder struct {
 	*Builder
 	BaseModel     *Model
@@ -24,10 +34,6 @@ type EloquentBuilder struct {
 
 	BeforeQueryCallBacks []func(*EloquentBuilder)
 	AfterQueryCallBacks  []func(*EloquentBuilder)
-}
-
-var DefaultConstraint = func(builder *EloquentBuilder) *EloquentBuilder {
-	return builder
 }
 
 func NewEloquentBuilder(model ...interface{}) (b *EloquentBuilder) {
@@ -657,9 +663,19 @@ func (b *EloquentBuilder) WithAggregate(relations map[string]EloquentBuilderChai
 			str := fmt.Sprintf("%s%s%s%s", OrmAggregateAlias, name, functionName, strings.Title(column))
 			re := regexp.MustCompile(`[^[:alnum:][:space:]_]`)
 			alias = re.ReplaceAllString(str, "")
+
+			if ag, ok := b.BaseModel.EagerRelationAggregates[name]; ok {
+				column = ag.Column
+				relationName = ag.RelationFieldName
+				constraint = ag.Constraint
+				alias = fmt.Sprintf("%s%s", OrmAggregateAlias, name)
+				name = relationName
+			}
 		}
 		if _, ok := b.BaseModel.Relations[name]; !ok {
-			panic(fmt.Sprintf("Relation method [%s] not found in model:[%s]", name, b.BaseModel.Name))
+			if _, ok := b.BaseModel.EagerRelationAggregates[name]; !ok {
+				panic(fmt.Sprintf("Relation method [%s] not found in model:[%s]", name, b.BaseModel.Name))
+			}
 		}
 
 		relation := b.BaseModel.Relations[name].Call([]reflect.Value{})[0].Interface().(RelationI)
@@ -712,7 +728,7 @@ WithCount Add a relationship count / aggregate function to the query.
 })
 */
 func (b *EloquentBuilder) WithCount(relations interface{}) *EloquentBuilder {
-	converted := map[string]func(builder *EloquentBuilder) *EloquentBuilder{}
+	converted := map[string]EloquentBuilderChainFunc{}
 	switch r := relations.(type) {
 	case string:
 		converted[r] = DefaultConstraint
@@ -720,7 +736,7 @@ func (b *EloquentBuilder) WithCount(relations interface{}) *EloquentBuilder {
 		for _, relation := range r {
 			converted[relation] = DefaultConstraint
 		}
-	case map[string]func(builder *EloquentBuilder) *EloquentBuilder:
+	case map[string]EloquentBuilderChainFunc:
 		converted = r
 	default:
 		panic(errors.New("invalid argument for WithCount, available types are string, []string, map[string]func(builder *EloquentBuilder) *EloquentBuilder"))

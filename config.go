@@ -15,6 +15,7 @@ const (
 	ColumnCreatedAt                  = "CREATED_AT"
 	ColumnUpdatedAt                  = "UPDATED_AT"
 	ColumnPrimaryKey                 = "primaryKey"
+	WithAggregate                    = "Aggregate"
 )
 
 type DBConfig struct {
@@ -52,6 +53,12 @@ type DBConfig struct {
 }
 
 type ModelConfig Model
+type RelationAggregate struct {
+	FuncName          string
+	Column            string
+	RelationFieldName string
+	Constraint        EloquentBuilderChainFunc
+}
 
 /*
 Model prased model config
@@ -72,16 +79,16 @@ type Model struct {
 	PivotFieldIndex            int  //pivot column index
 	EloquentModelFieldIndex    int  //*EloquentModel field index in model struct
 	DefaultAttributes          map[string]interface{}
-	CallBacks                  map[string]reflect.Value //model callbacks
-	UpdatedAt                  string                   //database update timestamp column name
-	CreatedAt                  string                   //database create timestamp column name
-	DeletedAt                  string                   //database delete timestamp column name
-	SoftDelete                 bool                     //has soft delete
-	GlobalScopes               map[string]ScopeFunc     //registered global scopes
-	Guards                     map[string]struct{}      //guarded model fields when use Save(map[string]interface{})/Fill(map[string]interface{})
-	Fillables                  map[string]struct{}      //fillable model fields when use Save(map[string]interface{})/Fill(map[string]interface{})
-	EagerRelations             map[string]RelationFunc  //eager loaded relations
-	EagerRelationCounts        map[string]RelationFunc  //eager loaded relation counts
+	CallBacks                  map[string]reflect.Value     //model callbacks
+	UpdatedAt                  string                       //database update timestamp column name
+	CreatedAt                  string                       //database create timestamp column name
+	DeletedAt                  string                       //database delete timestamp column name
+	SoftDelete                 bool                         //has soft delete
+	GlobalScopes               map[string]ScopeFunc         //registered global scopes
+	Guards                     map[string]struct{}          //guarded model fields when use Save(map[string]interface{})/Fill(map[string]interface{})
+	Fillables                  map[string]struct{}          //fillable model fields when use Save(map[string]interface{})/Fill(map[string]interface{})
+	EagerRelations             map[string]RelationFunc      //eager loaded relations
+	EagerRelationAggregates    map[string]RelationAggregate //eager loaded relation aggregates
 }
 type Field struct {
 	Name              string       //reflect.StructField.Name,struct field name
@@ -99,18 +106,18 @@ Parse Parse model to ModelConfig and cache it
 func Parse(modelType reflect.Type) (model *Model, err error) {
 	modelValue := reflect.New(modelType)
 	model = &Model{
-		Name:                modelType.Name(),
-		ModelType:           modelType,
-		FieldsByDbName:      make(map[string]*Field),
-		FieldsByStructName:  make(map[string]*Field),
-		Relations:           make(map[string]reflect.Value),
-		PrimaryKey:          nil,
-		CallBacks:           make(map[string]reflect.Value),
-		PivotFieldIndex:     0,
-		DefaultAttributes:   make(map[string]interface{}),
-		EagerRelations:      make(map[string]RelationFunc),
-		EagerRelationCounts: make(map[string]RelationFunc),
-		GlobalScopes:        make(map[string]ScopeFunc),
+		Name:                    modelType.Name(),
+		ModelType:               modelType,
+		FieldsByDbName:          make(map[string]*Field),
+		FieldsByStructName:      make(map[string]*Field),
+		Relations:               make(map[string]reflect.Value),
+		PrimaryKey:              nil,
+		CallBacks:               make(map[string]reflect.Value),
+		PivotFieldIndex:         0,
+		DefaultAttributes:       make(map[string]interface{}),
+		EagerRelations:          make(map[string]RelationFunc),
+		EagerRelationAggregates: make(map[string]RelationAggregate),
+		GlobalScopes:            make(map[string]ScopeFunc),
 	}
 	if t, ok := modelValue.Interface().(TableName); ok {
 		model.Table = t.TableName()
@@ -173,9 +180,9 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 			res := modelValue.MethodByName(EloquentGetWithRelations).Call([]reflect.Value{})
 			model.EagerRelations = res[0].Interface().(map[string]RelationFunc)
 		}
-		if ptrReciver.Method(i).Name == EloquentGetWithRelationCounts {
-			res := modelValue.MethodByName(EloquentGetWithRelationCounts).Call([]reflect.Value{})
-			model.EagerRelationCounts = res[0].Interface().(map[string]RelationFunc)
+		if ptrReciver.Method(i).Name == EloquentGetWithRelationAggregates {
+			res := modelValue.MethodByName(EloquentGetWithRelationAggregates).Call([]reflect.Value{})
+			model.EagerRelationAggregates = res[0].Interface().(map[string]RelationAggregate)
 		}
 		if ptrReciver.Method(i).Name == EloquentGetDefaultAttributes {
 			res := modelValue.MethodByName(EloquentGetDefaultAttributes).Call([]reflect.Value{})
@@ -248,6 +255,8 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 					panic(fmt.Sprintf("relation method %s on model %s not found", methodName, m.Name))
 				}
 
+			case WithAggregate:
+				m.FieldsByStructName[modelField.Name] = modelField
 			default:
 				panic(fmt.Sprintf("unknown tag %s in model:%s field:%s", key, m.Name, field.Name))
 			}

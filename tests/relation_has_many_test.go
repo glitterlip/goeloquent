@@ -131,4 +131,14 @@ func TestHasMany(t *testing.T) {
 		}
 
 	}
+
+	var u2 User
+	r, e = DB.Model(&u2).WithCount([]string{"PostCount", "PostCountWithTrashed"}).First(&u2)
+	assert.Nil(t, e)
+	assert.Equal(t, r.Sql, "select *, (select Count(*) from `posts` where `user_models`.`id` = `posts`.`user_id` and `status` > ?) as `goelo_orm_aggregate_PostCount`, (select Count(*) from `posts` where `user_models`.`id` = `posts`.`user_id` and `status` > ?) as `goelo_orm_aggregate_PostCountWithTrashed` from `user_models` where `user_models`.`deleted_at` is null limit 1")
+	assert.Equal(t, u2.WithAggregates["PostCount"], float64(1))
+	assert.Equal(t, u2.WithAggregates["PostCountWithTrashed"], float64(1))
+	assert.Equal(t, u2.PostCount, float64(1))
+	assert.Equal(t, u2.PostCountWithTrashed, float64(1))
+
 }

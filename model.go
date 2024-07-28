@@ -25,14 +25,14 @@ type DynamicConnectionName interface {
 }
 
 const (
-	EloquentName                  = "EloquentModel"
-	EloquentTagName               = "goelo"
-	EloquentAddGlobalScopes       = "EloquentAddGlobalScopes"
-	EloquentGetDefaultAttributes  = "EloquentGetDefaultAttributes"
-	EloquentGetFillable           = "EloquentGetFillable"
-	EloquentGetGuarded            = "EloquentGetGuarded"
-	EloquentGetWithRelations      = "EloquentGetWithRelations"
-	EloquentGetWithRelationCounts = "EloquentGetWithRelationCounts"
+	EloquentName                      = "EloquentModel"
+	EloquentTagName                   = "goelo"
+	EloquentAddGlobalScopes           = "EloquentAddGlobalScopes"
+	EloquentGetDefaultAttributes      = "EloquentGetDefaultAttributes"
+	EloquentGetFillable               = "EloquentGetFillable"
+	EloquentGetGuarded                = "EloquentGetGuarded"
+	EloquentGetWithRelations          = "EloquentGetWithRelations"
+	EloquentGetWithRelationAggregates = "EloquentGetWithRelationAggregates"
 )
 
 /*
