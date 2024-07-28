@@ -127,8 +127,14 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 				//process orm pivot keys as string
 				needProcessAggregate = true
 				aggregateColumnMap[column] = i
-				var ts float64
-				scanArgs[i] = &ts
+				tf := strings.Replace(column, OrmAggregateAlias, "", 1)
+				if _, ok := model.EagerRelationAggregates[tf]; ok {
+					index := model.FieldsByStructName[tf].Index
+					scanArgs[i] = v.Field(index).Addr().Interface()
+				} else {
+					var ts float64
+					scanArgs[i] = &ts
+				}
 			} else {
 				scanArgs[i] = new(interface{})
 			}
