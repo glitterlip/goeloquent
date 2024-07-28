@@ -2821,6 +2821,10 @@ func (b *Builder) Reset(targets ...string) *Builder {
 			delete(b.Bindings, TYPE_WHERE)
 			delete(b.Components, TYPE_WHERE)
 			b.Wheres = nil
+		case TYPE_SELECT:
+			delete(b.Bindings, TYPE_SELECT)
+			delete(b.Components, TYPE_WHERE)
+			b.Columns = nil
 		default:
 			panic("unknown component name: " + componentName)
 		}

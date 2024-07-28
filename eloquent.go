@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -597,12 +598,99 @@ func (b *EloquentBuilder) Match(models interface{}, relationResults reflect.Valu
 		MatchMorphByMany(models, relationResults, relation)
 	}
 }
-func (b *EloquentBuilder) WithAggregate(relation []interface{}, column string, function string) *EloquentBuilder {
 
-	return nil
+/*
+WithAggregate Add a relationship count / aggregate function to the query.
+
+nested relations are not supported yet
+*/
+func (b *EloquentBuilder) WithAggregate(relations map[string]RelationFunc, column string, functionName string) *EloquentBuilder {
+	if len(b.Columns) == 0 {
+		b.Select("*")
+	}
+
+	var aliasCount = 1
+
+	for relationName, constraint := range relations {
+
+		aliasCount++
+		var name, alias string
+		tempStrs := strings.Split(relationName, " as ")
+		if len(tempStrs) == 2 {
+			name = tempStrs[0]
+			alias = OrmAggregateAlias + tempStrs[1]
+		} else {
+			name = tempStrs[0]
+			str := fmt.Sprintf("%s%s_%s%s", OrmAggregateAlias, name, functionName, column)
+			re := regexp.MustCompile(`[^[:alnum:][:space:]_]`)
+			alias = re.ReplaceAllString(str, "")
+		}
+
+		relation := b.BaseModel.Relations[name].Call([]reflect.Value{})[0].Interface().(RelationI)
+		//relation.RemoveDefaultConstraints()
+		var aggregateColumn = column
+
+		var expression = ""
+		if column != "*" {
+			aggregateColumn = fmt.Sprintf("%s.%s", b.BaseModel.Table, column)
+		}
+
+		if functionName == "exists" {
+			expression = aggregateColumn
+		} else {
+			expression = fmt.Sprintf("%s(%s)", functionName, aggregateColumn)
+		}
+
+		rq := relation.GetEloquentBuilder()
+		rq.Reset(TYPE_WHERE, TYPE_SELECT)
+
+		q := relation.GetRelationExistenceQuery(rq, b, fmt.Sprintf("%s%d", OrmAggregateAlias, aliasCount), expression)
+
+		constraint(q)
+		q.Orders = []Order{}
+		q.Bindings[TYPE_ORDER] = []interface{}{}
+		if functionName == "exists" {
+			b.SelectRaw(fmt.Sprintf("exists(%s) as %s", q.ToSql(), alias), q.GetBindings())
+		} else {
+			b.SelectSub(q.Builder, alias)
+		}
+
+	}
+
+	return b
 }
-func (b *EloquentBuilder) WithCount(relation []interface{}) *EloquentBuilder {
-	return b.WithAggregate(relation, "*", "count")
+
+/*
+WithCount Add a relationship count / aggregate function to the query.
+
+ 1. WithCount("Posts")
+ 2. WithCount([]string{"Posts", "Videos"})
+ 3. WithCount(map[string]func(builder *EloquentBuilder) *EloquentBuilder{
+    "Posts as valid": func(builder *EloquentBuilder) *EloquentBuilder {
+    return builder.Where("status", 1)
+    },
+    "Posts as deleted": func(builder *EloquentBuilder) *EloquentBuilder {
+    return builder.Where("status", 0)
+    },
+
+})
+*/
+func (b *EloquentBuilder) WithCount(relations interface{}) *EloquentBuilder {
+	converted := map[string]func(builder *EloquentBuilder) *EloquentBuilder{}
+	switch r := relations.(type) {
+	case string:
+		converted[r] = DefaultConstraint
+	case []string:
+		for _, relation := range r {
+			converted[relation] = DefaultConstraint
+		}
+	case map[string]func(builder *EloquentBuilder) *EloquentBuilder:
+		converted = r
+	default:
+		panic(errors.New("invalid argument for WithCount, available types are string, []string, map[string]func(builder *EloquentBuilder) *EloquentBuilder"))
+	}
+
+	return b.WithAggregate(converted, "*", "Count")
 }
 func WithPivots(builder *EloquentBuilder, columns []string) {
 	for _, pivot := range columns {

@@ -70,6 +70,9 @@ func BatchSync(models interface{}, exists ...bool) {
 				if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsZero() {
 					newModel.Elem().Field(EloquentModelPivotFieldIndex).Set(model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}))
 				}
+				if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelAggregateFieldIndex}).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelAggregateFieldIndex}).IsZero() {
+					newModel.Elem().Field(EloquentModelAggregateFieldIndex).Set(model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelAggregateFieldIndex}))
+				}
 				model.Field(parsed.EloquentModelFieldIndex).Set(newModel)
 			}
 		}
@@ -82,6 +85,9 @@ func BatchSync(models interface{}, exists ...bool) {
 			if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).IsZero() {
 				newModel.Elem().Field(EloquentModelPivotFieldIndex).Set(model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}))
 			}
+			if !model.Field(parsed.EloquentModelFieldIndex).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelAggregateFieldIndex}).IsNil() && !model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelAggregateFieldIndex}).IsZero() {
+				newModel.Elem().Field(EloquentModelAggregateFieldIndex).Set(model.FieldByIndex([]int{parsed.EloquentModelFieldIndex, EloquentModelAggregateFieldIndex}))
+			}
 			model.Field(parsed.EloquentModelFieldIndex).Set(newModel)
 		}
 	}
@@ -89,6 +95,7 @@ func BatchSync(models interface{}, exists ...bool) {
 }
 
 const EloquentModelPivotFieldIndex = 4
+const EloquentModelAggregateFieldIndex = 5
 const EloquentModelContextFieldIndex = 11
 
 // EloquentModel is the base model for all models
@@ -98,6 +105,7 @@ type EloquentModel struct {
 	Changes            map[string]interface{} `json:"-"` //store changed attribute after save to database map[model.FiledName]value
 	ModelPointer       reflect.Value          `json:"-"` //model pointer points to the model which hold this e.g. reflect.ValueOf(&User{})
 	Pivot              map[string]interface{} `json:"-"` //pivot relation table attributes map[Relation.Field]value //TODO: field type mapping
+	WithAggregates     map[string]float64     `json:"-"`
 	Exists             bool                   `json:"-"` //indicate whether the model is get from database or newly created and not store to the database yet
 	Related            reflect.Value          `json:"-"` //when call save/create on relationship ,this holds the related key
 	Muted              string                 `json:"-"` //muted events, comma separated

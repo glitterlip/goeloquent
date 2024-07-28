@@ -32,8 +32,9 @@ const (
 
 	RelationMorphToMany Relations = "MorphToMany"
 	RelationMorphByMany Relations = "MorphByMany"
-	PivotAlias                    = "goelo_pivot_"     // used for pivot alias
-	OrmPivotAlias                 = "goelo_orm_pivot_" // used for orm pivot alias
+	PivotAlias                    = "goelo_pivot_"         // used for pivot alias
+	OrmPivotAlias                 = "goelo_orm_pivot_"     // used for orm pivot alias
+	OrmAggregateAlias             = "goelo_orm_aggregate_" // used for orm WithCount alias
 )
 
 type Relation struct {
@@ -59,7 +60,7 @@ type RelationI interface {
 	//GetEager() //Get the relationship for eager loading.
 	//Get(dest interface{}, columns ...interface{}) //Get the results of the relationship.
 
-	//GetRelationExistenceQuery(Builder $query, Builder $parentQuery, columns = ['*']) //Get the relationship for exists query.
+	GetRelationExistenceQuery(relatedQuery *EloquentBuilder, selfQuery *EloquentBuilder, alias string, columns string) *EloquentBuilder
 	//GetRelationExistenceCountQuery(Builder $query, Builder $parentQuery) //Get the relationship count of an eager load query.
 
 	//GetKeys(models []interface{},key string) //Get all the primary keys for an array of models.

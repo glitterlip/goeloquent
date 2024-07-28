@@ -89,8 +89,11 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 	itemIsPtr := sliceItem.Kind() == reflect.Ptr
 	model := GetParsedModel(dest)
 	scanArgs := make([]interface{}, len(columns))
+
 	var needProcessPivot bool
+	var needProcessAggregate bool
 	var pivotColumnMap = make(map[string]int, 2)
+	var aggregateColumnMap = make(map[string]int, 2)
 	for rows.Next() {
 		result.Count++
 		var v, vp reflect.Value
@@ -120,6 +123,12 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 				pivotColumnMap[column] = i
 				var ts string
 				scanArgs[i] = &ts
+			} else if strings.Contains(column, OrmAggregateAlias) {
+				//process orm pivot keys as string
+				needProcessPivot = true
+				pivotColumnMap[column] = i
+				var ts float64
+				scanArgs[i] = &ts
 			} else {
 				scanArgs[i] = new(interface{})
 			}
@@ -128,20 +137,24 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 		if err != nil {
 			panic(err.Error())
 		}
-		if needProcessPivot {
+		if needProcessPivot || needProcessAggregate {
 			t := make(map[string]interface{}, 2)
+			t1 := make(map[string]float64, 2)
 			for columnName, index := range pivotColumnMap {
 				if strings.Contains(columnName, OrmPivotAlias) {
 					t[columnName] = *scanArgs[index].(*string)
-					//t[strings.Replace(columnName, OrmPivotAlias, "", 1)] = *scanArgs[index].(*string)
 				}
 				if strings.Contains(columnName, PivotAlias) {
 					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
 				}
 			}
+			for columnName, index := range aggregateColumnMap {
+				t1[columnName] = *scanArgs[index].(*float64)
+			}
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
 			eloquentModel.Field(EloquentModelPivotFieldIndex).Set(reflect.ValueOf(t))
+			eloquentModel.Field(EloquentModelAggregateFieldIndex).Set(reflect.ValueOf(t1))
 			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
 		}
 		if itemIsPtr {
@@ -154,6 +167,7 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 }
 
 func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interface{}) (result Result) {
+
 	columns, _ := rows.Columns()
 	destValue := dest.(*reflect.Value)
 	//relation reflect results
@@ -165,7 +179,9 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 	vp := reflect.New(sliceItem)
 	v := reflect.Indirect(vp)
 	var needProcessPivot bool
+	var needProcessAggregate bool
 	var pivotColumnMap = make(map[string]int, 2)
+	var aggregateColumnMap = make(map[string]int, 2)
 	for rows.Next() {
 		result.Count++
 		for i, column := range columns {
@@ -187,6 +203,12 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 				pivotColumnMap[column] = i
 				var ts string
 				scanArgs[i] = &ts
+			} else if strings.Contains(column, OrmAggregateAlias) {
+				//process orm pivot keys as string
+				needProcessAggregate = true
+				aggregateColumnMap[column] = i
+				var ts float64
+				scanArgs[i] = &ts
 			} else {
 				scanArgs[i] = new(interface{})
 			}
@@ -195,8 +217,9 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 		if err != nil {
 			panic(err.Error())
 		}
-		if needProcessPivot {
+		if needProcessPivot || needProcessAggregate {
 			t := make(map[string]interface{}, 2)
+			t1 := make(map[string]float64, 2)
 			for columnName, index := range pivotColumnMap {
 				if strings.Contains(columnName, OrmPivotAlias) {
 					t[columnName] = *scanArgs[index].(*string)
@@ -206,9 +229,14 @@ func scanRelations(rows *sql.Rows, dest interface{}, mapping map[string]interfac
 					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
 				}
 			}
+			for columnName, index := range aggregateColumnMap {
+				t1[columnName] = *scanArgs[index].(*float64)
+			}
+
 			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
 			eloquentModel := reflect.Indirect(eloquentPtr)
 			eloquentModel.Field(EloquentModelPivotFieldIndex).Set(reflect.ValueOf(t))
+			eloquentModel.Field(EloquentModelAggregateFieldIndex).Set(reflect.ValueOf(t1))
 			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
 		}
 		*destValue = reflect.Append(*destValue, v)
@@ -223,7 +251,10 @@ func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}
 	scanArgs := make([]interface{}, len(columns))
 	vp := reflect.New(realDest.Type())
 	v := reflect.Indirect(vp)
-
+	var needProcessPivot bool
+	var needProcessAggregate bool
+	var pivotColumnMap = make(map[string]int, 2)
+	var aggregateColumnMap = make(map[string]int, 2)
 	for rows.Next() {
 		result.Count++
 		for i, column := range columns {
@@ -233,6 +264,28 @@ func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}
 				} else {
 					scanArgs[i] = v.Field(f.Index).Addr().Interface()
 				}
+			} else if strings.Contains(column, PivotAlias) {
+				//process user's withpivot column
+				needProcessPivot = true
+				pivotColumnMap[column] = i
+				//check if user defined a datetype mapping
+				if t, ok := mapping[column]; ok {
+					scanArgs[i] = reflect.New(reflect.TypeOf(t)).Interface()
+				} else {
+					scanArgs[i] = new(interface{})
+				}
+			} else if strings.Contains(column, OrmPivotAlias) {
+				//process orm pivot keys as string
+				needProcessPivot = true
+				pivotColumnMap[column] = i
+				var ts string
+				scanArgs[i] = &ts
+			} else if strings.Contains(column, OrmAggregateAlias) {
+				//process orm pivot keys as string
+				needProcessAggregate = true
+				aggregateColumnMap[column] = i
+				var ts float64
+				scanArgs[i] = &ts
 			} else {
 				scanArgs[i] = new(interface{})
 			}
@@ -240,6 +293,28 @@ func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}
 		err := rows.Scan(scanArgs...)
 		if err != nil {
 			panic(err.Error())
+		}
+		if needProcessPivot || needProcessAggregate {
+			t := make(map[string]interface{}, 2)
+			t1 := make(map[string]float64, 2)
+			for columnName, index := range pivotColumnMap {
+				if strings.Contains(columnName, OrmPivotAlias) {
+					t[columnName] = *scanArgs[index].(*string)
+				}
+				if strings.Contains(columnName, PivotAlias) {
+					t[strings.Replace(columnName, PivotAlias, "", 1)] = reflect.Indirect(reflect.ValueOf(scanArgs[index])).Interface()
+				}
+			}
+			for columnName, index := range aggregateColumnMap {
+				t1[strings.Replace(columnName, OrmAggregateAlias, "", 1)] = *scanArgs[index].(*float64)
+			}
+
+			eloquentPtr := reflect.New(reflect.TypeOf(EloquentModel{}))
+			eloquentModel := reflect.Indirect(eloquentPtr)
+			eloquentModel.Field(EloquentModelPivotFieldIndex).Set(reflect.ValueOf(t))
+			eloquentModel.Field(EloquentModelAggregateFieldIndex).Set(reflect.ValueOf(t1))
+
+			v.Field(model.EloquentModelFieldIndex).Set(eloquentPtr)
 		}
 		if realDest.Kind() == reflect.Ptr {
 			realDest.Set(vp)
