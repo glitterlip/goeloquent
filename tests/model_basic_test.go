@@ -70,7 +70,7 @@ func TestCreateMethod(t *testing.T) {
 	c, _ := r1.RowsAffected()
 	assert.Equal(t, c, int64(1))
 	assert.Subset(t, r1.Bindings, []interface{}{"Bob", uint8(20)})
-	assert.Equal(t, len(r1.Bindings), 3) // created_at
+	assert.Equal(t, len(r1.Bindings), 10) // save all fields
 
 	assert.Equal(t, int64(2), user.ID)
 	assert.Equal(t, "Bob", user.Name)
@@ -105,7 +105,7 @@ func TestCreateMethod(t *testing.T) {
 	assert.Equal(t, int64(4), ut2.ID)
 	istr, _ := json.Marshal(info)
 	assert.Subset(t, r3.Bindings, []interface{}{"ut@gmail.com", uint8(28), uint8(2), "tag3,tag3", istr})
-	assert.Equal(t, len(r3.Bindings), 6)
+	assert.Equal(t, len(r3.Bindings), 9)
 }
 func TestFindMethod(t *testing.T) {
 	//testFindMethod
@@ -438,7 +438,7 @@ func TestTimeStamps(t *testing.T) {
 	c, _ := r.RowsAffected()
 	assert.Equal(t, int64(1), c)
 	assert.True(t, strings.Contains(r.Sql, "insert into `user_models` ("))
-	assert.Equal(t, len(r.Bindings), 3)
+	assert.Equal(t, len(r.Bindings), 10)
 	assert.Contains(t, r.Bindings, "Alice", 1)
 	user.Email = "asd"
 	user.Status = 3
@@ -446,10 +446,10 @@ func TestTimeStamps(t *testing.T) {
 	assert.Nil(t, e1)
 	c1, _ := r1.RowsAffected()
 	assert.Equal(t, int64(1), c1)
-	//assert.Equal(t, r1.Sql, "update `user_models` set `created_at` = ? , `id` = ? , `name` = ? , `status` = ? , `updated_at` = ? , `email` = ? where `id` = ?")
+	//update `user_models` set `status` = ? , `email` = ? , `updated_at` = ? where `id` = ?
 	assert.True(t, strings.Contains(r1.Sql, "update `user_models` set "))
-	assert.Subset(t, r1.Bindings, []interface{}{int64(6), "Alice", uint8(3), "asd"})
-	assert.Equal(t, len(r1.Bindings), 7)
+	assert.Subset(t, r1.Bindings, []interface{}{int64(6), uint8(3), "asd"})
+	assert.Equal(t, len(r1.Bindings), 4)
 	user.Age = 22
 	r2, e2 := user.Only("age").Save()
 	assert.Nil(t, e2)

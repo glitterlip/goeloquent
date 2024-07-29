@@ -219,10 +219,16 @@ func (m *EloquentModel) IsDirty(structFieldName string) bool {
 	parsed := GetParsedModel(reflect.Indirect(m.ModelPointer).Type())
 	fieldIndex := parsed.FieldsByStructName[structFieldName].Index
 	keyValue := current.Field(fieldIndex)
-	if !keyValue.IsValid() || keyValue.IsZero() {
-		return m.Origin[structFieldName] == nil
+
+	if keyValue.IsZero() {
+		return !reflect.ValueOf(m.Origin[structFieldName]).IsZero()
 	}
-	return keyValue.Interface() != m.Origin[structFieldName]
+	if keyValue.Comparable() {
+		return keyValue.Interface() != m.Origin[structFieldName]
+	} else {
+		//if it's not comparable, we will assume it's updated and update it every time
+		return true
+	}
 }
 
 /*
@@ -377,11 +383,13 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 			}
 		}
 
-		v := model.Field(keyIndex).Interface()
-		if value, ok := v.(driver.Valuer); ok {
-			v, _ = value.Value()
+		if m.IsDirty(field.Name) {
+			v := model.Field(keyIndex).Interface()
+			if value, ok := v.(driver.Valuer); ok {
+				v, _ = value.Value()
+			}
+			attrs[columnName] = v
 		}
-		attrs[columnName] = v
 
 	}
 	if modelType.UpdatedAt != "" {
@@ -434,6 +442,7 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 		}
 		v := model.Field(keyIndex).Interface()
 
+		//for create we will save all whether it's zero or not , can use .Only() to exclude zero columns
 		if value, ok := v.(driver.Valuer); ok {
 			v, _ = value.Value()
 		}
@@ -442,7 +451,8 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 	}
 	if modelType.CreatedAt != "" {
 		//if user set it manually,we won't change it
-		if _, ok := attrs[modelType.CreatedAt]; !ok {
+		_, ok := attrs[modelType.CreatedAt]
+		if !ok || attrs[modelType.CreatedAt] == nil {
 			switch modelType.FieldsByDbName[modelType.CreatedAt].FieldType.Name() {
 			case "NullTime":
 				attrs[modelType.CreatedAt] = sql.NullTime{
