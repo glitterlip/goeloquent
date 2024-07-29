@@ -25,6 +25,7 @@ const (
 	EventTransactionBegin     = "EventTransactionBegin"
 	EventTransactionCommitted = "EventTransactionCommitted"
 	EventTransactionRollback  = "EventTransactionRollback"
+	EventErrorArised          = "EventErrorArised"
 )
 
 type ISaving interface {

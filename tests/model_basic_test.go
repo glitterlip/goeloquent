@@ -537,3 +537,42 @@ func TestDynamicResolver(t *testing.T) {
 func TestPivotMapping(t *testing.T) {
 
 }
+func TestSaveMethod(t *testing.T) {
+	CreateUsers()
+
+	var u User
+	DB.Init(&u)
+	u.Name = "save"
+	u.Status = 1
+	u.Email = "asd"
+	u.Age = 18
+	r, e := u.Save()
+	assert.Nil(t, e)
+	a, _ := r.RowsAffected()
+	assert.Equal(t, a, int64(1))
+
+	var u1 User
+	r, e = DB.Model(&u1).Where("name", "save").First(&u1)
+
+	assert.Nil(t, e)
+	assert.Equal(t, u1.Name, "save")
+	assert.Equal(t, u1.Status, uint8(1))
+
+	u1.Status = 0
+	r, e = u1.Save()
+	assert.Nil(t, e)
+	assert.Contains(t, r.Sql,
+		"update `user_models` set",
+		" `created_at` = ? ",
+		" `updated_at` = ? ",
+		" `age` = ? ",
+		" `deleted_at` = ? ",
+		" `tags` = ? ",
+		" `name` = ? ",
+		" `email` = ? ",
+		" `info` = ? ",
+		"`id` = ? ",
+		" `status` = ",
+		" where `id` = ?")
+
+}

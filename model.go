@@ -377,14 +377,11 @@ func (m *EloquentModel) GetAttributesForUpdate() (attrs map[string]interface{}) 
 			}
 		}
 
-		// TODO should insert all fields include zero value or just no-zero value?withzero/withoutzero?
-		if !model.Field(keyIndex).IsZero() {
-			v := model.Field(keyIndex).Interface()
-			if value, ok := v.(driver.Valuer); ok {
-				v, _ = value.Value()
-			}
-			attrs[columnName] = v
+		v := model.Field(keyIndex).Interface()
+		if value, ok := v.(driver.Valuer); ok {
+			v, _ = value.Value()
 		}
+		attrs[columnName] = v
 
 	}
 	if modelType.UpdatedAt != "" {
@@ -435,15 +432,13 @@ func (m *EloquentModel) GetAttributesForCreate() (attrs map[string]interface{}) 
 				continue
 			}
 		}
-		if !model.Field(keyIndex).IsZero() {
-			v := model.Field(keyIndex).Interface()
+		v := model.Field(keyIndex).Interface()
 
-			if value, ok := v.(driver.Valuer); ok {
-				v, _ = value.Value()
-			}
-
-			attrs[columnName] = v
+		if value, ok := v.(driver.Valuer); ok {
+			v, _ = value.Value()
 		}
+
+		attrs[columnName] = v
 	}
 	if modelType.CreatedAt != "" {
 		//if user set it manually,we won't change it
