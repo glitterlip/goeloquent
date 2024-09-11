@@ -405,7 +405,7 @@ tagables.tag_id = tags.id, tagables.tagable_id = videos.id/posts.id,tagable_type
 		return t.MorphByMany(t, &Video{}, "tagables", "id", "id", "tag_id", "tagable_id", "tagable_type")
 	}
 */
-func (m *EloquentModel) MorphByMany(selfModelPointer, relatedModelPointer interface{}, pivotTable, selfColumn, relatedIdColumn, pivotSelfColumn, pivotRelatedIdColumn, pivotRelatedTypeColumn string) *MorphByManyRelation {
+func (m *EloquentModel) MorphByMany(selfModelPointer, relatedModelPointer interface{}, pivotTable, selfIdColumn, relatedIdColumn, pivotSelfColumn, pivotRelatedIdColumn, pivotRelatedTypeColumn string, relatedModelTypeColumnValue ...string) *MorphByManyRelation {
 	b := NewRelationBaseBuilder(relatedModelPointer)
 	relation := MorphByManyRelation{
 		Relation: &Relation{
@@ -417,21 +417,23 @@ func (m *EloquentModel) MorphByMany(selfModelPointer, relatedModelPointer interf
 		PivotTable:             pivotTable,
 		PivotSelfColumn:        pivotSelfColumn,
 		PivotRelatedIdColumn:   pivotRelatedIdColumn,
-		SelfColumn:             selfColumn,
+		SelfIdColumn:           selfIdColumn,
 		RelatedIdColumn:        relatedIdColumn,
 		PivotRelatedTypeColumn: pivotRelatedTypeColumn,
 	}
-	selfModel := GetParsedModel(selfModelPointer)
-	relatedModel := GetParsedModel(relatedModelPointer)
-	modelMorphName := GetMorphMap(selfModel.Name)
 
+	relatedModel := GetParsedModel(relatedModelPointer)
+	if len(relatedModelTypeColumnValue) > 0 {
+		relation.RelatedModelTypeColumnValue = relatedModelTypeColumnValue[0]
+	} else {
+		relation.RelatedModelTypeColumnValue = GetMorphMap(relatedModel.Name)
+	}
 	b.Join(relation.PivotTable, relation.PivotTable+"."+relation.PivotRelatedIdColumn, "=", relatedModel.Table+"."+relation.RelatedIdColumn)
 	b.Select(relatedModel.Table + "." + "*")
 	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedIdColumn, OrmPivotAlias, relation.PivotRelatedIdColumn))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.SelfColumn, OrmPivotAlias, relation.PivotSelfColumn))
-	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.RelationTypeName, OrmPivotAlias, relation.RelationTypeName))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotSelfColumn, OrmPivotAlias, relation.PivotSelfColumn))
+	b.Select(fmt.Sprintf("%s.%s as %s%s", relation.PivotTable, relation.PivotRelatedTypeColumn, OrmPivotAlias, relation.PivotRelatedTypeColumn))
 
-	relation.RelatedModelTypeColumnValue = modelMorphName
 	relation.AddConstraints()
 	return &relation
 

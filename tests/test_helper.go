@@ -45,7 +45,7 @@ func GetDefaultConfig() goeloquent.DBConfig {
 		Port:            "8889",
 		Database:        "goeloquent",
 		Username:        "root",
-		Password:        "root",
+		Password:        "123",
 		MultiStatements: true,
 		Driver:          "mysql",
 		EnableLog:       true,
