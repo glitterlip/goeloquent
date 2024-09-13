@@ -1143,7 +1143,30 @@ func (b *EloquentBuilder) WithContext(ctx context.Context) *EloquentBuilder {
 func (b *EloquentBuilder) Paginate(items interface{}, perPage, currentPage int64, columns ...interface{}) (*Paginator, error) {
 	b.ApplyGlobalScopes()
 	b.Prepare(items)
-	return b.Builder.Paginate(items, perPage, currentPage, columns...)
+	if len(b.Groups) > 0 || len(b.Havings) > 0 {
+		panic("having/group pagination not supported")
+	}
+	p := &Paginator{
+		Items:       items,
+		Total:       0,
+		PerPage:     perPage,
+		CurrentPage: currentPage,
+	}
+	cb := CloneWithout(b.Builder, TYPE_COLUMN, TYPE_ORDER, TYPE_OFFSET, TYPE_LIMIT)
+	for k, v := range b.GetRawBindings() {
+		cb.Bindings[k] = v
+	}
+	delete(cb.Bindings, TYPE_SELECT)
+	delete(cb.Bindings, TYPE_ORDER)
+	_, err := cb.Count(&p.Total)
+	if err != nil {
+		return nil, err
+	}
+	_, err = b.ForPage(p.CurrentPage, p.PerPage).Get(p.Items, columns...)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 func (b *EloquentBuilder) ForPage(page, perPage int64) *EloquentBuilder {
 

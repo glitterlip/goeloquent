@@ -28,3 +28,17 @@ func TestNestedRelation(t *testing.T) {
 		}
 	}
 }
+func TestRelationPagination(t *testing.T) {
+	goeloquent.RegistMorphMap(map[string]interface{}{
+		"post": &Post{},
+	})
+	goeloquent.RegisterModels([]interface{}{&User{}, &Post{}})
+	var us []User
+
+	_, e := DB.Model(&us).With("Posts").Paginate(&us, 2, 1)
+	assert.Nil(t, e)
+	assert.Equal(t, 2, len(us))
+	for _, u := range us {
+		assert.Greater(t, len(u.Posts), 0)
+	}
+}
