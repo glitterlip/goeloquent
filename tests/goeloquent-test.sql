@@ -4,13 +4,14 @@
  Source Server         : mamplocal
  Source Server Type    : MySQL
  Source Server Version : 50739
+ Source Host           : localhost:8889
  Source Schema         : goeloquent
 
  Target Server Type    : MySQL
  Target Server Version : 50739
  File Encoding         : 65001
 
- Date: 26/07/2024 16:22:05
+ Date: 01/10/2024 23:13:09
 */
 
 SET NAMES utf8mb4;
@@ -237,16 +238,18 @@ CREATE TABLE `tagables` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------
 -- Records of tagables
 -- ----------------------------
 BEGIN;
-INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (1, 1, 1, 'post', 1, 't1url', NULL, NULL);
-INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (2, 2, 2, 'post', 1, 't2url', NULL, NULL);
-INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (3, 1, 3, 'post', 0, 't1url', NULL, NULL);
+INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (1, 1, 3, 'post', 0, 't1url', NULL, NULL);
+INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (2, 2, 4, 'post', 1, 't2url', NULL, NULL);
+INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (3, 1, 5, 'post', 0, 't1url', NULL, NULL);
 INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (4, 2, 8, 'post', 1, 't2url', NULL, NULL);
+INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (5, 1, 1, 'post', 1, 'asd', NULL, NULL);
+INSERT INTO `tagables` (`id`, `tag_id`, `tagable_id`, `tagable_type`, `show_in_list`, `tag_url`, `created_at`, `updated_at`) VALUES (6, 2, 2, 'post', 1, 'qwe', NULL, NULL);
 COMMIT;
 
 -- ----------------------------

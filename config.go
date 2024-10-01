@@ -89,6 +89,7 @@ type Model struct {
 	Fillables                  map[string]struct{}          //fillable model fields when use Save(map[string]interface{})/Fill(map[string]interface{})
 	EagerRelations             map[string]RelationFunc      //eager loaded relations
 	EagerRelationAggregates    map[string]RelationAggregate //eager loaded relation aggregates
+	Aggregates                 map[string]string            //columnname => field name
 }
 type Field struct {
 	Name              string       //reflect.StructField.Name,struct field name
@@ -118,6 +119,7 @@ func Parse(modelType reflect.Type) (model *Model, err error) {
 		EagerRelations:          make(map[string]RelationFunc),
 		EagerRelationAggregates: make(map[string]RelationAggregate),
 		GlobalScopes:            make(map[string]ScopeFunc),
+		Aggregates:              make(map[string]string),
 	}
 	if t, ok := modelValue.Interface().(TableName); ok {
 		model.Table = t.TableName()
@@ -257,6 +259,9 @@ func (m *Model) ParseField(field reflect.StructField) *Field {
 
 			case WithAggregate:
 				m.FieldsByStructName[modelField.Name] = modelField
+				if len(as) > 1 {
+					m.Aggregates[value] = modelField.Name
+				}
 			default:
 				panic(fmt.Sprintf("unknown tag %s in model:%s field:%s", key, m.Name, field.Name))
 			}

@@ -128,10 +128,20 @@ func scanStructSlice(rows *sql.Rows, dest interface{}, mapping map[string]interf
 				needProcessAggregate = true
 				aggregateColumnMap[column] = i
 				tf := strings.Replace(column, OrmAggregateAlias, "", 1)
+				processed := false
 				if _, ok := model.EagerRelationAggregates[tf]; ok {
 					index := model.FieldsByStructName[tf].Index
 					scanArgs[i] = v.Field(index).Addr().Interface()
-				} else {
+					processed = true
+				}
+
+				if structName, ok := model.Aggregates[tf]; ok {
+					index := model.FieldsByStructName[structName].Index
+					scanArgs[i] = v.Field(index).Addr().Interface()
+					processed = true
+				}
+
+				if !processed {
 					var ts float64
 					scanArgs[i] = &ts
 				}
@@ -291,10 +301,19 @@ func scanStruct(rows *sql.Rows, dest interface{}, mapping map[string]interface{}
 				needProcessAggregate = true
 				aggregateColumnMap[column] = i
 				tf := strings.Replace(column, OrmAggregateAlias, "", 1)
+				processed := false
 				if _, ok := model.EagerRelationAggregates[tf]; ok {
 					index := model.FieldsByStructName[tf].Index
 					scanArgs[i] = v.Field(index).Addr().Interface()
-				} else {
+					processed = true
+				}
+				if structName, ok := model.Aggregates[tf]; ok {
+					index := model.FieldsByStructName[structName].Index
+					scanArgs[i] = v.Field(index).Addr().Interface()
+					processed = true
+				}
+
+				if !processed {
 					var ts float64
 					scanArgs[i] = &ts
 				}

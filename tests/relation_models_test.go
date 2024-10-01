@@ -25,6 +25,7 @@ type User struct {
 	Tags                 UserTag      `goelo:"column:tags"`
 	Avatar               Image        `goelo:"MorphOne:AvatarRelation"`
 	PostCount            float64      `goelo:"Aggregate"`
+	Count                float64      `goelo:"Aggregate:PostsCount"`
 	PostCountWithTrashed float64      `goelo:"Aggregate"`
 }
 

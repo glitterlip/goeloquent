@@ -95,7 +95,7 @@ func TestSingleConnectionNotCreatedUntilNeeded(t *testing.T) {
 func TestDSNConfig(t *testing.T) {
 	DB.AddConfig("test", &goeloquent.DBConfig{
 		Driver: "mysql",
-		Dsn:    "root:root@tcp(127.0.0.1:8889)/goeloquent?charset=utf8mb4&parseTime=true",
+		Dsn:    "root:123@tcp(127.0.0.1:8889)/goeloquent?charset=utf8mb4&parseTime=true",
 	})
 	//fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", config.Username, config.Password, config.Host, config.Port, config.Database, strings.Join(params, "&"))
 	conn := DB.Connection("test")
