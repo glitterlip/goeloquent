@@ -40,7 +40,7 @@ func (r *MorphToManyRelation) AddEagerConstraints(models interface{}) {
 	//remove first where clause to simulate the Relation::noConstraints function in laravel
 	r.Wheres = r.Wheres[1:]
 	r.Bindings[TYPE_WHERE] = r.Bindings[TYPE_WHERE][1:]
-	r.Builder.WhereIn(r.PivotTable+"."+r.PivotRelatedIdColumn, keys)
+	r.Builder.WhereIn(r.PivotTable+"."+r.PivotSelfIdColumn, keys)
 
 }
 func (r *MorphToManyRelation) AddConstraints() {
