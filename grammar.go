@@ -127,6 +127,13 @@ func (g *MysqlGrammar) WrapJsonPathSegment(segment string) string {
 
 	return fmt.Sprintf(`"%s"`, segment)
 }
+func (g *MysqlGrammar) WrapJsonBooleanSelector(value string) string {
+	field, path := g.WrapJsonFieldAndPath(value)
+	return "json_extract(" + field + path + ")"
+}
+func (g *MysqlGrammar) WrapJsonBooleanValue(value string) string {
+	return value
+}
 func (g *MysqlGrammar) Columnize(value []interface{}) string {
 	var columns []string
 	for _, v := range value {
@@ -382,4 +389,318 @@ func (g *MysqlGrammar) CompileOffset(query *QueryBuilder) string {
 
 func (g *MysqlGrammar) CompileLock(query *QueryBuilder) string {
 	return ""
+}
+func removeLeadingBoolean(str string) string {
+	re := regexp.MustCompile(`(?)(^and\s|^or\s)`)
+	return re.ReplaceAllString(str, "")
+}
+func (g *MysqlGrammar) CompileWhere(query *QueryBuilder) string {
+	if len(query.Wheres) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	for _, where := range query.Wheres {
+		sb.WriteString(where.Boolean + " ")
+		switch where.Type {
+		case WhereTypeBasic:
+			sb.WriteString(g.CompileWhereBasic(where))
+		case WhereTypeExpression:
+			sb.WriteString(g.CompileWhereExpression(where))
+		case WhereTypeBitwise:
+			sb.WriteString(g.CompileWhereBitwise(where))
+		case WhereTypeJsonBoolean:
+			sb.WriteString(g.CompileWhereJsonBoolean(where))
+		case WhereTypeColumn:
+			sb.WriteString(g.CompileWhereColumn(where))
+		case WhereTypeRaw:
+			sb.WriteString(g.CompileWhereRaw(where))
+		case WhereTypeLike:
+			sb.WriteString(g.CompileWhereLike(where))
+		case WhereTypeNotIn:
+			sb.WriteString(g.CompileWhereNotIn(where))
+		case WhereTypeIn:
+			sb.WriteString(g.CompileWhereIn(where))
+		case WhereTypeNotInRaw:
+			sb.WriteString(g.CompileWhereNotInRaw(where))
+		case WhereTypeInRaw:
+			sb.WriteString(g.CompileWhereInRaw(where))
+		case WhereTypeNotNull:
+			sb.WriteString(g.CompileWhereNotNull(where))
+		case WhereTypeNull:
+			sb.WriteString(g.CompileWhereNull(where))
+		case WhereTypeBetween:
+			sb.WriteString(g.CompileWhereBetween(where))
+		case WhereTypeBetweenColumn:
+			sb.WriteString(g.CompileWhereBetweenColumn(where))
+		case WhereTypeNested:
+			sb.WriteString(g.CompileWhereNested(where))
+		case WhereTypeSub:
+			sb.WriteString(g.CompileWhereSub(where))
+		case WhereTypeNotExists:
+			sb.WriteString(g.CompileWhereNotExists(where))
+		case WhereTypeExists:
+			sb.WriteString(g.CompileWhereExists(where))
+		case WhereTypeRowValues:
+			sb.WriteString(g.CompileWhereRowValues(where))
+		case WhereTypeJsonContains:
+			sb.WriteString(g.CompileWhereJsonContains(where))
+		case WhereTypeJsonOverlaps:
+			sb.WriteString(g.CompileWhereJsonOverlaps(where))
+		case WhereTypeJsonContainsKey:
+			sb.WriteString(g.CompileWhereJsonContainsKey(where))
+		case WhereTypeJsonLength:
+			sb.WriteString(g.CompileWhereJsonLength(where))
+		case WhereTypeFulltext:
+			sb.WriteString(g.CompileWhereFulltext(where))
+		case WhereTypeDate:
+			sb.WriteString(g.CompileWhereDate(where))
+		case WhereTypeTime:
+			sb.WriteString(g.CompileWhereTime(where))
+		case WhereTypeDay:
+			sb.WriteString(g.CompileWhereDay(where))
+		case WhereTypeMonth:
+			sb.WriteString(g.CompileWhereMonth(where))
+		case WhereTypeYear:
+			sb.WriteString(g.CompileWhereYear(where))
+		}
+		sb.WriteString(" ")
+
+	}
+
+	str := sb.String()
+	strings.TrimSuffix(str, " ")
+	str = removeLeadingBoolean(str)
+
+	if query.IsJoin {
+		return "where " + str
+	}
+
+	return "on " + str
+}
+
+// todo
+func (g *MysqlGrammar) CompileWhereExpression(where Where) string {
+
+	return ""
+}
+
+func (g *MysqlGrammar) CompileWhereBitwise(where Where) string {
+
+	return g.CompileWhereBasic(where)
+}
+
+func (g *MysqlGrammar) CompileWhereJsonBoolean(where Where) string {
+
+	column := g.WrapJsonBooleanSelector(where.Column)
+	value := g.WrapJsonBooleanValue(g.Parameter(where.Value))
+
+	return column + " " + where.Operator + " " + value
+}
+
+func (g *MysqlGrammar) CompileWhereColumn(where Where) string {
+
+	return g.Wrap(where.First) + " " + where.Operator + " " + g.Wrap(where.Second)
+}
+
+func (g *MysqlGrammar) CompileWhereRaw(where Where) string {
+
+	if expression, ok := where.RawSql.(Expression); ok {
+		return string(expression)
+	}
+	return where.RawSql.(string)
+}
+
+func (g *MysqlGrammar) CompileWhereLike(where Where) string {
+	operator := ""
+	if where.Not {
+		operator = "not "
+	}
+	if where.CaseSensitive {
+		operator = operator + "like binary"
+	} else {
+		operator = operator + "like"
+	}
+	return g.CompileWhereBasic(where)
+}
+
+func (g *MysqlGrammar) CompileWhereNotIn(where Where) string {
+
+	if len(where.Values) == 0 {
+		return "1 = 1"
+	}
+	return g.Wrap(where.Column) + " not in (" + g.Parameterize(where.Values) + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereIn(where Where) string {
+
+	if len(where.Values) == 0 {
+		return "0 = 1"
+	}
+	return g.Wrap(where.Column) + " in (" + g.Parameterize(where.Values) + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereNotInRaw(where Where) string {
+
+	if len(where.Values) == 0 {
+		return "1 = 1"
+	}
+	return g.Wrap(where.Column) + " not in (" + g.Parameterize(where.Values) + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereInRaw(where Where) string {
+
+	if len(where.Values) == 0 {
+		return "0 = 1"
+	}
+	return g.Wrap(where.Column) + " in (" + g.Parameterize(where.Values) + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereNotNull(where Where) string {
+
+	return g.Wrap(where.Column) + " is not null"
+}
+
+func (g *MysqlGrammar) CompileWhereNull(where Where) string {
+
+	return g.Wrap(where.Column) + " is null"
+}
+
+func (g *MysqlGrammar) CompileWhereBetween(where Where) string {
+
+	between := "between"
+	if where.Not {
+		between = "not between"
+	}
+	return g.Wrap(where.Column) + " " + between + " " + g.Parameter(where.Values[0]) + " and " + g.Parameter(where.Values[1])
+
+}
+
+func (g *MysqlGrammar) CompileWhereBetweenColumn(where Where) string {
+
+	between := "between"
+	if where.Not {
+		between = "not between"
+	}
+	return g.Wrap(where.Column) + " " + between + " " + g.Wrap(where.Values[0]) + " and " + g.Wrap(where.Values[1])
+}
+
+func (g *MysqlGrammar) CompileWhereNested(where Where) string {
+	sql := g.CompileWhere(where.Query)
+
+	if where.Query.IsJoin {
+		return "(" + sql[3:] + ")"
+	} else {
+		return "(" + sql[6:] + ")"
+	}
+
+}
+
+func (g *MysqlGrammar) CompileWhereSub(where Where) string {
+
+	sql := g.CompileSelect(where.Query)
+	return g.Wrap(where.Column) + " " + where.Operator + " (" + sql + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereNotExists(where Where) string {
+
+	return "not exists (" + g.CompileSelect(where.Query) + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereExists(where Where) string {
+
+	return "exists (" + g.CompileSelect(where.Query) + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereRowValues(where Where) string {
+
+	columns := g.Columnize(where.Columns)
+	values := g.Parameterize(where.Values)
+	return fmt.Sprintf("(%s) %s (%s)", columns, where.Operator, values)
+}
+
+func (g *MysqlGrammar) CompileWhereJsonContains(where Where) string {
+
+	not := ""
+	if where.Not {
+		not = "not "
+	}
+
+	field, path := g.WrapJsonFieldAndPath(where.Column)
+	return not + "json_contains(" + field + ", " + where.Value.(string) + path + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereJsonOverlaps(where Where) string {
+
+	not := ""
+	if where.Not {
+		not = "not "
+	}
+
+	field, path := g.WrapJsonFieldAndPath(where.Column)
+
+	return not + "json_overlaps(" + field + ", " + g.Parameter(where.Value) + path + ")"
+}
+
+func (g *MysqlGrammar) CompileWhereJsonContainsKey(where Where) string {
+
+	not := ""
+	if where.Not {
+		not = "not "
+	}
+
+	field, path := g.WrapJsonFieldAndPath(where.Column)
+	return fmt.Sprintf("%sifnull(json_contains_path(%s, \\'one\\'%s), 0)", not, field, path)
+}
+
+func (g *MysqlGrammar) CompileWhereJsonLength(where Where) string {
+
+	field, path := g.WrapJsonFieldAndPath(where.Column)
+	return "json_length(" + field + path + ") " + where.Operator + " " + g.Parameter(where.Value)
+}
+
+func (g *MysqlGrammar) CompileWhereFulltext(where Where) string {
+
+	columns := g.Columnize(where.Columns)
+	value := g.Parameter(where.Value)
+	mode := "natural language mode"
+	if where.Mode == "boolean" {
+		mode = "boolean mode"
+	}
+	expansion := ""
+	if where.Expanded {
+		expansion = " with query expansion"
+	}
+	return fmt.Sprintf("match (%s) against (%s in %s%s)", columns, value, mode, expansion)
+}
+
+func (g *MysqlGrammar) CompileWhereDate(where Where) string {
+
+	return string(where.Type) + "(" + g.Wrap(where.Column) + ") " + where.Operator + " " + g.Parameter(where.Value)
+}
+
+func (g *MysqlGrammar) CompileWhereTime(where Where) string {
+
+	return string(where.Type) + "(" + g.Wrap(where.Column) + ") " + where.Operator + " " + g.Parameter(where.Value)
+}
+
+func (g *MysqlGrammar) CompileWhereDay(where Where) string {
+
+	return string(where.Type) + "(" + g.Wrap(where.Column) + ") " + where.Operator + " " + g.Parameter(where.Value)
+}
+
+func (g *MysqlGrammar) CompileWhereMonth(where Where) string {
+
+	return string(where.Type) + "(" + g.Wrap(where.Column) + ") " + where.Operator + " " + g.Parameter(where.Value)
+}
+
+func (g *MysqlGrammar) CompileWhereYear(where Where) string {
+
+	return string(where.Type) + "(" + g.Wrap(where.Column) + ") " + where.Operator + " " + g.Parameter(where.Value)
+}
+
+func (g *MysqlGrammar) CompileWhereBasic(where Where) string {
+	operator := strings.ReplaceAll(where.Operator, "?", "??")
+
+	return g.Wrap(where.Column) + " " + operator + " " + g.Parameter(where.Value)
 }
