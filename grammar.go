@@ -227,3 +227,157 @@ func (g *MysqlGrammar) WrapSegments(segments []string) string {
 	}
 	return strings.Join(wrappedSegments, ".")
 }
+
+func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
+
+	if len(query.Havings) > 0 && len(query.Aggregate.AggregateName) > 0 {
+		return g.CompileUnionAggregate(query)
+	}
+	if query.GroupLimit > 0 {
+		if len(query.Columns) == 0 {
+			query.Columns = []interface{}{"*"}
+		}
+		return g.CompileGroupLimit(query)
+	}
+	columns := query.Columns
+	if len(query.Columns) == 0 {
+		columns = []interface{}{"*"}
+	}
+	parts := g.CompileComponents(query)
+	var sb strings.Builder
+	for i, part := range parts {
+		if len(part) > 0 {
+			sb.Write([]byte(strings.TrimSuffix(part, " ")))
+		}
+		if i != len(parts)-1 {
+			sb.WriteByte(' ')
+		}
+	}
+	query.Columns = columns
+	return sb.String()
+}
+
+func (g *MysqlGrammar) CompileUnionAggregate(query *QueryBuilder) string {
+
+}
+
+func (g *MysqlGrammar) CompileGroupLimit(query *QueryBuilder) string {
+
+}
+
+func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) []string {
+	var parts []string
+	for key, component := range query.Components {
+		switch key {
+		case COMPONENT_AGGREGRATE:
+			parts = append(parts, g.CompileAggregate(query))
+		case COMPONENT_COLUMN:
+			parts = append(parts, g.CompileColumn(query))
+		case COMPONENT_FROM:
+			parts = append(parts, g.CompileFrom(query))
+		case COMPONENT_INDEX_HINT:
+			parts = append(parts, g.CompileIndexHint(query))
+		case COMPONENT_JOIN:
+			parts = append(parts, g.CompileJoin(query, query.Joins))
+		case COMPONENT_WHERE:
+			parts = append(parts, g.CompileWhere(query))
+		case COMPONENT_GROUP_BY:
+			parts = append(parts, g.CompileGroup(query))
+		case COMPONENT_HAVING:
+			parts = append(parts, g.CompileHaving(query))
+		case COMPONENT_ORDER:
+			parts = append(parts, g.CompileOrder(query))
+		case COMPONENT_LIMIT:
+			parts = append(parts, g.CompileLimit(query))
+		case COMPONENT_OFFSET:
+			parts = append(parts, g.CompileOffset(query))
+		case COMPONENT_LOCK:
+			parts = append(parts, g.CompileLock(query))
+		default:
+			g.AddError(errors.New(fmt.Sprintf("unsupported component %s", component)))
+			return nil
+		}
+	}
+	return parts
+}
+
+func (g *MysqlGrammar) CompileAggregate(query *QueryBuilder) string {
+
+	column := g.Columnize(query.Aggregate.AggregateColumns)
+	if cs, ok := query.Distinct.([]interface{}); ok {
+		column = "distinct " + g.Columnize(cs)
+	} else if b, ok := query.Distinct.(bool); ok && b && column != "*" {
+		column = "distinct " + column
+	}
+
+	return fmt.Sprintf("select %s(%s) as aggregate", query.Aggregate.AggregateName, column)
+}
+
+func (g *MysqlGrammar) CompileColumn(query *QueryBuilder) string {
+	if query.Aggregate.AggregateName != "" {
+		return ""
+	}
+	if query.Distinct != nil {
+		return "select distinct " + g.Columnize(query.Columns)
+	} else {
+		return "select " + g.Columnize(query.Columns)
+	}
+}
+
+func (g *MysqlGrammar) CompileFrom(query *QueryBuilder) string {
+	return "from " + g.WrapTable(query.From)
+}
+
+func (g *MysqlGrammar) CompileIndexHint(query *QueryBuilder) string {
+
+	switch query.IndexHint.Type {
+	case "hint":
+		return fmt.Sprintf("use index (%s)", query.IndexHint.Index)
+	case "force":
+		return fmt.Sprintf("force index (%s)", query.IndexHint.Index)
+	default:
+		return fmt.Sprintf("ignore index (%s)", query.IndexHint.Index)
+	}
+}
+
+func (g *MysqlGrammar) CompileJoin(query *QueryBuilder, joins []*JoinBuilder) string {
+
+	var parts []string
+	for _, join := range joins {
+		table := g.WrapTable(join.Table)
+		var nested string
+		tableAndNested := table
+		if len(join.Joins) > 0 {
+			nested = g.CompileJoin(query, join.Joins)
+			tableAndNested = fmt.Sprintf("(%s%s)", table, nested)
+		}
+
+		parts = append(parts, fmt.Sprintf("%s join %s %s", join.Type, tableAndNested, g.CompileWhere(join.QueryBuilder)))
+
+	}
+	return strings.TrimSuffix(strings.Join(parts, " "), " ")
+}
+
+func (g *MysqlGrammar) CompileGroup(query *QueryBuilder) string {
+	return ""
+}
+
+func (g *MysqlGrammar) CompileHaving(query *QueryBuilder) string {
+	return ""
+}
+
+func (g *MysqlGrammar) CompileOrder(query *QueryBuilder) string {
+	return ""
+}
+
+func (g *MysqlGrammar) CompileLimit(query *QueryBuilder) string {
+	return ""
+}
+
+func (g *MysqlGrammar) CompileOffset(query *QueryBuilder) string {
+	return ""
+}
+
+func (g *MysqlGrammar) CompileLock(query *QueryBuilder) string {
+	return ""
+}
