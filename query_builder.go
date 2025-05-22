@@ -26,6 +26,7 @@ const (
 	COMPONENT_AGGREGRATE  Component = "aggregrate"
 	COMPONENT_OFFSET      Component = "offset"
 	COMPONENT_LIMIT       Component = "limit"
+	COMPONENT_GROUP_LIMIT Component = "groupLimit"
 	COMPONENT_LOCK        Component = "lock"
 
 	WhereTypeBasic           WhereType  = "basic"
@@ -116,7 +117,7 @@ type QueryBuilder struct {
 	Havings    []Having
 	Orders     []Order
 	Limit      int
-	GroupLimit int
+	Grouplimit GroupLimit
 	Offset     int
 	//Unions unsupported,use raw sql
 	//Lock //todo
@@ -127,6 +128,10 @@ type QueryBuilder struct {
 type Aggregate struct {
 	AggregateName    string        //aggregate function
 	AggregateColumns []interface{} //columns string or expression
+}
+type GroupLimit struct {
+	Value  int
+	Column string
 }
 type Order struct {
 	OrderType string
@@ -275,5 +280,17 @@ func (q *QueryBuilder) Table(name ...string) *QueryBuilder {
 
 	}
 
+	return q
+}
+
+/*
+GroupLimit Add a "group limit" clause to the query.
+*/
+func (q *QueryBuilder) GroupLimit(value int, column string) *QueryBuilder {
+	if value >= 0 {
+		q.Grouplimit.Value = value
+		q.Grouplimit.Column = column
+		q.Components[COMPONENT_GROUP_LIMIT] = struct{}{}
+	}
 	return q
 }
