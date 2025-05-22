@@ -265,7 +265,39 @@ func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
 	query.Columns = columns
 	return sb.String()
 }
+func (g *MysqlGrammar) compileDelete(query *QueryBuilder) string {
 
+	table := g.WrapTable(query.From)
+	where := g.CompileWheres(query)
+	if len(query.Joins) > 0 {
+		return g.CompileDeleteWithJoins(query, table, where)
+	} else {
+		return g.CompileDeleteWithoutJoins(query, table, where)
+	}
+}
+func (g *MysqlGrammar) CompileDeleteWithJoins(query *QueryBuilder, table, where string) string {
+	ts := strings.Split(table, " as ")
+	alias := ts[len(ts)-1]
+	joins := g.CompileJoins(query)
+	return fmt.Sprintf("delete %s from %s %s %s", alias, table, joins, where)
+}
+func (g *MysqlGrammar) CompileDeleteWithoutJoins(query *QueryBuilder, table, where string) string {
+	return "delete from " + table + " " + where
+}
+func (g *MysqlGrammar) CompileJoins(query *QueryBuilder) string {
+	var parts []string
+	for _, join := range query.Joins {
+		var table, nestedJoins string
+		if len(join.QueryBuilder.Joins) > 0 {
+			nestedJoins = " " + g.CompileJoins(join.QueryBuilder)
+			table = "(" + g.WrapTable(join.Table) + nestedJoins + ")"
+		} else {
+			table = g.WrapTable(join.Table)
+		}
+		parts = append(parts, strings.TrimSuffix(fmt.Sprintf("%s join %s %s", join.Type, table, g.CompileWheres(join.QueryBuilder)), " "))
+	}
+	return strings.Join(parts, " ")
+}
 func (g *MysqlGrammar) CompileUnionAggregate(query *QueryBuilder) string {
 
 }
@@ -281,7 +313,7 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) []string {
 		case COMPONENT_AGGREGRATE:
 			parts = append(parts, g.CompileAggregate(query))
 		case COMPONENT_COLUMN:
-			parts = append(parts, g.CompileColumn(query))
+			parts = append(parts, g.CompileColumns(query))
 		case COMPONENT_FROM:
 			parts = append(parts, g.CompileFrom(query))
 		case COMPONENT_INDEX_HINT:
@@ -289,7 +321,7 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) []string {
 		case COMPONENT_JOIN:
 			parts = append(parts, g.CompileJoin(query, query.Joins))
 		case COMPONENT_WHERE:
-			parts = append(parts, g.CompileWhere(query))
+			parts = append(parts, g.CompileWheres(query))
 		case COMPONENT_GROUP_BY:
 			parts = append(parts, g.CompileGroup(query))
 		case COMPONENT_HAVING:
@@ -322,7 +354,7 @@ func (g *MysqlGrammar) CompileAggregate(query *QueryBuilder) string {
 	return fmt.Sprintf("select %s(%s) as aggregate", query.Aggregate.AggregateName, column)
 }
 
-func (g *MysqlGrammar) CompileColumn(query *QueryBuilder) string {
+func (g *MysqlGrammar) CompileColumns(query *QueryBuilder) string {
 	if query.Aggregate.AggregateName != "" {
 		return ""
 	}
@@ -361,7 +393,7 @@ func (g *MysqlGrammar) CompileJoin(query *QueryBuilder, joins []*JoinBuilder) st
 			tableAndNested = fmt.Sprintf("(%s%s)", table, nested)
 		}
 
-		parts = append(parts, fmt.Sprintf("%s join %s %s", join.Type, tableAndNested, g.CompileWhere(join.QueryBuilder)))
+		parts = append(parts, fmt.Sprintf("%s join %s %s", join.Type, tableAndNested, g.CompileWheres(join.QueryBuilder)))
 
 	}
 	return strings.TrimSuffix(strings.Join(parts, " "), " ")
@@ -394,7 +426,7 @@ func removeLeadingBoolean(str string) string {
 	re := regexp.MustCompile(`(?)(^and\s|^or\s)`)
 	return re.ReplaceAllString(str, "")
 }
-func (g *MysqlGrammar) CompileWhere(query *QueryBuilder) string {
+func (g *MysqlGrammar) CompileWheres(query *QueryBuilder) string {
 	if len(query.Wheres) == 0 {
 		return ""
 	}
@@ -586,7 +618,7 @@ func (g *MysqlGrammar) CompileWhereBetweenColumn(where Where) string {
 }
 
 func (g *MysqlGrammar) CompileWhereNested(where Where) string {
-	sql := g.CompileWhere(where.Query)
+	sql := g.CompileWheres(where.Query)
 
 	if where.Query.IsJoin {
 		return "(" + sql[3:] + ")"
