@@ -242,7 +242,7 @@ func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
 	if len(query.Havings) > 0 && len(query.Aggregate.AggregateName) > 0 {
 		return g.CompileUnionAggregate(query)
 	}
-	if query.GroupLimit > 0 {
+	if query.Grouplimit.Value > 0 {
 		if len(query.Columns) == 0 {
 			query.Columns = []interface{}{"*"}
 		}
