@@ -253,16 +253,20 @@ func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
 		columns = []interface{}{"*"}
 	}
 	parts := g.CompileComponents(query)
+	query.Columns = columns
+	return Concatenate(parts)
+}
+func Concatenate(parts map[Component]string) string {
 	var sb strings.Builder
-	for i, part := range parts {
-		if len(part) > 0 {
-			sb.Write([]byte(strings.TrimSuffix(part, " ")))
-		}
-		if i != len(parts)-1 {
-			sb.WriteByte(' ')
+	for i, component := range SelectComponents {
+		if part, ok := parts[component]; !ok {
+			sb.WriteString(strings.TrimSuffix(part, " "))
+			if i != len(SelectComponents)-1 {
+				sb.WriteString(" ")
+			}
 		}
 	}
-	query.Columns = columns
+
 	return sb.String()
 }
 func (g *MysqlGrammar) compileDelete(query *QueryBuilder) string {
@@ -308,32 +312,34 @@ func (g *MysqlGrammar) CompileGroupLimit(query *QueryBuilder) string {
 
 func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) []string {
 	var parts []string
+func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]string {
+	var parts map[Component]string
 	for key, component := range query.Components {
 		switch key {
 		case COMPONENT_AGGREGRATE:
-			parts = append(parts, g.CompileAggregate(query))
+			parts[key] = g.CompileAggregate(query)
 		case COMPONENT_COLUMN:
-			parts = append(parts, g.CompileColumns(query))
+			parts[key] = g.CompileColumns(query)
 		case COMPONENT_FROM:
-			parts = append(parts, g.CompileFrom(query))
+			parts[key] = g.CompileFrom(query)
 		case COMPONENT_INDEX_HINT:
-			parts = append(parts, g.CompileIndexHint(query))
+			parts[key] = g.CompileIndexHint(query)
 		case COMPONENT_JOIN:
-			parts = append(parts, g.CompileJoin(query, query.Joins))
+			parts[key] = g.CompileJoin(query, query.Joins)
 		case COMPONENT_WHERE:
-			parts = append(parts, g.CompileWheres(query))
+			parts[key] = g.CompileWheres(query)
 		case COMPONENT_GROUP_BY:
-			parts = append(parts, g.CompileGroup(query))
+			parts[key] = g.CompileGroups(query)
 		case COMPONENT_HAVING:
-			parts = append(parts, g.CompileHaving(query))
+			parts[key] = g.CompileHaving(query.Havings[0])
 		case COMPONENT_ORDER:
-			parts = append(parts, g.CompileOrder(query))
+			parts[key] = g.CompileOrder(query)
 		case COMPONENT_LIMIT:
-			parts = append(parts, g.CompileLimit(query))
+			parts[key] = g.CompileLimit(query)
 		case COMPONENT_OFFSET:
-			parts = append(parts, g.CompileOffset(query))
+			parts[key] = g.CompileOffset(query)
 		case COMPONENT_LOCK:
-			parts = append(parts, g.CompileLock(query))
+			parts[key] = g.CompileLock(query)
 		default:
 			g.AddError(errors.New(fmt.Sprintf("unsupported component %s", component)))
 			return nil
