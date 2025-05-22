@@ -6,6 +6,7 @@ import (
 )
 
 type Component string
+type HavingType string
 type QuerybuilderFunc func(*QueryBuilder)
 type QuerybuilderChainFunc func(*QueryBuilder) *QueryBuilder
 
@@ -27,36 +28,44 @@ const (
 	COMPONENT_LIMIT       Component = "limit"
 	COMPONENT_LOCK        Component = "lock"
 
-	WhereTypeBasic           WhereType = "basic"
-	WhereTypeExpression      WhereType = "expression"
-	WhereTypeBitwise         WhereType = "bitwise"
-	WhereTypeJsonBoolean     WhereType = "jsonBoolean"
-	WhereTypeColumn          WhereType = "column"
-	WhereTypeRaw             WhereType = "raw"
-	WhereTypeLike            WhereType = "like"
-	WhereTypeNotIn           WhereType = "notIn"
-	WhereTypeIn              WhereType = "in"
-	WhereTypeNotInRaw        WhereType = "notInRaw"
-	WhereTypeInRaw           WhereType = "inRaw"
-	WhereTypeNotNull         WhereType = "notNull"
-	WhereTypeNull            WhereType = "null"
-	WhereTypeBetween         WhereType = "between"
-	WhereTypeBetweenColumn   WhereType = "betweenColumn"
-	WhereTypeNested          WhereType = "nested"
-	WhereTypeSub             WhereType = "sub"
-	WhereTypeNotExists       WhereType = "notExists"
-	WhereTypeExists          WhereType = "exists"
-	WhereTypeRowValues       WhereType = "rowValues"
-	WhereTypeJsonContains    WhereType = "jsonContains"
-	WhereTypeJsonOverlaps    WhereType = "jsonOverlaps"
-	WhereTypeJsonContainsKey WhereType = "jsonContainsKey"
-	WhereTypeJsonLength      WhereType = "jsonLength"
-	WhereTypeFulltext        WhereType = "fulltext"
-	WhereTypeDate            WhereType = "date"
-	WhereTypeTime            WhereType = "time"
-	WhereTypeDay             WhereType = "day"
-	WhereTypeMonth           WhereType = "month"
-	WhereTypeYear            WhereType = "year"
+	WhereTypeBasic           WhereType  = "basic"
+	WhereTypeExpression      WhereType  = "expression"
+	WhereTypeBitwise         WhereType  = "bitwise"
+	WhereTypeJsonBoolean     WhereType  = "jsonBoolean"
+	WhereTypeColumn          WhereType  = "column"
+	WhereTypeRaw             WhereType  = "raw"
+	WhereTypeLike            WhereType  = "like"
+	WhereTypeNotIn           WhereType  = "notIn"
+	WhereTypeIn              WhereType  = "in"
+	WhereTypeNotInRaw        WhereType  = "notInRaw"
+	WhereTypeInRaw           WhereType  = "inRaw"
+	WhereTypeNotNull         WhereType  = "notNull"
+	WhereTypeNull            WhereType  = "null"
+	WhereTypeBetween         WhereType  = "between"
+	WhereTypeBetweenColumn   WhereType  = "betweenColumn"
+	WhereTypeNested          WhereType  = "nested"
+	WhereTypeSub             WhereType  = "sub"
+	WhereTypeNotExists       WhereType  = "notExists"
+	WhereTypeExists          WhereType  = "exists"
+	WhereTypeRowValues       WhereType  = "rowValues"
+	WhereTypeJsonContains    WhereType  = "jsonContains"
+	WhereTypeJsonOverlaps    WhereType  = "jsonOverlaps"
+	WhereTypeJsonContainsKey WhereType  = "jsonContainsKey"
+	WhereTypeJsonLength      WhereType  = "jsonLength"
+	WhereTypeFulltext        WhereType  = "fulltext"
+	WhereTypeDate            WhereType  = "date"
+	WhereTypeTime            WhereType  = "time"
+	WhereTypeDay             WhereType  = "day"
+	WhereTypeMonth           WhereType  = "month"
+	WhereTypeYear            WhereType  = "year"
+	HavingTypeRaw            HavingType = "raw"
+	HavingTypeBasic          HavingType = "basic"
+	HavingTypeBetween        HavingType = "between"
+	HavingTypeNull           HavingType = "null"
+	HavingTypeNotNull        HavingType = "notNull"
+	HavingTypeBitwise        HavingType = "bitwise"
+	HavingTypeExpression     HavingType = "expression"
+	HavingTypeNested         HavingType = "nested"
 )
 
 var (
@@ -126,14 +135,14 @@ type Order struct {
 	RawSql    interface{}
 }
 type Having struct {
-	HavingType     string
+	Type           HavingType
 	HavingColumn   string
 	HavingOperator string
 	HavingValue    interface{}
 	HavingBoolean  string
 	RawSql         interface{}
 	Not            bool
-	HavingQuery    *QueryBuilder
+	Query          *QueryBuilder
 }
 type WhereType string
 type Where struct {
