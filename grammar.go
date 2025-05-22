@@ -368,7 +368,7 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]stri
 		case COMPONENT_GROUP_BY:
 			parts[key] = g.CompileGroups(query)
 		case COMPONENT_HAVING:
-			parts[key] = g.CompileHaving(query.Havings[0])
+			parts[key] = g.CompileHavings(query.Havings)
 		case COMPONENT_ORDER:
 			parts[key] = g.CompileOrder(query)
 		case COMPONENT_LIMIT:
@@ -445,9 +445,31 @@ func (g *MysqlGrammar) CompileJoin(query *QueryBuilder, joins []*JoinBuilder) st
 func (g *MysqlGrammar) CompileGroups(query *QueryBuilder) string {
 	return "group by " + g.Columnize(query.Groups)
 }
+func (g *MysqlGrammar) CompileHavings(havings []Having) string {
+	var sqls []string
+	for _, having := range havings {
+		sqls = append(sqls, having.HavingBoolean+" "+g.CompileHaving(having))
+	}
+	return "having " + removeLeadingBoolean(strings.Join(sqls, " "))
+}
+func (g *MysqlGrammar) CompileHaving(having Having) string {
+	switch having.Type {
 
-func (g *MysqlGrammar) CompileHaving(query *QueryBuilder) string {
-	return ""
+	case HavingTypeRaw:
+		return g.CompileHavingRaw(having)
+	case HavingTypeBetween:
+		return g.CompileHavingBetween(having)
+	case HavingTypeBitwise:
+		return g.CompileHavingBitwise(having)
+	case HavingTypeNull:
+		return g.CompileHavingNull(having)
+	case HavingTypeNotNull:
+		return g.CompileHavingNotNull(having)
+	case HavingTypeNested:
+		return g.CompileHavingNested(having)
+	default:
+		return g.CompileHavingBasic(having)
+	}
 }
 
 func (g *MysqlGrammar) CompileOrder(query *QueryBuilder) string {
@@ -778,4 +800,41 @@ func (g *MysqlGrammar) CompileWhereBasic(where Where) string {
 	operator := strings.ReplaceAll(where.Operator, "?", "??")
 
 	return g.Wrap(where.Column) + " " + operator + " " + g.Parameter(where.Value)
+}
+
+func (g *MysqlGrammar) CompileHavingRaw(having Having) string {
+
+	return having.RawSql
+}
+func (g *MysqlGrammar) CompileHavingBasic(having Having) string {
+
+	return g.Wrap(having.HavingColumn) + " " + having.HavingOperator + " " + g.Parameter(having.HavingValue)
+}
+
+func (g *MysqlGrammar) CompileHavingBetween(having Having) string {
+
+	between := "between"
+	if having.Not {
+		between = "not between"
+	}
+	return g.Wrap(having.HavingColumn) + " " + between + " " + g.Parameter(having.HavingValues[0]) + " and " + g.Parameter(having.HavingValues[1])
+}
+
+func (g *MysqlGrammar) CompileHavingBitwise(having Having) string {
+
+	return fmt.Sprintf("(%s %s %s) != 0", g.Wrap(having.HavingColumn), having.HavingOperator, g.Parameter(having.HavingValue))
+}
+
+func (g *MysqlGrammar) CompileHavingNull(having Having) string {
+
+	return g.Wrap(having.HavingColumn) + " is null"
+}
+
+func (g *MysqlGrammar) CompileHavingNotNull(having Having) string {
+
+	return g.Wrap(having.HavingColumn) + " is not null"
+}
+
+func (g *MysqlGrammar) CompileHavingNested(having Having) string {
+	return "(" + g.CompileHavings(having.Query.Havings)[7:] + ")"
 }
