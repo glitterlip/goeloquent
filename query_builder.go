@@ -94,7 +94,7 @@ type QueryBuilder struct {
 	Statement  *Statement
 	Grammar    Grammar
 	Components map[Component]struct{}
-	Bindings   map[string][]interface{}
+	Bindings   map[Component][]interface{}
 	Aggregate  Aggregate
 	Columns    []interface{}
 	Distinct   interface{}
@@ -224,4 +224,44 @@ func (q *QueryBuilder) SelectSub(query interface{}, as string) *QueryBuilder {
 
 	return q.SelectRaw(queryStr, bindings)
 
+}
+
+/*
+GetRawBindings Get the raw map of array of bindings.
+*/
+func (q *QueryBuilder) GetRawBindings() map[Component][]interface{} {
+
+	return q.Bindings
+}
+
+/*
+AddBinding Add a binding to the query.
+*/
+func (q *QueryBuilder) AddBinding(bindings []interface{}, component Component) *QueryBuilder {
+
+	for _, binding := range bindings {
+		if _, ok := binding.(Expression); !ok {
+			q.Bindings[component] = append(q.Bindings[component], binding)
+		}
+	}
+	return q
+}
+
+/*
+SetBindings Set the bindings on the query builder.
+*/
+func (q *QueryBuilder) SetBindings(bindings []interface{}, component Component) *QueryBuilder {
+
+	q.Bindings[component] = bindings
+	return q
+}
+func (q *QueryBuilder) Table(name ...string) *QueryBuilder {
+	switch len(name) {
+	case 0:
+		q.Statement.Error = errors.New("table name is required")
+	case 1:
+
+	}
+
+	return q
 }
