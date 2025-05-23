@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -288,6 +289,9 @@ func (g *MysqlGrammar) CompileDeleteWithJoins(query *QueryBuilder, table, where 
 func (g *MysqlGrammar) CompileDeleteWithoutJoins(query *QueryBuilder, table, where string) string {
 	return "delete from " + table + " " + where
 }
+func (g *MysqlGrammar) CompileExists(query *QueryBuilder) string {
+	return "select exists(" + g.CompileSelect(query) + ") as " + g.Wrap("exists")
+}
 func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
 	var res []interface{}
 	first := values[0]
@@ -311,8 +315,17 @@ func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]in
 		}
 	}
 
-	return fmt.Sprintf("insert into %s (%s) values (%s)", g.WrapTable(query.From), columns, strings.Join(sqls, ", ")), res
 	return fmt.Sprintf("insert into %s (%s) values (%s)", g.WrapTable(query.FromTable), columns, strings.Join(sqls, ", ")), res
+}
+func (g *MysqlGrammar) CompileUpsert(query *QueryBuilder, values []map[string]interface{}, uniqueBy []string, update map[string]interface{}) (string, []interface{}) {
+	sql, bindings := g.CompileInsert(query, values)
+	sql += " on duplicate key update "
+	var parts []string
+	for key, value := range update {
+		parts = append(parts, g.Wrap(key)+" = "+g.Parameter(value))
+	}
+	return sql + strings.Join(parts, ", "), bindings
+
 }
 func (g *MysqlGrammar) CompileInsertGetId(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
 	return g.CompileInsert(query, values)
@@ -320,6 +333,58 @@ func (g *MysqlGrammar) CompileInsertGetId(query *QueryBuilder, values []map[stri
 func (g *MysqlGrammar) CompileInsertOrIgnore(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
 	str, bindings := g.CompileInsert(query, values)
 	return strings.Replace(str, "insert", "insert ignore", 1), bindings
+}
+
+func (g *MysqlGrammar) CompileUpdate(query *QueryBuilder, values map[string]interface{}) string {
+
+	table := g.WrapTable(query.FromTable)
+	columns := g.CompileUpdateColumns(query, values)
+	where := g.CompileWheres(query)
+	if len(query.Joins) > 0 {
+		return g.CompileUpdateWithJoins(query, table, columns, where)
+	} else {
+		return g.CompileUpdateWithoutJoins(query, table, columns, where)
+	}
+}
+func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[string]interface{}) string {
+	var parts []string
+	for key, value := range values {
+		if isJsonSelector(key) {
+			parts = append(parts, g.WrapJsonSelector(key)+" = "+g.Parameter(value))
+		} else {
+			parts = append(parts, g.Wrap(key)+" = "+g.Parameter(value))
+		}
+
+	}
+
+	return strings.Join(parts, ", ")
+}
+func (g *MysqlGrammar) CompileUpdateWithoutJoins(query *QueryBuilder, table, columns, where string) string {
+	sql := fmt.Sprintf("update %s set %s %s", table, columns, where)
+	if len(query.Orders) > 0 {
+		sql += " " + g.CompileOrders(query)
+	}
+	if query.Limit > 0 {
+		sql += " " + g.CompileLimit(query)
+	}
+	return sql
+}
+func (g *MysqlGrammar) CompileUpdateWithJoins(query *QueryBuilder, table, columns, where string) string {
+	joins := g.CompileJoins(query)
+	return fmt.Sprintf("update %s %s set %s %s %s", table, joins, columns, where)
+}
+func (g *MysqlGrammar) CompileJsonUpdateColumn(key string, value interface{}) string {
+	switch value.(type) {
+	case bool:
+		value = strconv.FormatBool(value.(bool))
+	case []interface{}:
+		value = "cast(? as json)"
+	default:
+		value = g.Parameter(value)
+	}
+
+	field, path := g.WrapJsonFieldAndPath(key)
+	return fmt.Sprintf("%s = json_set(%s%s, %s)", field, field, path, value)
 }
 func (g *MysqlGrammar) CompileInsertUsing(query *QueryBuilder, columns []interface{}, sql string) string {
 	if len(columns) == 0 || (len(columns) == 1 && columns[0] == "*") {
@@ -520,19 +585,51 @@ func (g *MysqlGrammar) CompileHaving(having Having) string {
 	}
 }
 
-func (g *MysqlGrammar) CompileOrder(query *QueryBuilder) string {
+func (g *MysqlGrammar) CompileOrders(query *QueryBuilder) string {
+
+	if len(query.Orders) > 0 {
+		return "order by " + strings.Join(g.CompileOrdersToArray(query), ", ")
+	}
 	return ""
 }
-
+func (g *MysqlGrammar) CompileOrdersToArray(query *QueryBuilder) []string {
+	var orders []string
+	for _, order := range query.Orders {
+		if order.RawSql != "" {
+			orders = append(orders, order.RawSql)
+		} else {
+			orders = append(orders, g.Wrap(order.Column)+" "+order.Direction)
+		}
+	}
+	return orders
+}
+func (g *MysqlGrammar) CompileRandom(seed ...int) string {
+	if len(seed) > 0 {
+		return "RAND(" + strconv.Itoa(seed[0]) + ")"
+	}
+	return "RAND()"
+}
 func (g *MysqlGrammar) CompileLimit(query *QueryBuilder) string {
-	return ""
+	return "limit " + strconv.Itoa(query.Limit)
 }
 
 func (g *MysqlGrammar) CompileOffset(query *QueryBuilder) string {
-	return ""
+	return "offset " + strconv.Itoa(query.Offset)
 }
 
 func (g *MysqlGrammar) CompileLock(query *QueryBuilder) string {
+	switch query.Locks.(type) {
+	case string:
+		return query.Locks.(string)
+	case Expression:
+		return string(query.Locks.(Expression))
+	case bool:
+		if query.Locks.(bool) {
+			return "for update"
+		} else {
+			return "lock in share mode"
+		}
+	}
 	return ""
 }
 func removeLeadingBoolean(str string) string {
