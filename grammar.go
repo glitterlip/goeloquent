@@ -288,6 +288,48 @@ func (g *MysqlGrammar) CompileDeleteWithJoins(query *QueryBuilder, table, where 
 func (g *MysqlGrammar) CompileDeleteWithoutJoins(query *QueryBuilder, table, where string) string {
 	return "delete from " + table + " " + where
 }
+func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
+	var res []interface{}
+	first := values[0]
+	var keys []interface{}
+	for key, _ := range first {
+		keys = append(keys, key)
+	}
+	columns := g.Columnize(keys)
+	columnsLength := len(columns)
+	var sqls []string
+	for _, value := range values {
+		sql := "("
+		for j, key := range keys {
+			sql += g.Parameter(value[key.(string)])
+			res = append(res, value[key.(string)])
+			if j == columnsLength-1 {
+				sql += ")"
+			} else {
+				sql += ", "
+			}
+		}
+	}
+
+	return fmt.Sprintf("insert into %s (%s) values (%s)", g.WrapTable(query.From), columns, strings.Join(sqls, ", ")), res
+}
+func (g *MysqlGrammar) CompileInsertGetId(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
+	return g.CompileInsert(query, values)
+}
+func (g *MysqlGrammar) CompileInsertOrIgnore(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
+	str, bindings := g.CompileInsert(query, values)
+	return strings.Replace(str, "insert", "insert ignore", 1), bindings
+}
+func (g *MysqlGrammar) CompileInsertUsing(query *QueryBuilder, columns []interface{}, sql string) string {
+	if len(columns) == 0 || (len(columns) == 1 && columns[0] == "*") {
+		return "insert into " + g.WrapTable(query.From) + " " + sql
+	}
+	return "insert into " + g.WrapTable(query.From) + " (" + g.Columnize(columns) + ") " + sql
+}
+func (g *MysqlGrammar) CompileInsertOrIgnoreUsing(query *QueryBuilder, columns []interface{}, sql string) string {
+
+	return strings.Replace(g.CompileInsertUsing(query, columns, sql), "insert", "insert ignore", 1)
+}
 func (g *MysqlGrammar) CompileJoins(query *QueryBuilder) string {
 	var parts []string
 	for _, join := range query.Joins {
