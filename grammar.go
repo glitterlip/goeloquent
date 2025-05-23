@@ -291,16 +291,21 @@ func (g *MysqlGrammar) CompileDeleteWithoutJoins(query *QueryBuilder, table, whe
 func (g *MysqlGrammar) CompileJoins(query *QueryBuilder) string {
 	var parts []string
 	for _, join := range query.Joins {
-		var table, nestedJoins string
+		table := g.WrapTable(join.Table)
+		var nestedJoins string
 		if len(join.QueryBuilder.Joins) > 0 {
 			nestedJoins = " " + g.CompileJoins(join.QueryBuilder)
 			table = "(" + g.WrapTable(join.Table) + nestedJoins + ")"
-		} else {
-			table = g.WrapTable(join.Table)
+		}
+		if join.Lateral {
+			return g.CompileJoinLateral(join, table)
 		}
 		parts = append(parts, strings.TrimSuffix(fmt.Sprintf("%s join %s %s", join.Type, table, g.CompileWheres(join.QueryBuilder)), " "))
 	}
 	return strings.Join(parts, " ")
+}
+func (g *MysqlGrammar) CompileJoinLateral(query *JoinBuilder, expression string) string {
+	return strings.TrimPrefix(fmt.Sprintf("%s join lateral %s on true", query.Type, expression), " ")
 }
 func (g *MysqlGrammar) CompileUnionAggregate(query *QueryBuilder) string {
 
