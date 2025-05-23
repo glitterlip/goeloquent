@@ -271,7 +271,7 @@ func Concatenate(parts map[Component]string) string {
 }
 func (g *MysqlGrammar) compileDelete(query *QueryBuilder) string {
 
-	table := g.WrapTable(query.From)
+	table := g.WrapTable(query.FromTable)
 	where := g.CompileWheres(query)
 	if len(query.Joins) > 0 {
 		return g.CompileDeleteWithJoins(query, table, where)
@@ -312,6 +312,7 @@ func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]in
 	}
 
 	return fmt.Sprintf("insert into %s (%s) values (%s)", g.WrapTable(query.From), columns, strings.Join(sqls, ", ")), res
+	return fmt.Sprintf("insert into %s (%s) values (%s)", g.WrapTable(query.FromTable), columns, strings.Join(sqls, ", ")), res
 }
 func (g *MysqlGrammar) CompileInsertGetId(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
 	return g.CompileInsert(query, values)
@@ -322,9 +323,9 @@ func (g *MysqlGrammar) CompileInsertOrIgnore(query *QueryBuilder, values []map[s
 }
 func (g *MysqlGrammar) CompileInsertUsing(query *QueryBuilder, columns []interface{}, sql string) string {
 	if len(columns) == 0 || (len(columns) == 1 && columns[0] == "*") {
-		return "insert into " + g.WrapTable(query.From) + " " + sql
+		return "insert into " + g.WrapTable(query.FromTable) + " " + sql
 	}
-	return "insert into " + g.WrapTable(query.From) + " (" + g.Columnize(columns) + ") " + sql
+	return "insert into " + g.WrapTable(query.FromTable) + " (" + g.Columnize(columns) + ") " + sql
 }
 func (g *MysqlGrammar) CompileInsertOrIgnoreUsing(query *QueryBuilder, columns []interface{}, sql string) string {
 
@@ -456,7 +457,7 @@ func (g *MysqlGrammar) CompileColumns(query *QueryBuilder) string {
 }
 
 func (g *MysqlGrammar) CompileFrom(query *QueryBuilder) string {
-	return "from " + g.WrapTable(query.From)
+	return "from " + g.WrapTable(query.FromTable)
 }
 
 func (g *MysqlGrammar) CompileIndexHint(query *QueryBuilder) string {
