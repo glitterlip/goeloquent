@@ -418,7 +418,7 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]stri
 		case COMPONENT_HAVING:
 			parts[key] = g.CompileHavings(query.Havings)
 		case COMPONENT_ORDER:
-			parts[key] = g.CompileOrder(query)
+			parts[key] = g.CompileOrders(query)
 		case COMPONENT_LIMIT:
 			parts[key] = g.CompileLimit(query)
 		case COMPONENT_OFFSET:
@@ -436,9 +436,9 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]stri
 func (g *MysqlGrammar) CompileAggregate(query *QueryBuilder) string {
 
 	column := g.Columnize(query.Aggregate.AggregateColumns)
-	if cs, ok := query.Distinct.([]interface{}); ok {
+	if cs, ok := query.IsDistinct.([]interface{}); ok {
 		column = "distinct " + g.Columnize(cs)
-	} else if b, ok := query.Distinct.(bool); ok && b && column != "*" {
+	} else if b, ok := query.IsDistinct.(bool); ok && b && column != "*" {
 		column = "distinct " + column
 	}
 
@@ -449,7 +449,7 @@ func (g *MysqlGrammar) CompileColumns(query *QueryBuilder) string {
 	if query.Aggregate.AggregateName != "" {
 		return ""
 	}
-	if query.Distinct != nil {
+	if query.IsDistinct != nil {
 		return "select distinct " + g.Columnize(query.Columns)
 	} else {
 		return "select " + g.Columnize(query.Columns)
