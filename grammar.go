@@ -254,7 +254,7 @@ func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
 	}
 	columns := query.Columns
 	if len(query.Columns) == 0 {
-		columns = []interface{}{"*"}
+		query.Select("*")
 	}
 	parts := g.CompileComponents(query)
 	query.Columns = columns
