@@ -64,3 +64,9 @@ func TestBasicTableWrappingProtectsQuotationMarks(t *testing.T) {
 	assert.Nil(t, query.Statement.Error)
 	assert.Equal(t, query.ToSql(), "select * from `some``table`")
 }
+func TestAliasWrappingAsWholeConstant(t *testing.T) {
+	query := GetBuilder()
+	query.Select("x.y as foo.bar").From("baz")
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select `x`.`y` as `foo.bar` from `baz`")
+}
