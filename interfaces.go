@@ -4,8 +4,9 @@ import "database/sql"
 
 type Connection interface {
 	GetDB() *sql.DB
-	Table(table interface{}, alias ...string) *Statement
 	Query() *Statement
+	Table(table interface{}, alias ...string) *Statement
+	Model(model ...interface{}) *Statement
 	Raw(value string) Expression
 	SelectOne(query string, bindings interface{}) (*Statement, error)
 	Select(query string, bindings interface{}) (*Statement, error)
@@ -24,7 +25,7 @@ type Connection interface {
 type Grammar interface {
 	WrapTable(table interface{}, prefix ...string) string
 	Wrap(value interface{}) string
-	WrapAliasedValue(value interface{}) string
+	WrapAliasedValue(value string) string
 	WrapAliasedTable(table string, prefix ...string) string
 	WrapSegments(segments []string) string
 	WrapValue(value string) string
@@ -33,4 +34,10 @@ type Grammar interface {
 	Parameter(value interface{}) string
 	Parameterize(value []interface{}) string
 	QuoteString(value interface{}) string
+	CompileRandom(seed ...interface{}) string
+	CompileSelect(*QueryBuilder) string
+	CompileInsert(*QueryBuilder, []map[string]interface{}) (string, []interface{})
+	CompileUpdate(*QueryBuilder, map[string]interface{}) (string, []interface{})
+	CompileDelete(*QueryBuilder) string
+	GetError() error
 }
