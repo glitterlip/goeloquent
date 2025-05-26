@@ -41,7 +41,7 @@ func (g *MysqlGrammar) Wrap(value interface{}) string {
 	case string:
 		if strings.Contains(value.(string), " as ") || strings.Contains(value.(string), " AS ") {
 			return g.WrapAliasedValue(value.(string))
-		} else if isJsonSelector(value.(string)) {
+		} else if IsJsonSelector(value.(string)) {
 			return g.WrapJsonSelector(value.(string))
 		} else {
 			return g.WrapSegments(strings.Split(value.(string), "."))
@@ -243,7 +243,7 @@ func (g *MysqlGrammar) WrapSegments(segments []string) string {
 
 func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
 
-	if len(query.Havings) > 0 && len(query.Aggregate.AggregateName) > 0 {
+	if len(query.Havings) > 0 && len(query.Aggregates.AggregateName) > 0 {
 		return g.CompileUnionAggregate(query)
 	}
 	if query.Grouplimit.Value > 0 {
@@ -273,7 +273,7 @@ func Concatenate(parts map[Component]string) string {
 
 	return sb.String()
 }
-func (g *MysqlGrammar) compileDelete(query *QueryBuilder) string {
+func (g *MysqlGrammar) CompileDelete(query *QueryBuilder) string {
 
 	table := g.WrapTable(query.FromTable)
 	where := g.CompileWheres(query)
@@ -367,7 +367,7 @@ func (g *MysqlGrammar) CompileUpdateWithoutJoins(query *QueryBuilder, table, col
 	if len(query.Orders) > 0 {
 		sql += " " + g.CompileOrders(query)
 	}
-	if query.Limit > 0 {
+	if query.LimitNum > 0 {
 		sql += " " + g.CompileLimit(query)
 	}
 	return sql
@@ -434,10 +434,10 @@ func (g *MysqlGrammar) CompileGroupLimit(query *QueryBuilder) string {
 	query.SetBindings(bindings, COMPONENT_SELECT)
 	query.SetBindings([]interface{}{}, COMPONENT_ORDER)
 	limit := query.Grouplimit.Value
-	offset := query.Offset
+	offset := query.OffsetNum
 	if offset > 0 {
 		limit = limit + offset
-		query.Offset = 0
+		query.OffsetNum = 0
 	}
 
 	components := g.CompileComponents(query)
@@ -503,18 +503,18 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]stri
 
 func (g *MysqlGrammar) CompileAggregate(query *QueryBuilder) string {
 
-	column := g.Columnize(query.Aggregate.AggregateColumns)
+	column := g.Columnize(query.Aggregates.AggregateColumns)
 	if cs, ok := query.IsDistinct.([]interface{}); ok {
 		column = "distinct " + g.Columnize(cs)
 	} else if b, ok := query.IsDistinct.(bool); ok && b && column != "*" {
 		column = "distinct " + column
 	}
 
-	return fmt.Sprintf("select %s(%s) as aggregate", query.Aggregate.AggregateName, column)
+	return fmt.Sprintf("select %s(%s) as aggregate", query.Aggregates.AggregateName, column)
 }
 
 func (g *MysqlGrammar) CompileColumns(query *QueryBuilder) string {
-	if query.Aggregate.AggregateName != "" {
+	if query.Aggregates.AggregateName != "" {
 		return ""
 	}
 	if query.IsDistinct != nil {
