@@ -262,16 +262,13 @@ func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
 }
 func Concatenate(parts map[Component]string) string {
 	var sb strings.Builder
-	for i, component := range SelectComponents {
-		if part, ok := parts[component]; !ok {
-			sb.WriteString(strings.TrimSuffix(part, " "))
-			if i != len(SelectComponents)-1 {
-				sb.WriteString(" ")
-			}
+	for _, component := range SelectComponents {
+		if part, ok := parts[component]; ok {
+			sb.WriteString(strings.TrimSuffix(part, " ") + " ")
 		}
 	}
 
-	return sb.String()
+	return strings.Trim(sb.String(), " ")
 }
 func (g *MysqlGrammar) CompileDelete(query *QueryBuilder) string {
 
