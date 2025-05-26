@@ -52,3 +52,15 @@ func TestBasicSelectWithGetColumns(t *testing.T) {
 	assert.Equal(t, query.ToSql(), "select `id`, `name` from `users`")
 
 }
+
+func TestBasicTableWrappingProtectsQuotationMarks(t *testing.T) {
+	query := GetBuilder()
+	query.From("`users`")
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select * from ```users```")
+
+	query = GetBuilder()
+	query.From("some`table")
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select * from `some``table`")
+}
