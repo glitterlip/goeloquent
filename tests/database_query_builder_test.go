@@ -27,12 +27,28 @@ func TestBasicSelect(t *testing.T) {
 	assert.Nil(t, query.Statement.Error)
 	assert.Equal(t, query.ToSql(), "select `id`, `name` from `users`")
 
+	query = GetBuilder()
+	query.Select([]interface{}{"id", "name"}).From("users")
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select `id`, `name` from `users`")
+
 }
 func TestBasicSelectWithGetColumns(t *testing.T) {
-	stmt := goeloquent.NewStatement()
-	query := goeloquent.NewQueryBuilder(stmt)
-	query.Select("id", "name").From("users")
-	sql := query.ToSql()
-	assert.Nil(t, stmt.Error)
-	assert.Equal(t, sql, "select `id`, `name` from `users`")
+
+	query := GetBuilder()
+	users := map[string]interface{}{}
+	query.From("users").Get(&users)
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select * from `users`")
+
+	query = GetBuilder()
+	query.From("users").Get(&users, "id", "name")
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select `id`, `name` from `users`")
+
+	query = GetBuilder()
+	query.From("users").Get(&users, []interface{}{"id", "name"})
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select `id`, `name` from `users`")
+
 }
