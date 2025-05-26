@@ -31,6 +31,9 @@ func (g *MysqlGrammar) AddError(err error) {
 		}
 	}
 }
+func (g *MysqlGrammar) GetError() error {
+	return g.Error
+}
 func (g *MysqlGrammar) Wrap(value interface{}) string {
 	switch value.(type) {
 	case Expression:
