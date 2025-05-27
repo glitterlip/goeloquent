@@ -155,16 +155,10 @@ func (g *MysqlGrammar) Columnize(value []interface{}) string {
 }
 
 func (g *MysqlGrammar) Parameter(value interface{}) string {
-
-	switch value.(type) {
-	case string:
-		return "?"
-	case Expression:
-		return value.(string)
-	default:
-		g.AddError(errors.New(fmt.Sprintf("parameter value type %T is not string or expression", value)))
+	if expression, ok := value.(Expression); ok {
+		return string(expression)
 	}
-	return ""
+	return "?"
 }
 
 func (g *MysqlGrammar) Parameterize(value []interface{}) string {
