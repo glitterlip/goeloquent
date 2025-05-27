@@ -122,3 +122,59 @@ func TestJoinAliasesWithPrefix(t *testing.T) {
 	assert.Equal(t, "select * from `prefix_services` inner join `prefix_translations` as `prefix_t` on `prefix_t`.`item_id` = `prefix_services`.`id`", b.ToSql())
 
 }
+
+func TestBasicTableWrapping(t *testing.T) {
+	b2 := GetBuilder()
+	b2.Select().From("public.users")
+	assert.Equal(t, "select * from `public`.`users`", b2.ToSql())
+}
+
+func TestWhenCallback(t *testing.T) {
+	b := GetBuilder()
+	cb := func(builder *goeloquent.QueryBuilder) {
+		builder.Where("id", "=", 1)
+	}
+	b.Select("*").From("users").When(true, cb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `id` = ? and `email` = ?", b.ToSql())
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").When(false, cb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `email` = ?", b1.ToSql())
+}
+func TestWhenCallbackWithReturn(t *testing.T) {
+	cb := func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		builder.Where("id", "=", 1)
+		return builder
+	}
+	b := GetBuilder()
+	b.Select("*").From("users").When(true, cb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `id` = ? and `email` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").When(false, cb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `email` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b1.GetRawBindings()["where"])
+
+}
+func TestWhenCallbackWithDefault(t *testing.T) {
+	cb := func(builder *goeloquent.QueryBuilder) {
+		builder.Where("id", "=", 1)
+	}
+	b2 := GetBuilder()
+	b3 := GetBuilder()
+	defaultCb := func(builder *goeloquent.QueryBuilder) {
+		builder.Where("id", "=", 2)
+	}
+	b2.Select("*").From("users").When(false, cb, defaultCb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `id` = ? and `email` = ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{2, "foo"}, b2.GetBindings())
+	assert.ElementsMatch(t, []interface{}{2, "foo"}, b2.GetRawBindings()["where"])
+
+	b3.Select("*").From("users").When(true, cb, defaultCb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `id` = ? and `email` = ?", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b3.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b3.GetRawBindings()["where"])
+}
