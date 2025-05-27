@@ -201,3 +201,36 @@ func TestPipeCallback(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b.GetBindings())
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b.GetRawBindings()["where"])
 }
+
+func TestBasicWheres(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").Where("id", "=", 1)
+	assert.Equal(t, "select * from `users` where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").Where("id", 1).Where("email", "=", "foo")
+	assert.Equal(t, "select * from `users` where `id` = ? and `email` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").Where("id", 1).Where("age", ">", 4, "or")
+	assert.Equal(t, "select * from `users` where `id` = ? or `age` > ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 4}, b2.GetBindings())
+}
+
+func TestBasicWhereNot(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereNot("id", "=", 1)
+	assert.Equal(t, "select * from `users` where not `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereNot("id", 1).WhereNot("email", "=", "foo", "or")
+	assert.Equal(t, "select * from `users` where not `id` = ? or not `email` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b1.GetRawBindings()["where"])
+}
