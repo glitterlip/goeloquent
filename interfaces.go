@@ -3,6 +3,7 @@ package goeloquent
 import "database/sql"
 
 type Connection interface {
+	GetTablePrefix() string
 	GetDB() *sql.DB
 	Query() *Statement
 	Table(table interface{}, alias ...string) *Statement
@@ -40,4 +41,5 @@ type Grammar interface {
 	CompileUpdate(*QueryBuilder, map[string]interface{}) (string, []interface{})
 	CompileDelete(*QueryBuilder) string
 	GetError() error
+	SetTablePrefix(prefix string)
 }
