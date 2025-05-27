@@ -466,7 +466,7 @@ func (g *MysqlGrammar) CompileRowNumber(partition, orders string) string {
 	return fmt.Sprintf(", row_number() over (%s) as %s", over, g.Wrap(Eloquent+"_row"))
 }
 func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]string {
-	var parts map[Component]string
+	parts := make(map[Component]string)
 	for key, component := range query.Components {
 		switch key {
 		case COMPONENT_AGGREGRATE:
