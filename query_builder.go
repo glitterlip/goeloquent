@@ -29,44 +29,57 @@ const (
 	COMPONENT_GROUP_LIMIT Component = "groupLimit"
 	COMPONENT_LOCK        Component = "lock"
 
-	WhereTypeBasic           WhereType  = "basic"
-	WhereTypeExpression      WhereType  = "expression"
-	WhereTypeBitwise         WhereType  = "bitwise"
-	WhereTypeJsonBoolean     WhereType  = "jsonBoolean"
-	WhereTypeColumn          WhereType  = "column"
-	WhereTypeRaw             WhereType  = "raw"
-	WhereTypeLike            WhereType  = "like"
-	WhereTypeNotIn           WhereType  = "notIn"
-	WhereTypeIn              WhereType  = "in"
-	WhereTypeNotInRaw        WhereType  = "notInRaw"
-	WhereTypeInRaw           WhereType  = "inRaw"
-	WhereTypeNotNull         WhereType  = "notNull"
-	WhereTypeNull            WhereType  = "null"
-	WhereTypeBetween         WhereType  = "between"
-	WhereTypeBetweenColumn   WhereType  = "betweenColumn"
-	WhereTypeNested          WhereType  = "nested"
-	WhereTypeSub             WhereType  = "sub"
-	WhereTypeNotExists       WhereType  = "notExists"
-	WhereTypeExists          WhereType  = "exists"
-	WhereTypeRowValues       WhereType  = "rowValues"
-	WhereTypeJsonContains    WhereType  = "jsonContains"
-	WhereTypeJsonOverlaps    WhereType  = "jsonOverlaps"
-	WhereTypeJsonContainsKey WhereType  = "jsonContainsKey"
-	WhereTypeJsonLength      WhereType  = "jsonLength"
-	WhereTypeFulltext        WhereType  = "fulltext"
-	WhereTypeDate            WhereType  = "date"
-	WhereTypeTime            WhereType  = "time"
-	WhereTypeDay             WhereType  = "day"
-	WhereTypeMonth           WhereType  = "month"
-	WhereTypeYear            WhereType  = "year"
-	HavingTypeRaw            HavingType = "raw"
-	HavingTypeBasic          HavingType = "basic"
-	HavingTypeBetween        HavingType = "between"
-	HavingTypeNull           HavingType = "null"
-	HavingTypeNotNull        HavingType = "notNull"
-	HavingTypeBitwise        HavingType = "bitwise"
-	HavingTypeExpression     HavingType = "expression"
-	HavingTypeNested         HavingType = "nested"
+	WhereTypeBasic           WhereType = "basic"
+	WhereTypeExpression      WhereType = "expression"
+	WhereTypeBitwise         WhereType = "bitwise"
+	WhereTypeJsonBoolean     WhereType = "jsonBoolean"
+	WhereTypeColumn          WhereType = "column"
+	WhereTypeRaw             WhereType = "raw"
+	WhereTypeLike            WhereType = "like"
+	WhereTypeNotIn           WhereType = "notIn"
+	WhereTypeIn              WhereType = "in"
+	WhereTypeNotInRaw        WhereType = "notInRaw"
+	WhereTypeInRaw           WhereType = "inRaw"
+	WhereTypeNotNull         WhereType = "notNull"
+	WhereTypeNull            WhereType = "null"
+	WhereTypeBetween         WhereType = "between"
+	WhereTypeBetweenColumn   WhereType = "betweenColumn"
+	WhereTypeNested          WhereType = "nested"
+	WhereTypeSub             WhereType = "sub"
+	WhereTypeNotExists       WhereType = "notExists"
+	WhereTypeExists          WhereType = "exists"
+	WhereTypeRowValues       WhereType = "rowValues"
+	WhereTypeJsonContains    WhereType = "jsonContains"
+	WhereTypeJsonOverlaps    WhereType = "jsonOverlaps"
+	WhereTypeJsonContainsKey WhereType = "jsonContainsKey"
+	WhereTypeJsonLength      WhereType = "jsonLength"
+	WhereTypeFulltext        WhereType = "fulltext"
+	WhereTypeDate            WhereType = "date"
+	WhereTypeTime            WhereType = "time"
+	WhereTypeDay             WhereType = "day"
+	WhereTypeMonth           WhereType = "month"
+	WhereTypeYear            WhereType = "year"
+
+	HavingTypeRaw        HavingType = "raw"
+	HavingTypeBasic      HavingType = "basic"
+	HavingTypeBetween    HavingType = "between"
+	HavingTypeNull       HavingType = "null"
+	HavingTypeNotNull    HavingType = "notNull"
+	HavingTypeBitwise    HavingType = "bitwise"
+	HavingTypeExpression HavingType = "expression"
+	HavingTypeNested     HavingType = "nested"
+
+	JoinTypeInner string = "inner"
+	JoinTypeLeft  string = "left"
+	JoinTypeRight string = "right"
+	JoinTypeCross string = "cross"
+	JoinTypeFull  string = "full"
+
+	BooleanAnd string = "and"
+	BooleanOr  string = "or"
+
+	OrderDirectionAsc  string = "asc"
+	OrderDirectionDesc string = "desc"
 )
 
 var (
@@ -96,8 +109,56 @@ var (
 		COMPONENT_UNION_ORDER: {},
 		COMPONENT_INSERT:      {},
 	}
-	BindingKeysInOrder = []Component{COMPONENT_SELECT, COMPONENT_FROM, COMPONENT_JOIN, COMPONENT_UPDATE, COMPONENT_WHERE, COMPONENT_GROUP_BY, COMPONENT_HAVING, COMPONENT_ORDER, COMPONENT_UNION, COMPONENT_UNION_ORDER, COMPONENT_INSERT}
-	BitwiseOperators   = []string{"&", "|", "^", "<<", ">>", "&~"}
+	BindingKeysInOrder = []Component{COMPONENT_SELECT, COMPONENT_FROM, COMPONENT_JOIN, COMPONENT_UPDATE, COMPONENT_WHERE, COMPONENT_GROUP_BY, COMPONENT_HAVING, COMPONENT_ORDER, COMPONENT_UNION_ORDER, COMPONENT_INSERT}
+	BitwiseOperators   = map[string]struct{}{
+		"&":  {},
+		"|":  {},
+		"^":  {},
+		"<<": {},
+		">>": {},
+		"&~": {},
+	}
+	NullableOperators = map[string]struct{}{
+		"=":   {},
+		"<=>": {},
+		"<>":  {},
+		"!=":  {},
+	}
+	Operators = map[string]struct{}{
+		"=":              {},
+		"<":              {},
+		">":              {},
+		"<=":             {},
+		">=":             {},
+		"<>":             {},
+		"!=":             {},
+		"<=>":            {},
+		"like":           {},
+		"like binary":    {},
+		"not like":       {},
+		"ilike":          {},
+		"&":              {},
+		"|":              {},
+		"^":              {},
+		"<<":             {},
+		">>":             {},
+		"&~":             {},
+		"is":             {},
+		"is not":         {},
+		"rlike":          {},
+		"not rlike":      {},
+		"regexp":         {},
+		"not regexp":     {},
+		"~":              {},
+		"~*":             {},
+		"!~":             {},
+		"!~*":            {},
+		"similar to":     {},
+		"not similar to": {},
+		"not ilike":      {},
+		"~~*":            {},
+		"!~~*":           {},
+	}
 )
 
 type QueryBuilder struct {
