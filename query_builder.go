@@ -239,7 +239,9 @@ type Lock struct {
 
 func NewQueryBuilder(stmt ...*Statement) *QueryBuilder {
 	qb := &QueryBuilder{
-		Grammar: NewMysqlGrammar(),
+		Grammar:    NewMysqlGrammar(),
+		Components: make(map[Component]struct{}),
+		Bindings:   make(map[Component][]interface{}),
 	}
 	if len(stmt) > 0 {
 		qb.Statement = stmt[0]
