@@ -718,10 +718,10 @@ func (g *MysqlGrammar) CompileWheres(query *QueryBuilder) string {
 	str = removeLeadingBoolean(str)
 
 	if query.IsJoin {
-		return "where " + str
+		return "on " + str
 	}
 
-	return "on " + str
+	return "where " + str
 }
 
 // todo
