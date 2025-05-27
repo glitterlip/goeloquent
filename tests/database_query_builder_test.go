@@ -178,3 +178,26 @@ func TestWhenCallbackWithDefault(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b3.GetBindings())
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b3.GetRawBindings()["where"])
 }
+func TestTapCallback(t *testing.T) {
+	b := GetBuilder()
+	cb := func(builder *goeloquent.QueryBuilder) {
+		builder.Where("id", "=", 1)
+	}
+
+	b.Select("*").From("users").Tap(cb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `id` = ? and `email` = ?", b.ToSql())
+
+}
+
+func TestPipeCallback(t *testing.T) {
+	b := GetBuilder()
+	cb := func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		builder.Where("id", "=", 1)
+		return builder
+	}
+
+	b.Select("*").From("users").Pipe(cb).Where("email", "foo")
+	assert.Equal(t, "select * from `users` where `id` = ? and `email` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b.GetRawBindings()["where"])
+}
