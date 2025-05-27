@@ -15,13 +15,16 @@ func Raw(expr string) Expression {
 }
 
 type MysqlGrammar struct {
-	Error error
+	Error       error
+	TablePrefix string
 }
 
 func NewMysqlGrammar() *MysqlGrammar {
 	return &MysqlGrammar{}
 }
-
+func (g *MysqlGrammar) SetTablePrefix(prefix string) {
+	g.TablePrefix = prefix
+}
 func (g *MysqlGrammar) AddError(err error) {
 	if err != nil {
 		if g.Error == nil {
@@ -203,7 +206,7 @@ func (g *MysqlGrammar) WrapTable(tableName interface{}, prefix ...string) string
 	if len(prefix) > 0 {
 		tablePrefix = prefix[0]
 	} else {
-		tablePrefix = ""
+		tablePrefix = g.TablePrefix
 	}
 	switch t := tableName.(type) {
 	case Expression:
