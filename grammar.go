@@ -69,7 +69,7 @@ func (g *MysqlGrammar) WrapAliasedValue(value string) string {
 func (g *MysqlGrammar) WrapAliasedTable(table string, prefix ...string) string {
 
 	var tablePrefix string
-	if len(prefix) > 0 {
+	if len(prefix) > 0 && len(prefix[0]) > 0 {
 		tablePrefix = prefix[0]
 	}
 	var segments []string
@@ -78,7 +78,7 @@ func (g *MysqlGrammar) WrapAliasedTable(table string, prefix ...string) string {
 	} else {
 		segments = strings.SplitN(table, " as ", 2)
 	}
-	return g.WrapTable(segments[0], prefix...) + " as " + g.WrapValue(tablePrefix+segments[1])
+	return g.WrapTable(segments[0], tablePrefix) + " as " + g.WrapValue(tablePrefix+segments[1])
 
 }
 
@@ -207,7 +207,7 @@ func (g *MysqlGrammar) WrapTable(tableName interface{}, prefix ...string) string
 		return string(t)
 	case string:
 		if strings.Contains(t, " as ") || strings.Contains(t, " AS ") {
-			return g.WrapAliasedTable(t)
+			return g.WrapAliasedTable(t, tablePrefix)
 		}
 		if strings.Contains(t, ".") {
 
