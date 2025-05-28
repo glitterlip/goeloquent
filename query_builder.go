@@ -199,9 +199,8 @@ type GroupLimit struct {
 type Order struct {
 	OrderType string
 	Direction string
-	Column    interface{} //string or expression
-	RawSql    interface{}
 	Column    string //string or expression
+	RawSql    string
 }
 type Having struct {
 	Type           HavingType
