@@ -760,6 +760,7 @@ func (g *MysqlGrammar) CompileWhereLike(where Where) string {
 	} else {
 		operator = operator + "like"
 	}
+	where.Operator = operator
 	return g.CompileWhereBasic(where)
 }
 
