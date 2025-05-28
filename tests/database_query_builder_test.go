@@ -256,6 +256,23 @@ func TestBasicWhereNot(t *testing.T) {
 //		assert.Equal(t, "select * from `users` where `id` <> ?", b3.ToSql())
 //		assert.ElementsMatch(t, []interface{}{1}, b3.GetBindings())
 //	}
+
+// testMySqlWrappingProtectsQuotationMarks
+// testOrWhereDayPostgres
+// testOrWhereDaySqlServer
+// testOrWhereMonthPostgres
+// testOrWhereMonthSqlServer
+// testOrWhereYearPostgres
+// testOrWhereYearSqlServer
+// testWhereTimeOperatorOptionalPostgres
+// testWhereTimeSqlServer
+// testOrWhereTimePostgres
+// testOrWhereTimeSqlServer
+// testWhereDatePostgres
+// testWhereDayPostgres
+// testWhereMonthPostgres
+// testWhereYearPostgres
+// testWhereTimePostgres
 func TestDateBasedWheresAcceptsTwoArguments(t *testing.T) {
 
 	b := GetBuilder()
@@ -391,7 +408,7 @@ func TestWhereYearMysql(t *testing.T) {
 func TestOrWhereYearMysql(t *testing.T) {
 	b := GetBuilder()
 	b.Select("*").From("users").WhereYear("banned_at", 2023).OrWhereYear("created_at", 2024)
-	assert.Equal(t, "select * furom `users` where year(`banned_at`) = ? or year(`created_at`) = ?", b.ToSql())
+	assert.Equal(t, "select * from `users` where year(`banned_at`) = ? or year(`created_at`) = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{2023, 2024}, b.GetBindings())
 }
 func TestWhereTimeMysql(t *testing.T) {
@@ -420,3 +437,59 @@ func TestOrWhereTimeMysql(t *testing.T) {
 // testPassingArrayToWhereTodayMySQL
 // testWhereFuture
 // testPassingArrayToWhereFuture
+// testWhereLikePostgres
+// testWhereLikeClausePostgres
+// testWhereLikeClauseSqlite
+// testWhereLikeClauseSqlServer
+// testWhereDateSqlite
+// testWhereDaySqlite
+// testWhereMonthSqlite
+// testWhereYearSqlite
+// testWhereTimeSqlite
+// testWhereTimeOperatorOptionalSqlite
+// testWhereDateSqlServer
+// testWhereDaySqlServer
+// testWhereMonthSqlServer
+// testWhereYearSqlServer
+func TestWhereLikeClauseMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereLike("name", "1").WhereNotLike("name", "Jim")
+	assert.Equal(t, "select * from `users` where `name` like ? and `name` not like ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"1", "Jim"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"1", "Jim"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereLike("name", "john").CaseSensitive()
+	assert.Equal(t, "select * from `users` where `name` like binary ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"john"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"john"}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").WhereNotLike("name", "john").OrWhereLike("name", "john")
+	assert.Equal(t, "select * from `users` where `name` not like ? or `name` like ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{"john", "john"}, b2.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"john", "john"}, b2.GetRawBindings()["where"])
+
+	b3 := GetBuilder()
+	b3.Select("*").From("users").WhereNotLike("name", "john").CaseSensitive().OrWhereNotLike("name", "john")
+	assert.Equal(t, "select * from `users` where `name` not like binary ? or `name` not like ?", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{"john", "john"}, b3.GetBindings())
+
+}
+
+// testWhereLikeClauseSqlite
+// testWhereLikeClauseSqlServer
+// testWhereDateSqlite
+// testWhereDaySqlite
+// testWhereMonthSqlite
+// testWhereYearSqlite
+// testWhereTimeSqlite
+// testWhereTimeOperatorOptionalSqlite
+// testWhereDateSqlServer
+// testWhereDaySqlServer
+// testWhereMonthSqlServer
+// testWhereYearSqlServer
+
+func TestWhereBetweens(t *testing.T) {
+
+}
