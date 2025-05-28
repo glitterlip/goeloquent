@@ -234,3 +234,189 @@ func TestBasicWhereNot(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b1.GetBindings())
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b1.GetRawBindings()["where"])
 }
+
+//	func TestWheresWithArrayValue(t *testing.T) {
+//		b := GetBuilder()
+//		b.Select().From("users").Where("id", []interface{}{1, 2, 3})
+//		assert.Equal(t, "select * from `users` where `id` = ?", b.ToSql())
+//		assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+//
+//		b1 := GetBuilder()
+//		b1.Select().From("users").Where("id", "=", []interface{}{1, 2, 3}, goeloquent.And)
+//		assert.Equal(t, "select * from `users` where `id` = ?", b1.ToSql())
+//		assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+//
+//		b2 := GetBuilder()
+//		b2.Select().From("users").Where("id", "!=", []interface{}{1, 2, 3}, goeloquent.Or)
+//		assert.Equal(t, "select * from `users` where `id` != ?", b2.ToSql())
+//		assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+//
+//		b3 := GetBuilder()
+//		b3.Select().From("users").Where("id", "<>", []interface{}{1, 2, 3})
+//		assert.Equal(t, "select * from `users` where `id` <> ?", b3.ToSql())
+//		assert.ElementsMatch(t, []interface{}{1}, b3.GetBindings())
+//	}
+func TestDateBasedWheresAcceptsTwoArguments(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select("*").From("users").WhereDate("created_at", "2023-01-01")
+	assert.Equal(t, "select * from `users` where date(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereDay("created_at", "2023-01-01")
+	assert.Equal(t, "select * from `users` where day(`created_at`) = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").WhereMonth("created_at", 10)
+	assert.Equal(t, "select * from `users` where month(`created_at`) = ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{10}, b2.GetBindings())
+	assert.ElementsMatch(t, []interface{}{10}, b2.GetRawBindings()["where"])
+
+	b3 := GetBuilder()
+	b3.Select("*").From("users").WhereYear("created_at", 2022)
+	assert.Equal(t, "select * from `users` where year(`created_at`) = ?", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{2022}, b3.GetBindings())
+	assert.ElementsMatch(t, []interface{}{2022}, b3.GetRawBindings()["where"])
+
+}
+
+func TestDateBasedOrWheresAcceptsTwoArguments(t *testing.T) {
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("id", 1).OrWhereDate("created_at", 1)
+	assert.Equal(t, "select * from `users` where `id` = ? or date(`created_at`) = ?", b1.ToSql())
+	b2 := GetBuilder()
+	b2.Select().From("users").Where("id", 1).OrWhereDay("created_at", 1)
+	assert.Equal(t, "select * from `users` where `id` = ? or day(`created_at`) = ?", b2.ToSql())
+	b3 := GetBuilder()
+	b3.Select().From("users").Where("id", 1).OrWhereMonth("created_at", 1)
+	assert.Equal(t, "select * from `users` where `id` = ? or month(`created_at`) = ?", b3.ToSql())
+	b4 := GetBuilder()
+	b4.Select().From("users").Where("id", 1).OrWhereYear("created_at", 1)
+	assert.Equal(t, "select * from `users` where `id` = ? or year(`created_at`) = ?", b4.ToSql())
+}
+func TestDateBasedWheresExpressionIsNotBound(t *testing.T) {
+	b1 := GetBuilder()
+	b1.Select().From("users").WhereDate("created_at", goeloquent.Raw("NOW()")).Where("age", ">", 18)
+	assert.Equal(t, "select * from `users` where date(`created_at`) = NOW() and `age` > ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{18}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{18}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select().From("users").WhereMonth("created_at", goeloquent.Raw("NOW()"))
+	assert.Equal(t, "select * from `users` where month(`created_at`) = NOW()", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users").WhereYear("created_at", goeloquent.Raw("NOW()"))
+	assert.Equal(t, "select * from `users` where year(`created_at`) = NOW()", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetRawBindings()["where"])
+
+	b11 := GetBuilder()
+	b11.Select().From("users").WhereDay("created_at", goeloquent.Raw("NOW()"))
+	assert.Equal(t, "select * from `users` where day(`created_at`) = NOW()", b11.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b11.GetBindings())
+}
+func TestWhereDateMySql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereDate("created_at", "=", "2023-01-01", goeloquent.Or)
+	assert.Equal(t, "select * from `users` where date(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereDay("updated_at", ">", "2025-01-01").WhereDate("created_at", "!=", "202-02-01", goeloquent.Or)
+	assert.Equal(t, "select * from `users` where day(`updated_at`) > ? or date(`created_at`) != ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"2025-01-01", "202-02-01"}, b1.GetBindings())
+
+}
+
+func TestWhereDayMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereDay("created_at", "=", "2023-01-01", goeloquent.Or)
+	assert.Equal(t, "select * from `users` where day(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"2023-01-01"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereDay("updated_at", ">", "2025-01-01").WhereDay("created_at", "!=", "202-02-01", goeloquent.Or)
+	assert.Equal(t, "select * from `users` where day(`updated_at`) > ? or day(`created_at`) != ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"2025-01-01", "202-02-01"}, b1.GetBindings())
+}
+
+func TestOrWhereDayMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereDay("banned_at", 1).OrWhereDay("created_at", "2023-01-01")
+	assert.Equal(t, "select * from `users` where day(`banned_at`) = ? or day(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "2023-01-01"}, b.GetBindings())
+}
+
+func TestWhereMonthMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereMonth("created_at", 1, goeloquent.Or)
+	assert.Equal(t, "select * from `users` where month(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereMonth("updated_at", ">", 2).WhereMonth("created_at", "!=", 3, goeloquent.Or)
+	assert.Equal(t, "select * from `users` where month(`updated_at`) > ? or month(`created_at`) != ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{2, 3}, b1.GetBindings())
+}
+
+func TestOrWhereMonthMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereMonth("banned_at", 1).OrWhereMonth("created_at", 2)
+	assert.Equal(t, "select * from `users` where month(`banned_at`) = ? or month(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2}, b.GetBindings())
+}
+
+func TestWhereYearMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereYear("created_at", 2023, goeloquent.Or)
+	assert.Equal(t, "select * from `users` where year(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{2023}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{2023}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereYear("updated_at", ">", 2022).WhereYear("created_at", "!=", 2021, goeloquent.Or)
+	assert.Equal(t, "select * from `users` where year(`updated_at`) > ? or year(`created_at`) != ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{2022, 2021}, b1.GetBindings())
+}
+
+func TestOrWhereYearMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereYear("banned_at", 2023).OrWhereYear("created_at", 2024)
+	assert.Equal(t, "select * furom `users` where year(`banned_at`) = ? or year(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{2023, 2024}, b.GetBindings())
+}
+func TestWhereTimeMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereTime("created_at", "12:00", goeloquent.Or)
+	assert.Equal(t, "select * from `users` where time(`created_at`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"12:00"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"12:00"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereTime("updated_at", ">", "13:00:00").WhereTime("created_at", "!=", "14:00:00", goeloquent.Or)
+	assert.Equal(t, "select * from `users` where time(`updated_at`) > ? or time(`created_at`) != ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"13:00:00", "14:00:00"}, b1.GetBindings())
+}
+
+func TestOrWhereTimeMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereTime("banned_at", "12:00").OrWhereTime("created_at", "<=", "13:00")
+	assert.Equal(t, "select * from `users` where time(`banned_at`) = ? or time(`created_at`) <= ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"12:00", "13:00"}, b.GetBindings())
+}
+
+// testWherePast
+// testWherePastUsesArray
+// testWhereTodayMySQL
+// testPassingArrayToWhereTodayMySQL
+// testWhereFuture
+// testPassingArrayToWhereFuture
