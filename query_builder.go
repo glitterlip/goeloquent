@@ -7,8 +7,8 @@ import (
 
 type Component string
 type HavingType string
-type QuerybuilderFunc func(*QueryBuilder)
-type QuerybuilderChainFunc func(*QueryBuilder) *QueryBuilder
+type BooleanType string
+type NotType bool
 
 const (
 	COMPONENT_SELECT      Component = "select"
@@ -75,11 +75,13 @@ const (
 	JoinTypeCross string = "cross"
 	JoinTypeFull  string = "full"
 
-	BooleanAnd string = "and"
-	BooleanOr  string = "or"
-
 	OrderDirectionAsc  string = "asc"
 	OrderDirectionDesc string = "desc"
+
+	And   BooleanType = "and"
+	Or    BooleanType = "or"
+	False NotType     = false
+	True  NotType     = true
 )
 
 var (
@@ -199,34 +201,36 @@ type Order struct {
 	Direction string
 	Column    interface{} //string or expression
 	RawSql    interface{}
+	Column    string //string or expression
 }
 type Having struct {
 	Type           HavingType
 	HavingColumn   string
 	HavingOperator string
-	HavingValue    interface{}
+	HavingValue    []interface{}
 	HavingBoolean  string
-	RawSql         interface{}
+	RawSql         string
 	Not            bool
 	Query          *QueryBuilder
 }
 type WhereType string
 type Where struct {
-	Type          WhereType
-	Boolean       string
-	Column        string
-	Columns       []interface{} //rowValues
-	Operator      string
-	First         string //wherecolumn first column
-	Second        string //wherecolumn second column
-	RawSql        interface{}
-	Value         interface{}
-	Values        []interface{} // wherein values
-	Not           bool          //not in,not between,not null
-	Mode          string        //fulltext mode
-	Expanded      bool          //fulltext expansion
-	CaseSensitive bool          //like case sensitive
-	Query         *QueryBuilder
+	Type             WhereType
+	Boolean          string
+	Column           string
+	ColumnExpression Expression
+	Columns          []interface{} //rowValues
+	Operator         string
+	First            string //wherecolumn first column
+	Second           string //wherecolumn second column
+	RawSql           interface{}
+	Value            interface{}
+	Values           []interface{} // wherein values
+	Not              bool          //not in,not between,not null
+	Mode             string        //fulltext mode
+	Expanded         bool          //fulltext expansion
+	CaseSensitive    bool          //like case sensitive
+	Query            *QueryBuilder //nested where
 }
 type IndexHint struct {
 	Type  string
