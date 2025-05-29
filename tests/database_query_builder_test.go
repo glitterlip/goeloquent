@@ -543,3 +543,49 @@ func TestOrWhereNotBetween(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `id` = ? or `id` not between 1 and 10", b1.ToSql())
 	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
 }
+
+func TestWhereBetweenColumns(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereBetweenColumns("id", []interface{}{"users.created_at", "users.updated_at"})
+	assert.Equal(t, "select * from `users` where `id` between `users`.`created_at` and `users`.`updated_at`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"users.created_at", "users.updated_at"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"users.created_at", "users.updated_at"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereNotBetweenColumns("id", []interface{}{"users.created_at", "users.updated_at"})
+	assert.Equal(t, "select * from `users` where `id` not between `users`.`created_at` and `users`.`updated_at`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"users.created_at", "users.updated_at"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"users.created_at", "users.updated_at"}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").WhereBetweenColumns("id", []interface{}{goeloquent.Raw("users.created_at"), goeloquent.Raw("users.updated_at")})
+	assert.Equal(t, "select * from `users` where `id` between users.created_at and users.updated_at", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+}
+
+func TestOrWhereBetweenColumns(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select("*").From("users").Where("id", 1).OrWhereBetweenColumns("id", []interface{}{"users.created_at", "users.updated_at"})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` between `users`.`created_at` and `users`.`updated_at`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "users.created_at", "users.updated_at"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "users.created_at", "users.updated_at"}, b.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").Where("id", 1).OrWhereBetweenColumns("id", []interface{}{goeloquent.Raw("users.created_at"), goeloquent.Raw("users.updated_at")})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` between users.created_at and users.updated_at", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+}
+
+func TestOrWhereNotBetweenColumns(t *testing.T) {
+	b1 := GetBuilder()
+	b1.Select("*").From("users").Where("id", 1).OrWhereNotBetweenColumns("id", []interface{}{"users.created_at", "users.updated_at"})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` not between `users`.`created_at` and `users`.`updated_at`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "users.created_at", "users.updated_at"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "users.created_at", "users.updated_at"}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").Where("id", 1).OrWhereNotBetweenColumns("id", []interface{}{goeloquent.Raw("users.created_at"), goeloquent.Raw("users.updated_at")})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` not between users.created_at and users.updated_at", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+}
