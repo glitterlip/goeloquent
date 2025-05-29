@@ -492,4 +492,54 @@ func TestWhereLikeClauseMysql(t *testing.T) {
 
 func TestWhereBetweens(t *testing.T) {
 
+	b := GetBuilder()
+	b.Select("*").From("users").WhereBetween("id", []interface{}{1, 10})
+	assert.Equal(t, "select * from `users` where `id` between ? and ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 10}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, 10}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereNotBetween("id", []interface{}{1, 10, 100})
+	assert.Equal(t, "select * from `users` where `id` not between ? and ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 10}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, 10}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").WhereBetween("id", []interface{}{goeloquent.Raw("1"), goeloquent.Raw("10")})
+	assert.Equal(t, "select * from `users` where `id` between 1 and 10", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+}
+
+func TestOrWhereBetween(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select("*").From("users").Where("id", 1).OrWhereBetween("id", []interface{}{1, 10})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` between ? and ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1, 10}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, 1, 10}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").Where("id", 1).OrWhereNotBetween("id", []interface{}{1, 10, 100})
+	assert.Nil(t, b1.Statement.Error)
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` not between ? and ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1, 10}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, 1, 10}, b1.GetRawBindings()["where"])
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").Where("id", 1).OrWhereBetween("id", []interface{}{goeloquent.Raw("1"), goeloquent.Raw("10")})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` between 1 and 10", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+}
+
+func TestOrWhereNotBetween(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").Where("id", 1).OrWhereNotBetween("id", []interface{}{1, 10})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` not between ? and ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1, 10}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, 1, 10}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").Where("id", 1).OrWhereNotBetween("id", []interface{}{goeloquent.Raw("1"), goeloquent.Raw("10")})
+	assert.Equal(t, "select * from `users` where `id` = ? or `id` not between 1 and 10", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
 }
