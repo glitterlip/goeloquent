@@ -589,3 +589,41 @@ func TestOrWhereNotBetweenColumns(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `id` = ? or `id` not between users.created_at and users.updated_at", b2.ToSql())
 	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
 }
+
+func TestBasicOrWheres(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").Where("id", 1).OrWhere("email", "=", "foo").OrWhere("name", "bar")
+	assert.Equal(t, "select * from `users` where `id` = ? or `email` = ? or `name` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetRawBindings()["where"])
+}
+
+func TestBasicOrWhereNot(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").Where("id", 1).OrWhereNot("email", "<>", "foo").OrWhereNot("name", "bar")
+	assert.Equal(t, "select * from `users` where `id` = ? or not `email` <> ? or not `name` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetRawBindings()["where"])
+}
+
+func TestRawWheres(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereRaw("id = ?", []interface{}{1})
+	assert.Equal(t, "select * from `users` where id = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereRaw(goeloquent.Raw("id = 1 or email = `ad`"), []interface{}{})
+	assert.Equal(t, "select * from `users` where id = 1 or email = `ad`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+}
+
+func TestRawOrWheres(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").Where("id", 1).OrWhereRaw("email = ?", []interface{}{"foo"}).OrWhereRaw("name = ?", []interface{}{"bar"})
+	assert.Equal(t, "select * from `users` where `id` = ? or email = ? or name = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetRawBindings()["where"])
+
+}
