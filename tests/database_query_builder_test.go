@@ -257,22 +257,51 @@ func TestBasicWhereNot(t *testing.T) {
 //		assert.ElementsMatch(t, []interface{}{1}, b3.GetBindings())
 //	}
 
-// testMySqlWrappingProtectsQuotationMarks
-// testOrWhereDayPostgres
-// testOrWhereDaySqlServer
-// testOrWhereMonthPostgres
-// testOrWhereMonthSqlServer
-// testOrWhereYearPostgres
-// testOrWhereYearSqlServer
-// testWhereTimeOperatorOptionalPostgres
-// testWhereTimeSqlServer
-// testOrWhereTimePostgres
-// testOrWhereTimeSqlServer
-// testWhereDatePostgres
-// testWhereDayPostgres
-// testWhereMonthPostgres
-// testWhereYearPostgres
-// testWhereTimePostgres
+func TestMySqlWrappingProtectsQuotationMarks(t *testing.T) {
+
+}
+func TestOrWhereDayPostgres(t *testing.T) {
+
+}
+func testOrWhereDaySqlServer(t *testing.T) {
+
+}
+func testOrWhereMonthSqlServer(t *testing.T) {
+
+}
+func testOrWhereYearPostgres(t *testing.T) {
+
+}
+func testOrWhereYearSqlServer(t *testing.T) {
+
+}
+func testWhereTimeOperatorOptionalPostgres(t *testing.T) {
+
+}
+func testWhereTimeSqlServer(t *testing.T) {
+
+}
+func testOrWhereTimePostgres(t *testing.T) {
+
+}
+func testOrWhereTimeSqlServer(t *testing.T) {
+
+}
+func testWhereDatePostgres(t *testing.T) {
+
+}
+func testWhereDayPostgres(t *testing.T) {
+
+}
+func testWhereMonthPostgres(t *testing.T) {
+
+}
+func testWhereYearPostgres(t *testing.T) {
+
+}
+func testWhereTimePostgres(t *testing.T) {
+
+}
 func TestDateBasedWheresAcceptsTwoArguments(t *testing.T) {
 
 	b := GetBuilder()
@@ -431,26 +460,31 @@ func TestOrWhereTimeMysql(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{"12:00", "13:00"}, b.GetBindings())
 }
 
-// testWherePast
-// testWherePastUsesArray
-// testWhereTodayMySQL
-// testPassingArrayToWhereTodayMySQL
-// testWhereFuture
-// testPassingArrayToWhereFuture
-// testWhereLikePostgres
-// testWhereLikeClausePostgres
-// testWhereLikeClauseSqlite
-// testWhereLikeClauseSqlServer
-// testWhereDateSqlite
-// testWhereDaySqlite
-// testWhereMonthSqlite
-// testWhereYearSqlite
-// testWhereTimeSqlite
-// testWhereTimeOperatorOptionalSqlite
-// testWhereDateSqlServer
-// testWhereDaySqlServer
-// testWhereMonthSqlServer
-// testWhereYearSqlServer
+func testWherePast(t testing.T) {
+
+}
+func testWherePastUsesArray(t *testing.T) {
+
+}
+func testWhereTodayMySQL(t *testing.T) {
+
+}
+func testPassingArrayToWhereTodayMySQL(t *testing.T) {
+
+}
+func testWhereFuture(t *testing.T) {
+
+}
+func testPassingArrayToWhereFuture(t *testing.T) {
+
+}
+func testWhereLikePostgres(t *testing.T) {
+
+}
+func testWhereLikeClausePostgres(t *testing.T) {
+
+}
+
 func TestWhereLikeClauseMysql(t *testing.T) {
 	b := GetBuilder()
 	b.Select("*").From("users").WhereLike("name", "1").WhereNotLike("name", "Jim")
@@ -477,18 +511,42 @@ func TestWhereLikeClauseMysql(t *testing.T) {
 
 }
 
-// testWhereLikeClauseSqlite
-// testWhereLikeClauseSqlServer
-// testWhereDateSqlite
-// testWhereDaySqlite
-// testWhereMonthSqlite
-// testWhereYearSqlite
-// testWhereTimeSqlite
-// testWhereTimeOperatorOptionalSqlite
-// testWhereDateSqlServer
-// testWhereDaySqlServer
-// testWhereMonthSqlServer
-// testWhereYearSqlServer
+func testWhereLikeClauseSqlite(t *testing.T) {
+
+}
+func testWhereLikeClauseSqlServer(t *testing.T) {
+
+}
+func testWhereDateSqlite(t *testing.T) {
+
+}
+func testWhereDaySqlite(t *testing.T) {
+
+}
+func testWhereMonthSqlite(t *testing.T) {
+
+}
+func testWhereYearSqlite(t *testing.T) {
+
+}
+func testWhereTimeSqlite(t *testing.T) {
+
+}
+func testWhereTimeOperatorOptionalSqlite(t *testing.T) {
+
+}
+func testWhereDateSqlServer(t *testing.T) {
+
+}
+func testWhereDaySqlServer(t *testing.T) {
+
+}
+func testWhereMonthSqlServer(t *testing.T) {
+
+}
+func testWhereYearSqlServer(t *testing.T) {
+
+}
 
 func TestWhereBetweens(t *testing.T) {
 
@@ -625,5 +683,92 @@ func TestRawOrWheres(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `id` = ? or email = ? or name = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetBindings())
 	assert.ElementsMatch(t, []interface{}{1, "foo", "bar"}, b.GetRawBindings()["where"])
+
+}
+
+func TestBasicWhereIns(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereIn("id", []interface{}{1, 2, 3})
+	assert.Equal(t, "select * from `users` where `id` in (?, ?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2, 3}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("name", "Joe").OrWhereIn("id", []interface{}{1, 2, 3})
+	assert.Equal(t, "select * from `users` where `name` = ? or `id` in (?, ?, ?)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"Joe", 1, 2, 3}, b1.GetBindings())
+
+}
+
+func TestBasicWhereNotIns(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").WhereNotIn("id", []interface{}{1, 2, 3})
+	assert.Equal(t, "select * from `users` where `id` not in (?, ?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2, 3}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("name", "Joe").OrWhereNotIn("id", []interface{}{1, 2, 3})
+	assert.Equal(t, "select * from `users` where `name` = ? or `id` not in (?, ?, ?)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"Joe", 1, 2, 3}, b1.GetBindings())
+}
+
+func TestRawWhereIns(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereIn("id", []interface{}{goeloquent.Raw("1")})
+	assert.Equal(t, "select * from `users` where `id` in (1)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("name", "Amber").OrWhereIn("id", []interface{}{goeloquent.Raw("1")})
+	assert.Equal(t, "select * from `users` where `name` = ? or `id` in (1)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"Amber"}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").WhereIn("id", []interface{}{goeloquent.Raw("select id from users where email like '%@gmail.com'")})
+	assert.Equal(t, "select * from `users` where `id` in (select id from users where email like '%@gmail.com')", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+}
+
+func TestEmptyWhereIns(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereIn("id", []interface{}{})
+	assert.Equal(t, "select * from `users` where 0 = 1", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("name", "a").OrWhereIn("id", []interface{}{})
+	assert.Equal(t, "select * from `users` where `name` = ? or 0 = 1", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"a"}, b1.GetBindings())
+}
+
+// testWhereIntegerInRaw
+func TestEmptyWhereNotIns(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNotIn("id", []interface{}{})
+	assert.Equal(t, "select * from `users` where 1 = 1", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("name", "a").OrWhereNotIn("id", []interface{}{})
+	assert.Equal(t, "select * from `users` where `name` = ? or 1 = 1", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"a"}, b1.GetBindings())
+}
+
+func testWhereIntegerInRaw(t testing.T) {
+
+}
+func testOrWhereIntegerInRaw(t testing.T) {
+
+}
+func testWhereIntegerNotInRaw(t testing.T) {
+
+}
+func testOrWhereIntegerNotInRaw(t testing.T) {
+
+}
+func testEmptyWhereIntegerInRaw(t *testing.T) {
+
+}
+func testEmptyWhereIntegerNotInRaw(t *testing.T) {
 
 }
