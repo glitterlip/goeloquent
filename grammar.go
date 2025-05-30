@@ -164,11 +164,10 @@ func (g *MysqlGrammar) Parameter(value interface{}) string {
 func (g *MysqlGrammar) Parameterize(value []interface{}) string {
 	var parameters []string
 	for _, v := range value {
-		switch v.(type) {
-		case string, Expression:
+		if expression, ok := v.(Expression); ok {
+			parameters = append(parameters, string(expression))
+		} else {
 			parameters = append(parameters, g.Parameter(v))
-		default:
-			g.AddError(errors.New(fmt.Sprintf("parameterize value type %T is not string or expression", v)))
 		}
 	}
 	return strings.Join(parameters, ", ")
