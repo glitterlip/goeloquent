@@ -772,3 +772,27 @@ func testEmptyWhereIntegerInRaw(t *testing.T) {
 func testEmptyWhereIntegerNotInRaw(t *testing.T) {
 
 }
+func TestBasicWhereColumn(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereColumn("first_name", "last_name").OrWhereColumn("first_name", "middle_name")
+	assert.Equal(t, "select * from `users` where `first_name` = `last_name` or `first_name` = `middle_name`", b.ToSql())
+	assert.Equal(t, 0, len(b.GetBindings()))
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("id", 1).WhereColumn("updated_at", ">", "created_at")
+	assert.Equal(t, "select * from `users` where `id` = ? and `updated_at` > `created_at`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+}
+
+func TestArrayWhereColumn(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereColumn([][]interface{}{{"username", "nickname"}})
+	assert.Equal(t, "select * from `users` where (`username` = `nickname`)", b.ToSql())
+	assert.Equal(t, 0, len(b.GetBindings()))
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("id", 1).OrWhereColumn([][]interface{}{{"first_name", "last_name"}, {"created_at", ">", "updated_at"}})
+	assert.Equal(t, "select * from `users` where `id` = ? or (`first_name` = `last_name` or `created_at` > `updated_at`)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+
+}
