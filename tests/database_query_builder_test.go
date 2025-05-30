@@ -796,3 +796,27 @@ func TestArrayWhereColumn(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
 
 }
+
+func TestWhereFulltextMySql(t *testing.T) {
+	b := GetBuilder()
+	b.Select("*").From("users").WhereFullText("name", "foo bar")
+	assert.Equal(t, "select * from `users` where match (`name`) against (? in natural language mode)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo bar"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"foo bar"}, b.GetRawBindings()["where"])
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereFullText("name", "foo bar").FulltextMode("boolean")
+	assert.Equal(t, "select * from `users` where match (`name`) against (? in boolean mode)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo bar"}, b1.GetBindings())
+	b1.GetRawBindings()["where"] = []interface{}{"foo bar"}
+
+	b2 := GetBuilder()
+	b2.Select("*").From("users").WhereFullText("name", "+Hello -World").Expand().FulltextMode("boolean")
+	assert.Equal(t, "select * from `users` where match (`name`) against (? in boolean mode with query expansion)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{"+Hello -World"}, b2.GetBindings())
+	b2.GetRawBindings()["where"] = []interface{}{"+Hello -World"}
+}
+
+func TestWhereFulltextPostgres(t *testing.T) {
+
+}
