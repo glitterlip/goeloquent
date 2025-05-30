@@ -706,8 +706,7 @@ func (g *MysqlGrammar) CompileWheres(query *QueryBuilder) string {
 
 	}
 
-	str := sb.String()
-	strings.TrimSuffix(str, " ")
+	str := strings.TrimSuffix(sb.String(), " ")
 	str = removeLeadingBoolean(str)
 
 	if query.IsJoin {
