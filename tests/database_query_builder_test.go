@@ -820,3 +820,76 @@ func TestWhereFulltextMySql(t *testing.T) {
 func TestWhereFulltextPostgres(t *testing.T) {
 
 }
+
+func TestWhereAll(t *testing.T) {
+
+}
+
+func TestOrWhereAll(t *testing.T) {
+
+}
+
+func TestWhereAny(t *testing.T) {
+
+}
+
+func TestOrWhereAny(t *testing.T) {
+
+}
+
+func TestWhereNone(t *testing.T) {
+
+}
+
+func TestOrWhereNone(t *testing.T) {
+
+}
+
+func TestUnions(t *testing.T) {
+
+}
+
+func TestUnionAlls(t *testing.T) {
+
+}
+
+func TestMultipleUnions(t *testing.T) {
+
+}
+
+func TestMultipleUnionAlls(t *testing.T) {
+
+}
+func TestUnionOrderBys(t *testing.T) {
+
+}
+
+func TestUnionLimitsAndOffsets(t *testing.T) {
+
+}
+
+func TestUnionWithJoin(t *testing.T) {
+
+}
+
+func TestMySqlUnionOrderBys(t *testing.T) {
+
+}
+func TestMySqlUnionLimitsAndOffsets(t *testing.T) {
+
+}
+func TestUnionAggregate(t *testing.T) {
+
+}
+func TestHavingAggregate(t *testing.T) {
+
+	b := GetBuilder()
+	b.From("posts").SelectSub(func(builder *goeloquent.QueryBuilder) {
+		builder.From("videos").Select("count(*)").WhereColumn("posts.id", "=", "videos.post_id")
+	}, "videos_count").Having("videos_count", ">", 10)
+	var count int
+	_, err := b.Pretend().Count(&count)
+	assert.Nil(t, err)
+	assert.Equal(t, "select count(*) as aggregate from (select (select `count(*)` from `videos` where `posts`.`id` = `videos`.`post_id`) as `videos_count` from `posts` having `videos_count` > ?) as `temp_table`", b.ToSql())
+
+}
