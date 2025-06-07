@@ -413,6 +413,13 @@ func (g *MysqlGrammar) CompileJoinLateral(query *JoinBuilder, expression string)
 }
 func (g *MysqlGrammar) CompileUnionAggregate(query *QueryBuilder) string {
 
+	sql := g.CompileAggregate(query)
+	query.Aggregates = Aggregate{
+		AggregateName:    "",
+		AggregateColumns: []interface{}{},
+	}
+
+	return fmt.Sprintf("%s from (%s) as %s", sql, g.CompileSelect(query), g.Wrap("temp_table"))
 }
 
 func (g *MysqlGrammar) CompileGroupLimit(query *QueryBuilder) string {
@@ -496,6 +503,9 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]stri
 
 func (g *MysqlGrammar) CompileAggregate(query *QueryBuilder) string {
 
+	if query.Aggregates.AggregateName == "" {
+		return ""
+	}
 	column := g.Columnize(query.Aggregates.AggregateColumns)
 	if cs, ok := query.IsDistinct.([]interface{}); ok {
 		column = "distinct " + g.Columnize(cs)
