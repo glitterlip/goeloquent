@@ -959,7 +959,7 @@ func (g *MysqlGrammar) CompileHavingRaw(having Having) string {
 }
 func (g *MysqlGrammar) CompileHavingBasic(having Having) string {
 
-	return g.Wrap(having.HavingColumn) + " " + having.HavingOperator + " " + g.Parameter(having.HavingValue)
+	return g.Wrap(having.HavingColumn) + " " + having.HavingOperator + " " + g.Parameter(having.HavingValue[0])
 }
 
 func (g *MysqlGrammar) CompileHavingBetween(having Having) string {
@@ -968,12 +968,12 @@ func (g *MysqlGrammar) CompileHavingBetween(having Having) string {
 	if having.Not {
 		between = "not between"
 	}
-	return g.Wrap(having.HavingColumn) + " " + between + " " + g.Parameter(having.HavingValues[0]) + " and " + g.Parameter(having.HavingValues[1])
+	return g.Wrap(having.HavingColumn) + " " + between + " " + g.Parameter(having.HavingValue[0]) + " and " + g.Parameter(having.HavingValue[1])
 }
 
 func (g *MysqlGrammar) CompileHavingBitwise(having Having) string {
 
-	return fmt.Sprintf("(%s %s %s) != 0", g.Wrap(having.HavingColumn), having.HavingOperator, g.Parameter(having.HavingValue))
+	return fmt.Sprintf("(%s %s %s) != 0", g.Wrap(having.HavingColumn), having.HavingOperator, g.Parameter(having.HavingValue[0]))
 }
 
 func (g *MysqlGrammar) CompileHavingNull(having Having) string {
