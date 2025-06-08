@@ -893,3 +893,20 @@ func TestHavingAggregate(t *testing.T) {
 	assert.Equal(t, "select count(*) as aggregate from (select (select `count(*)` from `videos` where `posts`.`id` = `videos`.`post_id`) as `videos_count` from `posts` having `videos_count` > ?) as `temp_table`", b.ToSql())
 
 }
+
+func TestSubSelectWhereIns(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").WhereIn("id", func(builder *goeloquent.QueryBuilder) {
+		builder.Select("id").From("users").Where("age", ">", 25).Take(3)
+	})
+	assert.Equal(t, "select * from `users` where `id` in (select `id` from `users` where `age` > ? limit 3)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{25}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users").WhereNotIn("id", func(builder *goeloquent.QueryBuilder) {
+		builder.Select("id").From("users").Where("age", ">", 25).Take(5)
+	})
+	assert.Equal(t, "select * from `users` where `id` not in (select `id` from `users` where `age` > ? limit 5)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{25}, b1.GetBindings())
+
+}
