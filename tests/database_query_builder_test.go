@@ -9,7 +9,7 @@ import (
 func GetBuilder() *goeloquent.QueryBuilder {
 	stmt := goeloquent.NewStatement()
 	query := goeloquent.NewQueryBuilder(stmt)
-	return query
+	return query.Pretend()
 }
 func TestBasicSelect(t *testing.T) {
 	query := GetBuilder()
