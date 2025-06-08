@@ -910,3 +910,70 @@ func TestSubSelectWhereIns(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{25}, b1.GetBindings())
 
 }
+
+func TestBasicWhereNulls(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNull("email")
+	assert.Equal(t, "select * from `users` where `email` is null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+	assert.Nil(t, b.Statement.Error)
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("id", 1).OrWhereNull("email")
+	assert.Equal(t, "select * from `users` where `id` = ? or `email` is null", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+}
+
+func TestBasicWhereNullExpressionsMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNull(goeloquent.Raw("email"))
+	assert.Equal(t, "select * from `users` where email is null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+	assert.Nil(t, b.Statement.Error)
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("id", 1).OrWhereNull(goeloquent.Raw("email"))
+	assert.Equal(t, "select * from `users` where `id` = ? or email is null", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+}
+func TestJsonWhereNullMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNull("items->id")
+	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"') is null OR json_type(json_extract(`items`, '$.\"id\"')) = 'NULL')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+func TestJsonWhereNotNullMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNotNull("items->id")
+	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"')) is not null AND json_type(json_extract(`items`, '$.\"id\"')) != 'NULL')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+func TestJsonWhereNullExpressionMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNull(goeloquent.Raw("items->id"))
+	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"')) is null OR json_type(json_extract(`items`, '$.\"id\"')) = 'NULL')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestJsonWhereNotNullExpressionMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNotNull(goeloquent.Raw("items->id"))
+	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"')) is not null AND json_type(json_extract(`items`, '$.\"id\"')) != 'NULL')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+func testArrayWhereNulls(t *testing.T) {
+}
+func TestBasicWhereNotNulls(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereNotNull("email")
+	assert.Equal(t, "select * from `users` where `email` is not null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+	assert.Nil(t, b.Statement.Error)
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("id", 1).OrWhereNotNull("email")
+	assert.Equal(t, "select * from `users` where `id` = ? or `email` is not null", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+}
+func testArrayWhereNotNulls(t *testing.T) {
+}
