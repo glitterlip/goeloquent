@@ -602,7 +602,7 @@ func (g *MysqlGrammar) CompileOrdersToArray(query *QueryBuilder) []string {
 	var orders []string
 	for _, order := range query.Orders {
 		if order.RawSql != "" {
-			orders = append(orders, order.RawSql)
+			orders = append(orders, order.RawSql+" "+order.Direction)
 		} else {
 			orders = append(orders, g.Wrap(order.Column)+" "+order.Direction)
 		}
