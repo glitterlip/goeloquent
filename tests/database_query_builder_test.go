@@ -977,3 +977,128 @@ func TestBasicWhereNotNulls(t *testing.T) {
 }
 func testArrayWhereNotNulls(t *testing.T) {
 }
+
+func TestGroupBys(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").GroupBy("name")
+	assert.Equal(t, "select * from `users` group by `name`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").GroupBy("name", "email")
+	assert.Equal(t, "select * from `users` group by `name`, `email`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").GroupBy([]interface{}{"name", "email"})
+	assert.Equal(t, "select * from `users` group by `name`, `email`", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users").GroupBy([]string{"name", "email"})
+	assert.Equal(t, "select * from `users` group by `name`, `email`", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b3.GetBindings())
+
+	b4 := GetBuilder()
+	b4.Select().From("users").GroupBy(goeloquent.Raw("DATE(created_at)"))
+	assert.Equal(t, "select * from `users` group by DATE(created_at)", b4.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b4.GetBindings())
+
+	b5 := GetBuilder()
+	b5.Select().From("users").GroupByRaw("DATE(created_at), ? DESC", []interface{}{"name"})
+	assert.Equal(t, "select * from `users` group by DATE(created_at), ? DESC", b5.ToSql())
+	assert.ElementsMatch(t, []interface{}{"name"}, b5.GetBindings())
+
+	b6 := GetBuilder()
+	b6.Select().From("users").HavingRaw("?", []interface{}{"havingRawBinding"}).GroupByRaw("?", []interface{}{"groupByRawBinding"}).
+		WhereRaw("?", []interface{}{"whereRawBinding"}).OrderByRaw("?", []interface{}{"orderByRawBinding"})
+	assert.Equal(t, "select * from `users` where ? group by ? having ? order by ?", b6.ToSql())
+	assert.ElementsMatch(t, []interface{}{"whereRawBinding", "groupByRawBinding", "havingRawBinding", "orderByRawBinding"}, b6.GetBindings())
+
+}
+
+func TestOrderBys(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").OrderBy("name").OrderBy("age", "desc")
+
+	assert.Equal(t, "select * from `users` order by `name` asc, `age` desc", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b.Without([]goeloquent.Component{goeloquent.COMPONENT_ORDER}, []goeloquent.Component{goeloquent.COMPONENT_ORDER})
+	assert.Equal(t, "select * from `users`", b.ToSql())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").OrderBy("name", "asc").OrderByRaw("'age' ? desc", []interface{}{"age1"})
+	assert.Equal(t, "select * from `users` order by `name` asc, 'age' ? desc", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"age1"}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").OrderByDesc("age")
+	assert.Equal(t, "select * from `users` order by `age` desc", b2.ToSql())
+
+}
+
+func testLatest(t *testing.T) {
+
+}
+
+func testOldest(t *testing.T) {
+
+}
+
+func TestInRandowOrderMysql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").InRandomOrder()
+	assert.Equal(t, "select * from `users` order by RANDOM()", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+}
+
+func testInRandomOrderPostgres(t *testing.T) {
+
+}
+
+func testInRandomOrderSqlServer(t *testing.T) {}
+func testOrderBysSqlServer(t testing.T)       {}
+func TestRecorder(t *testing.T) {
+	// Test the recorder functionality
+	b := GetBuilder()
+	b.Select().From("users").Where("id", 1).OrderBy("name")
+	assert.Equal(t, "select * from `users` where `id` = ? order by `name` asc", b.ToSql())
+	b.ReOrder()
+	assert.Equal(t, "select * from `users` where `id` = ?", b.ToSql())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("id", 1).OrderBy("name")
+	assert.Equal(t, "select * from `users` where `id` = ? order by `name` asc", b1.ToSql())
+	b1.ReOrder("age", "desc")
+	assert.Equal(t, "select * from `users` where `id` = ? order by `age` desc", b1.ToSql())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").Where("id", 1).OrderByRaw("'name' asc ? desc", []interface{}{"name1"})
+	assert.Equal(t, "select * from `users` where `id` = ? order by 'name' asc ? desc", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "name1"}, b2.GetBindings())
+}
+
+func TestOrderBySubQueries(t *testing.T) {
+	b := GetBuilder()
+	sub := func(builder *goeloquent.QueryBuilder) {
+		builder.Select("created_at").From("logins").WhereColumn("user_id", "users.id").Limit(1)
+	}
+	b.Select().From("users").OrderBy(sub)
+	assert.Equal(t, "select * from `users` order by (select `created_at` from `logins` where `user_id` = `users`.`id` limit 1) asc", b.ToSql())
+
+	b.Without([]goeloquent.Component{goeloquent.COMPONENT_ORDER}, []goeloquent.Component{goeloquent.COMPONENT_ORDER})
+	b.OrderBy(sub, "desc")
+	assert.Equal(t, "select * from `users` order by (select `created_at` from `logins` where `user_id` = `users`.`id` limit 1) desc", b.ToSql())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").OrderByDesc(sub)
+	assert.Equal(t, "select * from `users` order by (select `created_at` from `logins` where `user_id` = `users`.`id` limit 1) desc", b1.ToSql())
+}
+
+func TestOrderByInvalidDirectionParam(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").OrderBy("name", "invalid")
+	assert.Error(t, b.Statement.Error, "invalid direction for order by: invalid")
+}
