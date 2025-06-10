@@ -1275,3 +1275,30 @@ func TestRawHavings(t *testing.T) {
 	assert.Equal(t, "select * from `users` having `age` between ? and ? or user_foo < user_bar", b1.ToSql())
 	assert.ElementsMatch(t, []interface{}{18, 30}, b1.GetBindings())
 }
+
+func TestLimitsAndOffsets(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Limit(10).Offset(5)
+	assert.Equal(t, "select * from `users` limit 10 offset 5", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Limit(0)
+	assert.Equal(t, "select * from `users` limit 0", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").Skip(5).Take(6)
+	assert.Equal(t, "select * from `users` limit 6 offset 5", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users").Skip(0).Take(0)
+	assert.Equal(t, "select * from `users` limit 0 offset 0", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b3.GetBindings())
+
+	b4 := GetBuilder()
+	b4.Select().From("users").Limit(-10).Offset(-5).ReOrder()
+	assert.Equal(t, "select * from `users` offset 0", b4.ToSql())
+
+}
