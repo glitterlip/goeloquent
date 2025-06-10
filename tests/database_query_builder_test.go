@@ -945,20 +945,20 @@ func TestJsonWhereNullMysql(t *testing.T) {
 func TestJsonWhereNotNullMysql(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users").WhereNotNull("items->id")
-	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"')) is not null AND json_type(json_extract(`items`, '$.\"id\"')) != 'NULL')", b.ToSql())
+	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"') is not null AND json_type(json_extract(`items`, '$.\"id\"')) != 'NULL')", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
 func TestJsonWhereNullExpressionMysql(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users").WhereNull(goeloquent.Raw("items->id"))
-	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"')) is null OR json_type(json_extract(`items`, '$.\"id\"')) = 'NULL')", b.ToSql())
+	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"') is null OR json_type(json_extract(`items`, '$.\"id\"')) = 'NULL')", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
 
 func TestJsonWhereNotNullExpressionMysql(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users").WhereNotNull(goeloquent.Raw("items->id"))
-	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"')) is not null AND json_type(json_extract(`items`, '$.\"id\"')) != 'NULL')", b.ToSql())
+	assert.Equal(t, "select * from `users` where (json_extract(`items`, '$.\"id\"') is not null AND json_type(json_extract(`items`, '$.\"id\"')) != 'NULL')", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
 func testArrayWhereNulls(t *testing.T) {
@@ -1049,7 +1049,7 @@ func testOldest(t *testing.T) {
 func TestInRandowOrderMysql(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users").InRandomOrder()
-	assert.Equal(t, "select * from `users` order by RANDOM()", b.ToSql())
+	assert.Equal(t, "select * from `users` order by RAND()", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 
 }
