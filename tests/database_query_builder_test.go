@@ -1102,3 +1102,176 @@ func TestOrderByInvalidDirectionParam(t *testing.T) {
 	b.Select().From("users").OrderBy("name", "invalid")
 	assert.Error(t, b.Statement.Error, "invalid direction for order by: invalid")
 }
+
+func TestHavings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Having("name", "=", "foo")
+	assert.Equal(t, "select * from `users` having `name` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b.GetRawBindings()["having"])
+
+	b1 := GetBuilder()
+	b1.Select().From("users").OrHaving("name", "<>", "bar").OrHaving("email", "baz")
+	assert.Equal(t, "select * from `users` having `name` <> ? or `email` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"bar", "baz"}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"bar", "baz"}, b1.GetRawBindings()["having"])
+
+	b2 := GetBuilder()
+	b2.Select().From("users").GroupBy("email").Having("email", ">", 1)
+	assert.Equal(t, "select * from `users` group by `email` having `email` > ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select("email as foo_email").From("users").Having("foo_email", ">", 1)
+	assert.Equal(t, "select `email` as `foo_email` from `users` having `foo_email` > ?", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b3.GetBindings())
+
+	b4 := GetBuilder()
+	b4.Select([]interface{}{"category", goeloquent.Raw("count(*) as 'total'")}).
+		From("item").Where("department", "=", "popular").
+		GroupBy("category").Having("total", ">", goeloquent.Raw("3"))
+	assert.Equal(t, "select `category`, count(*) as 'total' from `item` where `department` = ? group by `category` having `total` > 3", b4.ToSql())
+
+	b5 := GetBuilder()
+	b5.Select([]interface{}{"category", goeloquent.Raw("count(*) as 'total'")}).
+		From("item").Where("department", "=", "popular").
+		GroupBy("category").Having("total", ">", 3)
+	assert.Equal(t, "select `category`, count(*) as 'total' from `item` where `department` = ? group by `category` having `total` > ?", b5.ToSql())
+	assert.ElementsMatch(t, []interface{}{"popular", 3}, b5.GetBindings())
+
+}
+
+func TestNestedHavings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Having("name", "=", "foo").OrHaving(func(builder *goeloquent.QueryBuilder) {
+		builder.Having("email", "<>", "bar").OrHaving("age", ">", 30)
+	})
+	assert.Equal(t, "select * from `users` having `name` = ? or (`email` <> ? or `age` > ?)", b.ToSql())
+	assert.Nil(t, b.Statement.Error)
+}
+
+func TestNestedHavingBindings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Having("name", "=", "foo").OrHaving(func(builder *goeloquent.QueryBuilder) {
+		builder.Having("email", "<>", "bar").OrHaving("age", ">", 30)
+	}).HavingRaw("created_at > ?", []interface{}{"2023-01-01"})
+	assert.Equal(t, "select * from `users` having `name` = ? or (`email` <> ? or `age` > ?) and created_at > ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "bar", 30, "2023-01-01"}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{"foo", "bar", 30, "2023-01-01"}, b.GetRawBindings()["having"])
+}
+
+func TestHavingBetweens(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").HavingBetween("age", []interface{}{18, 30})
+	assert.Nil(t, b.Statement.Error)
+	assert.Equal(t, "select * from `users` having `age` between ? and ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{18, 30}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{18, 30}, b.GetRawBindings()["having"])
+
+}
+
+func TestHavingNull(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").HavingNull("email")
+	assert.Equal(t, "select * from `users` having `email` is null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+	assert.Nil(t, b.Statement.Error)
+
+	b = GetBuilder()
+	b.Select().From("users").HavingNull("email").HavingNull("phone")
+	assert.Equal(t, "select * from `users` having `email` is null and `phone` is null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").OrHavingNull("email").OrHavingNotNull("phone")
+	assert.Equal(t, "select * from `users` having `email` is null or `phone` is not null", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select("email as mail").From("users").HavingNull("mail")
+	assert.Equal(t, "select `email` as `mail` from `users` having `mail` is null", b2.ToSql())
+
+	b3 := GetBuilder()
+	b3.Select([]interface{}{"email", goeloquent.Raw("count(*) as 'total'")}).From("users").Where("department", "=", "popular").GroupBy("email").HavingNull("total")
+	assert.Equal(t, "select `email`, count(*) as 'total' from `users` where `department` = ? group by `email` having `total` is null", b3.ToSql())
+
+}
+
+func TestHavingNotNull(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").HavingNotNull("email")
+	assert.Equal(t, "select * from `users` having `email` is not null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+	assert.Nil(t, b.Statement.Error)
+
+	b1 := GetBuilder()
+	b1.Select().From("users").HavingNotNull("email").HavingNotNull("phone")
+	assert.Equal(t, "select * from `users` having `email` is not null and `phone` is not null", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b1 = GetBuilder()
+	b1.Select().From("users").OrHavingNotNull("email").OrHavingNull("phone")
+	assert.Equal(t, "select * from `users` having `email` is not null or `phone` is null", b1.ToSql())
+
+	b1 = GetBuilder()
+	b1.Select("*").From("users").GroupBy("email").HavingNotNull("email")
+	assert.Equal(t, "select * from `users` group by `email` having `email` is not null", b1.ToSql())
+
+	b2 := GetBuilder()
+	b2.Select("email as mail").From("users").HavingNotNull("mail")
+	assert.Equal(t, "select `email` as `mail` from `users` having `mail` is not null", b2.ToSql())
+
+	b3 := GetBuilder()
+	b3.Select([]interface{}{"email", goeloquent.Raw("count(*) as 'total'")}).From("users").Where("department", "=", "popular").GroupBy("email").HavingNotNull("total")
+	assert.Equal(t, "select `email`, count(*) as 'total' from `users` where `department` = ? group by `email` having `total` is not null", b3.ToSql())
+
+}
+
+func TestHavingExpression(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Having(goeloquent.Raw("1 = 1"))
+	assert.Equal(t, "select * from `users` having 1 = 1", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestHavingShortcut(t *testing.T) {
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Having("name", "a").OrHaving("name", "bar")
+	assert.Equal(t, "select * from `users` having `name` = ? or `name` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"a", "bar"}, b1.GetBindings())
+}
+
+func TestHavingFollowedBySelectGet(t *testing.T) {
+	b := GetBuilder()
+	b.From("item").Select([]interface{}{"category", goeloquent.Raw("count(*) as 'total'")}).Where("department", "=", "popular").GroupBy("category").
+		Having("total", ">", 3)
+
+	assert.Equal(t, "select `category`, count(*) as 'total' from `item` where `department` = ? group by `category` having `total` > ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"popular", 3}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("item").Select([]interface{}{"category", goeloquent.Raw("count(*) as 'total'")}).Where("department", "=", "popular").GroupBy("category").
+		Having("total", ">", goeloquent.Raw("3"))
+
+	assert.Equal(t, "select `category`, count(*) as 'total' from `item` where `department` = ? group by `category` having `total` > 3", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"popular"}, b.GetBindings())
+}
+
+func TestRawHavings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").HavingRaw("name < foo")
+	assert.Equal(t, "select * from `users` having name < foo", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{}, b.GetRawBindings()["having"])
+
+	b = GetBuilder()
+	b.Select().From("users").Having("name", "<>", 1).OrHavingRaw("user_foo < user_bar")
+	assert.Equal(t, "select * from `users` having `name` <> ? or user_foo < user_bar", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").HavingBetween("age", []interface{}{18, 30}).OrHavingRaw("user_foo < user_bar")
+	assert.Equal(t, "select * from `users` having `age` between ? and ? or user_foo < user_bar", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{18, 30}, b1.GetBindings())
+}
