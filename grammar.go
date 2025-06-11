@@ -373,7 +373,7 @@ func (g *MysqlGrammar) CompileUpdateWithoutJoins(query *QueryBuilder, table, col
 }
 func (g *MysqlGrammar) CompileUpdateWithJoins(query *QueryBuilder, table, columns, where string) string {
 	joins := g.CompileJoins(query)
-	return fmt.Sprintf("update %s %s set %s %s %s", table, joins, columns, where)
+	return fmt.Sprintf("update %s %s set %s %s ", table, joins, columns, where)
 }
 func (g *MysqlGrammar) CompileJsonUpdateColumn(key string, value interface{}) string {
 	switch value.(type) {
@@ -553,7 +553,11 @@ func (g *MysqlGrammar) CompileJoin(query *QueryBuilder, joins []*JoinBuilder) st
 
 	var parts []string
 	for _, join := range joins {
-		table := g.WrapTable(join.Table)
+		if len(join.RawSql) > 0 {
+			parts = append(parts, join.RawSql)
+			continue
+		}
+		table := g.WrapTable(join.Table, g.TablePrefix)
 		var nested string
 		tableAndNested := table
 		if len(join.Joins) > 0 {
