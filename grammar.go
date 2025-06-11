@@ -259,7 +259,7 @@ func (g *MysqlGrammar) CompileSelect(query *QueryBuilder) string {
 func Concatenate(parts map[Component]string) string {
 	var sb strings.Builder
 	for _, component := range SelectComponents {
-		if part, ok := parts[component]; ok {
+		if part, ok := parts[component]; ok && len(part) > 0 {
 			sb.WriteString(strings.TrimSuffix(part, " ") + " ")
 		}
 	}
