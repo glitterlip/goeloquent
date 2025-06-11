@@ -596,6 +596,8 @@ func (g *MysqlGrammar) CompileHaving(having Having) string {
 		return g.CompileHavingNotNull(having)
 	case HavingTypeNested:
 		return g.CompileHavingNested(having)
+	case HavingTypeExpression:
+		return g.CompileHavingExpression(having)
 	default:
 		return g.CompileHavingBasic(having)
 	}
@@ -984,6 +986,10 @@ func (g *MysqlGrammar) CompileHavingBetween(having Having) string {
 func (g *MysqlGrammar) CompileHavingBitwise(having Having) string {
 
 	return fmt.Sprintf("(%s %s %s) != 0", g.Wrap(having.HavingColumn), having.HavingOperator, g.Parameter(having.HavingValue[0]))
+}
+
+func (g *MysqlGrammar) CompileHavingExpression(having Having) string {
+	return having.HavingColumn
 }
 
 func (g *MysqlGrammar) CompileHavingNull(having Having) string {
