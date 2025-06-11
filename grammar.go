@@ -738,10 +738,8 @@ func (g *MysqlGrammar) CompileWheres(query *QueryBuilder) string {
 	return "where " + str
 }
 
-// todo
 func (g *MysqlGrammar) CompileWhereExpression(where Where) string {
-
-	return ""
+	return where.RawSql.(string)
 }
 
 func (g *MysqlGrammar) CompileWhereBitwise(where Where) string {
