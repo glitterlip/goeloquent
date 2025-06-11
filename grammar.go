@@ -817,12 +817,30 @@ func (g *MysqlGrammar) CompileWhereInRaw(where Where) string {
 }
 
 func (g *MysqlGrammar) CompileWhereNotNull(where Where) string {
-
+	var columnStr string
+	if str, ok := where.Column.(string); ok {
+		columnStr = str
+	} else if expression, ok := where.Column.(Expression); ok {
+		columnStr = string(expression)
+	}
+	if IsJsonSelector(columnStr) {
+		field, path := g.WrapJsonFieldAndPath(where.Column)
+		return fmt.Sprintf("(json_extract(%s, %s) is not null AND json_type(json_extract(%s, %s)) != 'NULL')", field, path, field, path)
+	}
 	return g.Wrap(where.Column) + " is not null"
 }
 
 func (g *MysqlGrammar) CompileWhereNull(where Where) string {
-
+	var columnStr string
+	if str, ok := where.Column.(string); ok {
+		columnStr = str
+	} else if expression, ok := where.Column.(Expression); ok {
+		columnStr = string(expression)
+	}
+	if IsJsonSelector(columnStr) {
+		field, path := g.WrapJsonFieldAndPath(where.Column)
+		return fmt.Sprintf("(json_extract(%s, %s) is null OR json_type(json_extract(%s, %s)) = 'NULL')", field, path, field, path)
+	}
 	return g.Wrap(where.Column) + " is null"
 }
 
