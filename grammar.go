@@ -95,8 +95,14 @@ func (g *MysqlGrammar) WrapJsonSelector(value string) string {
 	field, path := g.WrapJsonFieldAndPath(value)
 	return "json_unquote(json_extract(" + field + path + "))"
 }
-func (g *MysqlGrammar) WrapJsonFieldAndPath(value string) (string, string) {
-	parts := strings.SplitN(value, "->", 2)
+func (g *MysqlGrammar) WrapJsonFieldAndPath(value interface{}) (string, string) {
+	var str string
+	if expression, ok := value.(Expression); ok {
+		str = string(expression)
+	} else {
+		str = value.(string)
+	}
+	parts := strings.SplitN(str, "->", 2)
 
 	if len(parts) > 1 {
 		return g.Wrap(parts[0]), g.WrapJsonPath(parts[1], "->")
@@ -134,7 +140,7 @@ func (g *MysqlGrammar) WrapJsonPathSegment(segment string) string {
 
 	return fmt.Sprintf(`"%s"`, segment)
 }
-func (g *MysqlGrammar) WrapJsonBooleanSelector(value string) string {
+func (g *MysqlGrammar) WrapJsonBooleanSelector(value interface{}) string {
 	field, path := g.WrapJsonFieldAndPath(value)
 	return "json_extract(" + field + path + ")"
 }
