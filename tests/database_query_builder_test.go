@@ -1302,3 +1302,162 @@ func TestLimitsAndOffsets(t *testing.T) {
 	assert.Equal(t, "select * from `users` offset 0", b4.ToSql())
 
 }
+
+func TestForPage(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").ForPage(2, 15)
+	assert.Equal(t, "select * from `users` limit 15 offset 15", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").ForPage(0, 15)
+	assert.Equal(t, "select * from `users` limit 15 offset 0", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").ForPage(-2, 15)
+	assert.Equal(t, "select * from `users` limit 15 offset 0", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users").ForPage(2, 0)
+	assert.Equal(t, "select * from `users` limit 0 offset 0", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b3.GetBindings())
+
+	b4 := GetBuilder()
+	b4.Select().From("users").ForPage(0, 0)
+	assert.Equal(t, "select * from `users` limit 0 offset 0", b4.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b4.GetBindings())
+
+	b5 := GetBuilder()
+	b5.Select().From("users").ForPage(-2, 0)
+	assert.Equal(t, "select * from `users` limit 0 offset 0", b5.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b5.GetBindings())
+
+}
+
+func TestForPageBeforeId(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").ForPageBeforeId(15, 0)
+	assert.Equal(t, "select * from `users` where `id` < ? order by `id` desc limit 15", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{0}, b.GetBindings())
+
+}
+
+func TestForPageAfterId(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").ForPageAfterId(15, 0)
+	assert.Equal(t, "select * from `users` where `id` > ? order by `id` asc limit 15", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{0}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").ForPageAfterId(15, 10)
+	assert.Equal(t, "select * from `users` where `id` > ? order by `id` asc limit 15", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{10}, b1.GetBindings())
+}
+
+func TestGetCountForPaginationWithBindings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").SelectSub(func(builder *goeloquent.QueryBuilder) {
+		builder.Select("name").From("users").Where("name", "John")
+	}, "posts")
+	b.Pretend()
+	var count int
+	c := goeloquent.Clone(b)
+	c.Without([]goeloquent.Component{goeloquent.COMPONENT_COLUMN, goeloquent.COMPONENT_ORDER, goeloquent.COMPONENT_OFFSET, goeloquent.COMPONENT_LIMIT},
+		[]goeloquent.Component{goeloquent.COMPONENT_SELECT, goeloquent.COMPONENT_ORDER}).
+		Count(&count)
+
+	assert.Equal(t, "select count(*) as aggregate from `users`", c.ToSql())
+}
+
+func TestGetCountForPaginationWithColumnAliases(t *testing.T) {
+	b := GetBuilder()
+	columns := []interface{}{"body as post_body", "teaser", "posts.created as published"}
+	b.Select(columns).From("posts")
+	b.Pretend()
+	var count int
+	c := goeloquent.Clone(b)
+	c.Without([]goeloquent.Component{goeloquent.COMPONENT_COLUMN, goeloquent.COMPONENT_ORDER, goeloquent.COMPONENT_OFFSET, goeloquent.COMPONENT_LIMIT},
+		[]goeloquent.Component{goeloquent.COMPONENT_SELECT, goeloquent.COMPONENT_ORDER}).
+		Count(&count, goeloquent.WithoutSelectAliases(columns))
+
+	assert.Equal(t, "select count(`body`, `teaser`, `posts`.`created`) as aggregate from `posts`", c.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, c.GetBindings())
+}
+
+func TestGetCountForPaginationWithUnion(t *testing.T) {
+}
+func TestGetCountForPaginationWithUnionOrders(t *testing.T) {
+}
+func TestGetCountForPaginationWithUnionLimitAndOffset(t *testing.T) {
+}
+
+func TestWhereShortcut(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("name", "a").OrWhere("name", "bar")
+	assert.Equal(t, "select * from `users` where `name` = ? or `name` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"a", "bar"}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("name", "a").OrWhere("name", goeloquent.Raw("'bar'"))
+	assert.Equal(t, "select * from `users` where `name` = ? or `name` = 'bar'", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"a"}, b1.GetBindings())
+}
+
+func TestOrWheresHaveConsistentResults(t *testing.T) {
+
+}
+
+func TestWhereWithArrayConditions(t *testing.T) {
+
+	//mixed
+	b1 := GetBuilder().Select().From("users").Where([][]interface{}{
+		{"admin", "=", 1},
+		{"id", "<", 10},
+		{"source", "=", "301"},
+		{"deleted", 0},
+		{"role", "in", []interface{}{"admin", "manager", "owner"}},
+		{"age", "between", []interface{}{18, 100}},
+		{func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+			return builder.WhereYear("created_at", "<", 2010).WhereColumn("first_name", "last_name").OrWhereNull("created_at")
+		}},
+		{goeloquent.Raw("year(birthday) < 1998")},
+		{"suspend", goeloquent.Raw("'nodoublequotes'")},
+	})
+	assert.Equal(t, b1.ToSql(),
+		"select * from `users` where (`admin` = ? and `id` < ? and `source` = ? and `deleted` = ? and `role` in (?, ?, ?) and `age` between ? and ? "+
+			"and (year(`created_at`) < ? and `first_name` = `last_name` or `created_at` is null) "+
+			"and year(birthday) < 1998 and `suspend` = 'nodoublequotes')")
+	assert.ElementsMatch(t, []interface{}{1, 10, "301", 0, "admin", "manager", "owner", 18, 100, 2010}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.From("users").Where([][]interface{}{{"foo", 1}, {"bar", 2}}, "or")
+	assert.Equal(t, "select * from `users` where (`foo` = ? or `bar` = ?)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2}, b2.GetBindings())
+
+	b2 = GetBuilder()
+	b2.From("users").Where(map[string]interface{}{"name": "foo", "age": 30, "email": goeloquent.Raw("'bar'")})
+	assert.Equal(t, "select * from `users` where (`age` = ? and `email` = 'bar' and `name` = ?)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", 30}, b2.GetBindings())
+
+	b2 = GetBuilder()
+	b2.From("users").Where(map[string]interface{}{"name": "foo", "age": 30, "email": goeloquent.Raw("'bar'")}, "or")
+	assert.Equal(t, "select * from `users` where (`age` = ? or `email` = 'bar' or `name` = ?)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", 30}, b2.GetBindings())
+
+	b2 = GetBuilder()
+	b2.From("users").Where([][]interface{}{{"foo", 1}, {"bar", "<", 2}}, "and")
+	assert.Equal(t, "select * from `users` where (`foo` = ? and `bar` < ?)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2}, b2.GetBindings())
+
+	b2 = GetBuilder()
+	b2.From("users").Where([][]interface{}{{"foo", 1}, {"bar", "<", 2}}, "or")
+	assert.Equal(t, "select * from `users` where (`foo` = ? or `bar` < ?)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2}, b2.GetBindings())
+
+}
+
+func TestNestedWhereBindings(t *testing.T) {
+}
