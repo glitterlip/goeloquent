@@ -1492,3 +1492,43 @@ func TestIncrementManyArgumentValidation2(t *testing.T) {
 func TestWhereNotWithArrayConditions(t *testing.T) {
 
 }
+
+func TestFullSubSelects(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("name", "a").OrWhere("id", "=", func(builder *goeloquent.QueryBuilder) {
+		builder.SelectRaw("max(id)").From("users").Where("email", "=", "gmail")
+	})
+	assert.Equal(t, "select * from `users` where `name` = ? or `id` = (select max(id) from `users` where `email` = ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"a", "gmail"}, b.GetBindings())
+}
+
+func TestWhereExists(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereExists(func(builder *goeloquent.QueryBuilder) {
+		builder.Select().From("posts").WhereColumn("posts.user_id", "users.id")
+	})
+	assert.Equal(t, "select * from `users` where exists (select * from `posts` where `posts`.`user_id` = `users`.`id`)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").WhereNotExists(func(builder *goeloquent.QueryBuilder) {
+		builder.Select().From("posts").WhereColumn("posts.user_id", "users.id")
+	})
+	assert.Equal(t, "select * from `users` where not exists (select * from `posts` where `posts`.`user_id` = `users`.`id`)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").Where("id", 1).OrWhereExists(func(builder *goeloquent.QueryBuilder) {
+		builder.Select().From("posts").WhereColumn("posts.user_id", "users.id")
+	})
+	assert.Equal(t, "select * from `users` where `id` = ? or exists (select * from `posts` where `posts`.`user_id` = `users`.`id`)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users").Where("id", 1).OrWhereNotExists(func(builder *goeloquent.QueryBuilder) {
+		builder.Select().From("posts").WhereColumn("posts.user_id", "users.id")
+	})
+	assert.Equal(t, "select * from `users` where `id` = ? or not exists (select * from `posts` where `posts`.`user_id` = `users`.`id`)", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b3.GetBindings())
+
+}
