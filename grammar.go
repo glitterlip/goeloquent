@@ -484,7 +484,7 @@ func (g *MysqlGrammar) CompileComponents(query *QueryBuilder) map[Component]stri
 		case COMPONENT_INDEX_HINT:
 			parts[key] = g.CompileIndexHint(query)
 		case COMPONENT_JOIN:
-			parts[key] = g.CompileJoin(query, query.Joins)
+			parts[key] = g.CompileJoins(query)
 		case COMPONENT_WHERE:
 			parts[key] = g.CompileWheres(query)
 		case COMPONENT_GROUP_BY:
@@ -547,28 +547,6 @@ func (g *MysqlGrammar) CompileIndexHint(query *QueryBuilder) string {
 	default:
 		return fmt.Sprintf("ignore index (%s)", query.IndexHint.Index)
 	}
-}
-
-func (g *MysqlGrammar) CompileJoin(query *QueryBuilder, joins []*JoinBuilder) string {
-
-	var parts []string
-	for _, join := range joins {
-		if len(join.RawSql) > 0 {
-			parts = append(parts, join.RawSql)
-			continue
-		}
-		table := g.WrapTable(join.Table, g.TablePrefix)
-		var nested string
-		tableAndNested := table
-		if len(join.Joins) > 0 {
-			nested = g.CompileJoin(query, join.Joins)
-			tableAndNested = fmt.Sprintf("(%s %s)", table, nested)
-		}
-
-		parts = append(parts, fmt.Sprintf("%s join %s %s", join.Type, tableAndNested, g.CompileWheres(join.QueryBuilder)))
-
-	}
-	return strings.TrimSuffix(strings.Join(parts, " "), " ")
 }
 
 func (g *MysqlGrammar) CompileGroups(query *QueryBuilder) string {
