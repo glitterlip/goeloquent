@@ -1532,3 +1532,359 @@ func TestWhereExists(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1}, b3.GetBindings())
 
 }
+
+func TestBasicJoins(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Join("posts", "users.id", "=", "posts.user_id")
+	assert.Equal(t, "select * from `users` inner join `posts` on `users`.`id` = `posts`.`user_id`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("posts", "users.id", "=", "posts.user_id").LeftJoin("comments", "users.id", "=", "comments.user_id")
+	assert.Equal(t, "select * from `users` inner join `posts` on `users`.`id` = `posts`.`user_id` left join `comments` on `users`.`id` = `comments`.`user_id`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").LeftJoinWhere("posts", "users.id", "=", "bar").JoinWhere("posts", "users.id", "=", "foo")
+	assert.Equal(t, "select * from `users` left join `posts` on `users`.`id` = ? inner join `posts` on `users`.`id` = ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{"bar", "foo"}, b2.GetBindings())
+}
+
+func TestCrossJoins(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").CrossJoin("posts")
+	assert.Equal(t, "select * from `users` cross join `posts`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("posts", "posts.user_id", "=", "users.id", goeloquent.JoinTypeCross)
+	assert.Equal(t, "select * from `users` cross join `posts` on `posts`.`user_id` = `users`.`id`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").CrossJoin("posts", "users.id", "=", "posts.user_id")
+	assert.Equal(t, "select * from `users` cross join `posts` on `users`.`id` = `posts`.`user_id`", b2.ToSql())
+
+}
+
+func TestCrossJoinSubs(t *testing.T) {
+	b := GetBuilder()
+	b.SelectRaw("(sale / overall.sales) * 100 AS percent_of_total").From("sales").
+		CrossJoinSub(GetBuilder().SelectRaw("SUM(sale) AS sales").From("sales"), "overall")
+
+	assert.Equal(t, "select (sale / overall.sales) * 100 AS percent_of_total from `sales` cross join (select SUM(sale) AS sales from `sales`) as `overall`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestComplexJoin(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) *goeloquent.JoinBuilder {
+		return builder.On("users.id", "contacts.user_id").OrOn("users.name", "=", "contacts.name")
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` or `users`.`name` = `contacts`.`name`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.Where("users.id", "=", "foo").OrWhere("users.name", "=", "bar")
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = ? or `users`.`name` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "bar"}, b1.GetBindings())
+
+}
+
+func TestJoinWhereNull(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").WhereNull("contacts.deleted_at")
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` and `contacts`.`deleted_at` is null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").OrWhereNull("contacts.deleted_at")
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` or `contacts`.`deleted_at` is null", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+}
+
+func TestJoinWhereNotNull(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").WhereNotNull("contacts.deleted_at")
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` and `contacts`.`deleted_at` is not null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").OrWhereNotNull("contacts.deleted_at")
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` or `contacts`.`deleted_at` is not null", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+}
+
+func TestJoinWhereIn(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").WhereIn("contacts.name", []interface{}{1, 2, 3})
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` and `contacts`.`name` in (?, ?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2, 3}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").OrWhereIn("contacts.name", []interface{}{1, 2, 3})
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` or `contacts`.`name` in (?, ?, ?)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2, 3}, b1.GetBindings())
+}
+
+func TestJoinWhereInSubQuery(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		tb := GetBuilder().Select("name").From("contacts").Where("active", 1)
+		builder.On("users.id", "=", "contacts.user_id").WhereIn("contacts.name", tb)
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` and `contacts`.`name` in (select `name` from `contacts` where `active` = ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		tb := GetBuilder().Select("name").From("contacts").Where("active", 1)
+		builder.On("users.id", "=", "contacts.user_id").OrWhereIn("contacts.name", tb)
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` or `contacts`.`name` in (select `name` from `contacts` where `active` = ?)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+}
+
+func TestJoinWhereNotIn(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").WhereNotIn("contacts.name", []interface{}{1, 2, 3})
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` and `contacts`.`name` not in (?, ?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2, 3}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").OrWhereNotIn("contacts.name", []interface{}{1, 2, 3})
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` or `contacts`.`name` not in (?, ?, ?)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2, 3}, b1.GetBindings())
+}
+
+func TestJoinsWithNestedConditions(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").LeftJoin("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").Where(func(subbuilder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+			return subbuilder.Where("contacts.name", "foo").OrWhere("contacts.email", "bar")
+		})
+	})
+	assert.Equal(t, "select * from `users` left join `contacts` on `users`.`id` = `contacts`.`user_id` and (`contacts`.`name` = ? or `contacts`.`email` = ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "bar"}, b.GetBindings())
+}
+
+func TestJoinWithAdvancedConditions(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "contacts.user_id").Where(func(subbuilder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+			return subbuilder.Where("contacts.name", "foo").OrWhere(func(subbuilder2 *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+				return subbuilder2.Where("contacts.email", "bar").WhereNotNull("contacts.phone")
+			})
+		})
+	})
+	assert.Equal(t, "select * from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` and (`contacts`.`name` = ? or (`contacts`.`email` = ? and `contacts`.`phone` is not null))", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "bar"}, b.GetBindings())
+}
+
+func TestJoinsWithSubqueryCondition(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").LeftJoin("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").WhereIn("contacts_type_id", func(subbuilder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+			return subbuilder.Select("id").From("contacts_type").Where("active", 1).WhereNull("invalid")
+		})
+	})
+	assert.Equal(t, "select * from `users` left join `contacts` on `users`.`id` = `contacts`.`user_id` and `contacts_type_id` in (select `id` from `contacts_type` where `active` = ? and `invalid` is null)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").LeftJoin("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").WhereExists(func(subbuilder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+			return subbuilder.Select().From("contacts_type").SelectRaw("1").WhereRaw("contacts_type.id = contacts.contacts_type_id").
+				Where("active", 1).WhereNull("invalid")
+		})
+	})
+	assert.Equal(t, "select * from `users` left join `contacts` on `users`.`id` = `contacts`.`user_id` and exists (select 1 from `contacts_type` where contacts_type.id = contacts.contacts_type_id and `active` = ? and `invalid` is null)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+}
+
+func TestJoinsWithAdvancedSubqueryCondition(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").LeftJoin("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").WhereExists(func(subbuilder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+			return subbuilder.Select().From("contacts_type").SelectRaw("1").WhereRaw("contacts_type.id = contacts.contacts_type_id").
+				Where("active", 1).WhereNull("invalid").WhereIn("level_id", func(subbuilder2 *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+				return subbuilder2.Select("id").From("levels").Where("active", 1)
+			})
+		})
+	})
+	assert.Equal(t, "select * from `users` left join `contacts` on `users`.`id` = `contacts`.`user_id` and exists (select 1 from `contacts_type` where contacts_type.id = contacts.contacts_type_id and `active` = ? and `invalid` is null and `level_id` in (select `id` from `levels` where `active` = ?))", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1}, b.GetBindings())
+}
+
+func TestJoinsWithNestedJoins(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Select("users.id", "contacts.id", "contact_types.id").LeftJoin("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").
+			Join("contact_types", "contacts.contact_type_id", "=", "contact_types.id")
+	})
+	assert.Equal(t, "select `users`.`id`, `contacts`.`id`, `contact_types`.`id` from `users` left join (`contacts` inner join `contact_types` on `contacts`.`contact_type_id` = `contact_types`.`id`) on `users`.`id` = `contacts`.`user_id`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestJoinsWithMultipleNestedJoins(t *testing.T) {
+	b := GetBuilder()
+	b.Select("users.id", "contacts.user_id", "contact_types.id", "planets.id", "countries.id").From("users").LeftJoin("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.user_id").
+			Join("contact_types", "contacts.contact_type_id", "=", "contact_types.id").
+			LeftJoin("countries", func(subbuilder *goeloquent.JoinBuilder) {
+				subbuilder.On("contacts.country", "=", "countries.country").
+					Join("planets", func(sub1 *goeloquent.JoinBuilder) {
+						sub1.On("countries.planet_id", "=", "planets.id").
+							Where("planet.is_settleted", 1).
+							Where("planet.population", ">", 1000000)
+					})
+			})
+	})
+	assert.Equal(t, "select `users`.`id`, `contacts`.`user_id`, `contact_types`.`id`, `planets`.`id`, `countries`.`id` from `users` left join "+
+		"(`contacts` inner join `contact_types` on `contacts`.`contact_type_id` = `contact_types`.`id` "+
+		"left join (`countries` inner join `planets` on `countries`.`planet_id` = `planets`.`id` and `planet`.`is_settleted` = ? and `planet`.`population` > ?) on `contacts`.`country` = `countries`.`country`) on `users`.`id` = `contacts`.`user_id`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1000000}, b.GetBindings())
+}
+
+func TestJoinsWithNestedJoinWithAdvancedSubqueryCondition(t *testing.T) {
+	b := GetBuilder()
+	b.Select("users.id", "contacts.id", "contact_types.id").From("users").LeftJoin("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.id").Join("contact_types", "contacts.contact_type_id", "=", "contact_types.id").WhereExists(func(subbuilder *goeloquent.QueryBuilder) {
+			subbuilder.Select().From("countries").WhereColumn("contacts.country", "countries.country").
+				Join("planets", func(sub1 *goeloquent.JoinBuilder) {
+					sub1.On("countries.planet_id", "=", "planets.id").Where("planets.is_settleted", 1)
+				}).Where("planet.population", ">=", 1000000)
+		})
+	})
+	assert.Equal(t, "select `users`.`id`, `contacts`.`id`, `contact_types`.`id` from `users` left join (`contacts` inner join `contact_types` on `contacts`.`contact_type_id` = `contact_types`.`id`) on `users`.`id` = `contacts`.`id` and exists (select * from `countries` inner join `planets` on `countries`.`planet_id` = `planets`.`id` and `planets`.`is_settleted` = ? where `contacts`.`country` = `countries`.`country` and `planet`.`population` >= ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1000000}, b.GetBindings())
+}
+
+func TestJoinWithNestedOnCondition(t *testing.T) {
+	b := GetBuilder()
+	b.Select("users.id").From("users").Join("contacts", func(builder *goeloquent.JoinBuilder) {
+		builder.On("users.id", "=", "contacts.id").AddNestedWhereQuery(GetBuilder().Where("contacts.id", 1))
+	})
+	assert.Equal(t, "select `users`.`id` from `users` inner join `contacts` on `users`.`id` = `contacts`.`id` and (`contacts`.`id` = ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+
+func TestJoinSub(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").JoinSub("select * from contacts", "sub", "users.id", "=", "sub.id")
+	assert.Equal(t, "select * from `users` inner join (select * from contacts) as `sub` on `users`.`id` = `sub`.`id`", b.ToSql())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").JoinSub(func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.From("contacts")
+	}, "sub", "users.id", "=", "sub.id")
+	assert.Equal(t, "select * from `users` inner join (select * from `contacts`) as `sub` on `users`.`id` = `sub`.`id`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	sub1 := GetBuilder().From("contacts").Where("active", 1)
+	sub2 := GetBuilder().From("contacts").Where("name", "foo")
+
+	b2 := GetBuilder()
+	b2.From("users").JoinSub(sub1, "sub1", "users.id", "=", 2, goeloquent.JoinTypeInner, true).
+		JoinSub(sub2, "sub2", "users.id", "=", "sub2.user_id")
+
+	assert.Equal(t, "select * from `users` inner join (select * from `contacts` where `active` = ?) as `sub1` on `users`.`id` = ? "+
+		"inner join (select * from `contacts` where `name` = ?) as `sub2` on `users`.`id` = `sub2`.`user_id`", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2, "foo"}, b2.GetBindings())
+}
+
+func TestJoinSubWithPrefix(t *testing.T) {
+	b := GetBuilder()
+	b.Grammar.SetTablePrefix("prefix_")
+	b.Select().From("users").JoinSub("select * from contacts", "sub", "users.id", "=", "sub.id")
+	assert.Equal(t, "select * from `prefix_users` inner join (select * from contacts) as `prefix_sub` on `prefix_users`.`id` = `prefix_sub`.`id`", b.ToSql())
+}
+
+func TestLeftJoinSub(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").LeftJoinSub("select * from contacts", "sub", "users.id", "=", "sub.id")
+	assert.Equal(t, "select * from `users` left join (select * from contacts) as `sub` on `users`.`id` = `sub`.`id`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+func TestRightJoinSub(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").RightJoinSub("select * from contacts", "sub", "users.id", "=", "sub.id")
+	assert.Equal(t, "select * from `users` right join (select * from contacts) as `sub` on `users`.`id` = `sub`.`id`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestJoinLateral(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").JoinLateral("select * from `contacts` where `contracts`.`user_id` = `users`.`id`", "sub", goeloquent.JoinTypeInner)
+	assert.Equal(t, "select * from `users` inner join lateral (select * from `contacts` where `contracts`.`user_id` = `users`.`id`) as `sub` on true", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").JoinLateral(func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Select().From("contacts").WhereColumn("contracts.user_id", "users.id")
+	}, "sub", goeloquent.JoinTypeInner)
+	assert.Equal(t, "select * from `users` inner join lateral (select * from `contacts` where `contracts`.`user_id` = `users`.`id`) as `sub` on true", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	sub1 := GetBuilder().From("contacts").WhereColumn("contracts.user_id", "users.id").Where("active", 1)
+	sub2 := GetBuilder().From("contacts").WhereColumn("contracts.user_id", "users.id").Where("name", "foo")
+
+	b2 := GetBuilder()
+	b2.From("users").JoinLateral(sub1, "sub1", goeloquent.JoinTypeInner).JoinLateral(sub2, "sub2", goeloquent.JoinTypeInner)
+	assert.Equal(t, "select * from `users` inner join lateral (select * from `contacts` where `contracts`.`user_id` = `users`.`id` and `active` = ?) as `sub1` on true "+
+		"inner join lateral (select * from `contacts` where `contracts`.`user_id` = `users`.`id` and `name` = ?) as `sub2` on true", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo"}, b2.GetBindings())
+}
+
+func TestJoinLateralMariaDB(t *testing.T) {
+
+}
+
+func TestJoinLateralSQLlite(t *testing.T) {
+
+}
+
+func TestJoinLateralPostgres(t *testing.T) {
+
+}
+
+func TestJoinLateralSqlServer(t *testing.T) {
+
+}
+
+func TestJoinLateralWithPrefix(t *testing.T) {
+	b := GetBuilder()
+	b.Grammar.SetTablePrefix("prefix_")
+	b.Select().From("users").JoinLateral("select * from `contacts` where `contacts`.`user_id` = `users`.`id`", "sub", goeloquent.JoinTypeInner)
+	assert.Equal(t, "select * from `prefix_users` inner join lateral (select * from `contacts` where `contacts`.`user_id` = `prefix_users`.`id`) as `prefix_sub` on true", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestLeftJoinLateral(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").LeftJoinLateral("select * from `contacts` where `contacts`.`user_id` = `users`.`id`", "sub")
+	assert.Equal(t, "select * from `users` left join lateral (select * from `contacts` where `contacts`.`user_id` = `users`.`id`) as `sub` on true", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestLeftJoinLateralSqlServer(t *testing.T) {
+}
