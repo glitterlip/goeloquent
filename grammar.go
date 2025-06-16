@@ -408,9 +408,11 @@ func (g *MysqlGrammar) CompileJoins(query *QueryBuilder) string {
 			table = "(" + g.WrapTable(join.Table) + nestedJoins + ")"
 		}
 		if join.Lateral {
-			return g.CompileJoinLateral(join, table)
+			parts = append(parts, g.CompileJoinLateral(join, table))
+		} else {
+			parts = append(parts, strings.TrimSuffix(fmt.Sprintf("%s join %s %s", join.Type, table, g.CompileWheres(join.QueryBuilder)), " "))
+
 		}
-		parts = append(parts, strings.TrimSuffix(fmt.Sprintf("%s join %s %s", join.Type, table, g.CompileWheres(join.QueryBuilder)), " "))
 	}
 	return strings.Join(parts, " ")
 }
