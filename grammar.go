@@ -562,7 +562,7 @@ func (g *MysqlGrammar) CompileJoin(query *QueryBuilder, joins []*JoinBuilder) st
 		tableAndNested := table
 		if len(join.Joins) > 0 {
 			nested = g.CompileJoin(query, join.Joins)
-			tableAndNested = fmt.Sprintf("(%s%s)", table, nested)
+			tableAndNested = fmt.Sprintf("(%s %s)", table, nested)
 		}
 
 		parts = append(parts, fmt.Sprintf("%s join %s %s", join.Type, tableAndNested, g.CompileWheres(join.QueryBuilder)))
