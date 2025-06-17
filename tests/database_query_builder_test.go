@@ -1939,3 +1939,17 @@ func TestPluckAvoidsDuplicateColumnSelection(t *testing.T) {
 func TestImplode(t *testing.T) {
 
 }
+func TestValueMethodReturnsSingleColumn(t *testing.T) {
+	var dest string
+	b := GetBuilder()
+	b.Select().From("users").Where("id", 1).Value(&dest, "name")
+	assert.Equal(t, "select `name` from `users` where `id` = ? limit 1", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+
+func TestRawValueMethodReturnsSingleColumn(t *testing.T) {
+	var dest string
+	b := GetBuilder()
+	b.Select().From("users").Where("id", 1).RawValue(&dest, "UPPER('foo')")
+	assert.Equal(t, "select UPPER('foo') from `users` where `id` = ? limit 1", b.ToSql())
+}
