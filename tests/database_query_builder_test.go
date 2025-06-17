@@ -1875,7 +1875,7 @@ func TestJoinLateralWithPrefix(t *testing.T) {
 	b := GetBuilder()
 	b.Grammar.SetTablePrefix("prefix_")
 	b.Select().From("users").JoinLateral("select * from `contacts` where `contacts`.`user_id` = `users`.`id`", "sub", goeloquent.JoinTypeInner)
-	assert.Equal(t, "select * from `prefix_users` inner join lateral (select * from `contacts` where `contacts`.`user_id` = `prefix_users`.`id`) as `prefix_sub` on true", b.ToSql())
+	assert.Equal(t, "select * from `prefix_users` inner join lateral (select * from `contacts` where `contacts`.`user_id` = `users`.`id`) as `prefix_sub` on true", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
 
@@ -1887,4 +1887,55 @@ func TestLeftJoinLateral(t *testing.T) {
 }
 
 func TestLeftJoinLateralSqlServer(t *testing.T) {
+}
+
+func TestRawExpressionsInSelect(t *testing.T) {
+	b := GetBuilder()
+	b.Select(goeloquent.Raw("substr(foo,6)")).From("users")
+	assert.Equal(t, "select substr(foo,6) from `users`", b.ToSql())
+}
+
+func TestFindReturnsFirstResultByID(t *testing.T) {
+	var dest map[string]interface{}
+	b := GetBuilder()
+	b.Select().From("users").Find(&dest, 1)
+	assert.Equal(t, "select * from `users` where `id` = ? limit 1", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+}
+
+func TestFindOrReturnsFirstResultById(t *testing.T) {
+
+}
+
+func TestFirstMethodReturnsFirstResult(t *testing.T) {
+	var dest map[string]interface{}
+	b := GetBuilder()
+	b.Select().From("users").Where("name", "foo").First(&dest)
+	assert.Equal(t, "select * from `users` where `name` = ? limit 1", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b.GetBindings())
+}
+
+func TestFirstOrFailMethodReturnsFirstResult(t *testing.T) {
+
+}
+
+func TestFirstOrFailMethodThrowsRecordNotFoundException(t *testing.T) {
+
+}
+
+func TestPluckMethodGetsCollectionOfColumnValues(t *testing.T) {
+	var dest []string
+	b := GetBuilder()
+	b.Select().From("users").Pluck(&dest, "name")
+	assert.Equal(t, "select `name` from `users`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestPluckAvoidsDuplicateColumnSelection(t *testing.T) {
+
+}
+
+func TestImplode(t *testing.T) {
+
 }
