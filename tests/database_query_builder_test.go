@@ -2016,3 +2016,14 @@ func TestAggregateWithSubSelect(t *testing.T) {
 	}, "posts").Count(&count)
 	assert.Equal(t, "select count(*) as aggregate from `users`", b.ToSql())
 }
+
+func TestSubqueriesBindings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("email", "=", func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Select(goeloquent.Raw("max(id)")).From("users").Where("email", "=", "gmail").
+			OrderByRaw("email like ?", []interface{}{"%.com"}).
+			GroupBy("id").Having("id", "=", 4)
+	}).OrWhere("id", "=", "foo").GroupBy("id").Having("id", "=", 5)
+	assert.Equal(t, "select * from `users` where `email` = (select max(id) from `users` where `email` = ? group by `id` having `id` = ? order by email like ?) or `id` = ? group by `id` having `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"gmail", 4, "%.com", "foo", 5}, b.GetBindings())
+}
