@@ -1953,3 +1953,66 @@ func TestRawValueMethodReturnsSingleColumn(t *testing.T) {
 	b.Select().From("users").Where("id", 1).RawValue(&dest, "UPPER('foo')")
 	assert.Equal(t, "select UPPER('foo') from `users` where `id` = ? limit 1", b.ToSql())
 }
+
+func TestAggregateFunctions(t *testing.T) {
+	var count int64
+	b := GetBuilder()
+	b.Select().From("users").Where("active", 1).Count(&count)
+	assert.Equal(t, "select count(*) as aggregate from `users` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+	assert.Equal(t, int64(0), count)
+
+	b1 := GetBuilder()
+	var exist bool
+	b1.Select().From("users").Where("active", 1).Exists(&exist)
+	assert.Equal(t, "select exists(select * from `users` where `active` = ?) as `exists`", b1.ToSql())
+
+	b2 := GetBuilder()
+	var notExist bool
+	b2.Select().From("users").Where("active", 1).DoesntExist(&notExist)
+	assert.Equal(t, "select exists(select * from `users` where `active` = ?) as `exists`", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users").Where("active", 1).Max(&count, "age")
+	assert.Equal(t, "select max(`age`) as aggregate from `users` where `active` = ?", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b3.GetBindings())
+
+	b4 := GetBuilder()
+	b4.Select().From("users").Where("active", 1).Min(&count, "age")
+	assert.Equal(t, "select min(`age`) as aggregate from `users` where `active` = ?", b4.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b4.GetBindings())
+
+	b5 := GetBuilder()
+	b5.Select().From("users").Where("active", 1).Sum(&count, "balance")
+	assert.Equal(t, "select sum(`balance`) as aggregate from `users` where `active` = ?", b5.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b5.GetBindings())
+	assert.Equal(t, int64(0), count)
+
+	b6 := GetBuilder()
+	b6.Select().From("users").Where("active", 1).Avg(&count, "age")
+	assert.Equal(t, "select avg(`age`) as aggregate from `users` where `active` = ?", b6.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b6.GetBindings())
+	assert.Equal(t, int64(0), count)
+
+	b7 := GetBuilder()
+	b7.Select().From("users").Where("active", 1).Aggregate(&count, "COUNT", "age")
+	assert.Equal(t, "select COUNT(`age`) as aggregate from `users` where `active` = ?", b7.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b7.GetBindings())
+	assert.Equal(t, int64(0), count)
+}
+
+func TestSqlServerExists(t *testing.T)                        {}
+func TestExistsOr(t *testing.T)                               {}
+func TestDoesntExistsOr(t *testing.T)                         {}
+func TestAggregateResetFollowedByGet(t *testing.T)            {}
+func TestAggregateResetFollowedBySelectGet(t *testing.T)      {}
+func TestAggregateResetFollowedByGetWithColumns(t *testing.T) {}
+func TestAggregateWithSubSelect(t *testing.T) {
+	var count int64
+	b := GetBuilder()
+	b.Select().From("users").SelectSub(func(q *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return q.From("posts").Select("foo", "bar").Where("title", "baz")
+	}, "posts").Count(&count)
+	assert.Equal(t, "select count(*) as aggregate from `users`", b.ToSql())
+}
