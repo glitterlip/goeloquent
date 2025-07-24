@@ -315,6 +315,7 @@ func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]in
 				sql += ", "
 			}
 		}
+		sqls = append(sqls, sql)
 	}
 
 	return fmt.Sprintf("insert into %s (%s) values (%s)", g.WrapTable(query.FromTable), columns, strings.Join(sqls, ", ")), res
