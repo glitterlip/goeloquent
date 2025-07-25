@@ -1381,7 +1381,7 @@ func TestGetCountForPaginationWithColumnAliases(t *testing.T) {
 	c := goeloquent.Clone(b)
 	c.Without([]goeloquent.Component{goeloquent.COMPONENT_COLUMN, goeloquent.COMPONENT_ORDER, goeloquent.COMPONENT_OFFSET, goeloquent.COMPONENT_LIMIT},
 		[]goeloquent.Component{goeloquent.COMPONENT_SELECT, goeloquent.COMPONENT_ORDER}).
-		Count(&count, goeloquent.WithoutSelectAliases(columns))
+		Count(&count, goeloquent.WithoutSelectAliases(columns)...)
 
 	assert.Equal(t, "select count(`body`, `teaser`, `posts`.`created`) as aggregate from `posts`", c.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, c.GetBindings())
