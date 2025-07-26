@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -297,28 +298,30 @@ func (g *MysqlGrammar) CompileExists(query *QueryBuilder) string {
 func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
 	var res []interface{}
 	first := values[0]
-	var keys []interface{}
+	var keys []string
 	for key, _ := range first {
 		keys = append(keys, key)
 	}
-	columns := g.Columnize(keys)
-	columnsLength := len(columns)
+	sort.Strings(keys)
+	var cols []interface{}
+	for _, key := range keys {
+		cols = append(cols, key)
+	}
+	columns := g.Columnize(cols)
 	var sqls []string
 	for _, value := range values {
 		sql := "("
-		for j, key := range keys {
-			sql += g.Parameter(value[key.(string)])
-			res = append(res, value[key.(string)])
-			if j == columnsLength-1 {
-				sql += ")"
-			} else {
-				sql += ", "
-			}
+		for _, key := range keys {
+			sql += g.Parameter(value[key])
+			res = append(res, value[key])
+			sql += ", "
 		}
+		sql = strings.TrimSuffix(sql, ", ")
+		sql += ")"
 		sqls = append(sqls, sql)
 	}
 
-	return fmt.Sprintf("insert into %s (%s) values (%s)", g.WrapTable(query.FromTable), columns, strings.Join(sqls, ", ")), res
+	return fmt.Sprintf("insert into %s (%s) values %s", g.WrapTable(query.FromTable), columns, strings.Join(sqls, ",")), res
 }
 func (g *MysqlGrammar) CompileUpsert(query *QueryBuilder, values []map[string]interface{}, uniqueBy []string, update map[string]interface{}) (string, []interface{}) {
 	sql, bindings := g.CompileInsert(query, values)
