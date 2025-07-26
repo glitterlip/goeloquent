@@ -313,7 +313,9 @@ func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]in
 		sql := "("
 		for _, key := range keys {
 			sql += g.Parameter(value[key])
-			res = append(res, value[key])
+			if _, ok := value[key].(Expression); !ok {
+				res = append(res, value[key])
+			}
 			sql += ", "
 		}
 		sql = strings.TrimSuffix(sql, ", ")
