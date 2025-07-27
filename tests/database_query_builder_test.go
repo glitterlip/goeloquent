@@ -2298,3 +2298,25 @@ func TestDeleteWithJoinMethod(t *testing.T) {
 	assert.Equal(t, "delete `A` from `users` as `A` inner join `contacts` as `b` on `a`.`id` = `b`.`user_id` and `b`.`active` = ? ", b1.ToSql())
 	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
 }
+
+func TestTruncateMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Truncate()
+	assert.Equal(t, "truncate table `users`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestTruncateMethodWithPrefix(t *testing.T) {
+	b := GetBuilder()
+	b.Grammar.SetTablePrefix("prefix_")
+	b.From("users").Truncate()
+	assert.Equal(t, "truncate table `prefix_users`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+func TestTruncateMethodWithPrefixAndSchema(t *testing.T) {
+	b := GetBuilder()
+	b.Grammar.SetTablePrefix("prefix_")
+	b.From("myschema.users").Truncate()
+	assert.Equal(t, "truncate table `myschema`.`prefix_users`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
