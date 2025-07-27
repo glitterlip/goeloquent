@@ -379,7 +379,7 @@ func (g *MysqlGrammar) CompileUpdateWithoutJoins(query *QueryBuilder, table, col
 }
 func (g *MysqlGrammar) CompileUpdateWithJoins(query *QueryBuilder, table, columns, where string) string {
 	joins := g.CompileJoins(query)
-	return fmt.Sprintf("update %s %s set %s %s ", table, joins, columns, where)
+	return fmt.Sprintf("update %s %s set %s %s", table, joins, columns, where)
 }
 func (g *MysqlGrammar) CompileJsonUpdateColumn(key string, value interface{}) string {
 	switch value.(type) {
