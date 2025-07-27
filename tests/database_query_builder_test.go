@@ -2261,3 +2261,40 @@ func TestUpdateMethodWorksWithQueryAsValue(t *testing.T) {
 func TestUpdateOrInsertMethodWorksWithEmptyUpdateValues(t *testing.T) {
 
 }
+
+func TestDeleteMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Where("id", 1).Delete()
+	assert.Equal(t, "delete from `users` where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users").Delete([]interface{}{1})
+	assert.Equal(t, "delete from `users` where `id` in (?)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.From("users").SelectRaw("?", []interface{}{"ignore"}).Delete([]interface{}{1})
+	assert.Equal(t, "delete from `users` where `id` in (?)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, goeloquent.PrepareBindsForDelete(b2.Bindings))
+
+	b3 := GetBuilder()
+	b3.From("users").Where("email", "foo").OrderBy("id").Limit(1).Delete()
+	assert.Equal(t, "delete from `users` where `email` = ? order by `id` asc limit 1", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b3.GetBindings())
+
+}
+
+func TestDeleteWithJoinMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Join("contacts", "users.id", "=", "contacts.user_id").Where("users.id", 1).OrderBy("users.id").Limit(1).Delete()
+	assert.Equal(t, "delete `users` from `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` where `users`.`id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users as A").Join("contacts as b", func(builder *goeloquent.JoinBuilder) {
+		builder.On("a.id", "=", "b.user_id").Where("b.active", 1)
+	}).OrderBy("id", "desc").Limit(1).Delete()
+	assert.Equal(t, "delete `A` from `users` as `A` inner join `contacts` as `b` on `a`.`id` = `b`.`user_id` and `b`.`active` = ? ", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+}
