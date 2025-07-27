@@ -289,7 +289,14 @@ func (g *MysqlGrammar) CompileDeleteWithJoins(query *QueryBuilder, table, where 
 	return fmt.Sprintf("delete %s from %s %s %s", alias, table, joins, where)
 }
 func (g *MysqlGrammar) CompileDeleteWithoutJoins(query *QueryBuilder, table, where string) string {
-	return "delete from " + table + " " + where
+	sqlStr := "delete from " + table + " " + where
+	if len(query.Orders) > 0 {
+		sqlStr += " " + g.CompileOrders(query)
+	}
+	if query.LimitNum > 0 {
+		sqlStr += " " + g.CompileLimit(query)
+	}
+	return strings.TrimSuffix(sqlStr, " ")
 }
 func (g *MysqlGrammar) CompileExists(query *QueryBuilder) string {
 	return "select exists(" + g.CompileSelect(query) + ") as " + g.Wrap("exists")
