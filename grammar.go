@@ -218,9 +218,8 @@ func (g *MysqlGrammar) WrapTable(tableName interface{}, prefix ...string) string
 		if strings.Contains(t, ".") {
 
 			segments := strings.SplitN(t, ".", 2)
-			ts := segments[0] + "." + tablePrefix + segments[1]
 
-			return g.WrapSegments(strings.Split(ts, "."))
+			return g.WrapValue(segments[0]) + "." + g.WrapValue(tablePrefix+segments[1])
 		}
 
 	}
