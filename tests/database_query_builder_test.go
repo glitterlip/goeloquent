@@ -2141,3 +2141,123 @@ func TestMultipleInsertsWithExpressionValues(t *testing.T) {
 
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
+
+func TestUpdateMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Where("id", 1).Update(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "update `users` set `email` = ?, `name` = ? where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John", 1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users").Where("id", 1).OrderByDesc("age").Limit(5).Update(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "update `users` set `email` = ?, `name` = ? where `id` = ? order by `age` desc limit 5", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John", 1}, b1.GetBindings())
+}
+
+func TestUpsertMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Upsert([]map[string]interface{}{
+		{"name": "John", "email": "foo"},
+		{"name": "Jane", "email": "bar"},
+	}, []string{"email"}, []string{"name"})
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?), (?, ?) on duplicate key update `name` = values(`name`)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John", "bar", "Jane"}, b.GetBindings())
+
+}
+
+func TestUpsertMethodWithUpdateColumns(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Upsert([]map[string]interface{}{
+		{"name": "John", "email": "foo"},
+		{"name": "Jane", "email": "bar"},
+	}, []string{"email"}, []string{"name"})
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?), (?, ?) on duplicate key update `name` = values(`name`)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John", "bar", "Jane"}, b.GetBindings())
+}
+
+func TestUpdateMethodWithJoins(t *testing.T) {}
+
+func TestUpdateMethodWithJoinsOnSqlServer(t *testing.T) {}
+
+func TestUpdateMethodWithJoinsOnMySql(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Join("contacts", "users.id", "=", "contacts.user_id").Where("users.id", 1).Update(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "update `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` set `email` = ?, `name` = ? where `users`.`id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John", 1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users").Join("contacts", func(b *goeloquent.JoinBuilder) *goeloquent.JoinBuilder {
+		b.On("users.id", "=", "contacts.user_id").Where("users.active", 1)
+		return b
+	}).Update(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "update `users` inner join `contacts` on `users`.`id` = `contacts`.`user_id` and `users`.`active` = ? set `email` = ?, `name` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "foo", "John"}, b1.GetBindings())
+}
+func TestUpdateMethodWithJoinsOnSQLite(t *testing.T)              {}
+func TestUpdateMethodWithJoinsAndAliasesOnSqlServer(t *testing.T) {}
+func TestUpdateMethodWithoutJoinsOnPostgres(t *testing.T)         {}
+func TestUpdateMethodWithJoinsOnPostgres(t *testing.T)            {}
+func TestUpdateFromMethodWithJoinsOnPostgres(t *testing.T)        {}
+func TestUpdateMethodRespectsRaw(t *testing.T) {
+
+	b := GetBuilder()
+	b.From("users").Where("id", 1).Update(map[string]interface{}{
+		"name":  goeloquent.Raw("UPPER('John')"),
+		"email": "foo",
+	})
+	assert.Equal(t, "update `users` set `email` = ?, `name` = UPPER('John') where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", 1}, b.GetBindings())
+}
+func TestUpdateMethodWorksWithQueryAsValue(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Where("id", 1).Update(map[string]interface{}{
+		"name": "John",
+		"email": func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+			return builder.SelectRaw("sum(age)").From("contacts").WhereColumn("contacts.user_id", "users.id").Where("active", 1)
+		},
+	})
+	assert.Equal(t, "update `users` set `email` = (select sum(age) from `contacts` where `contacts`.`user_id` = `users`.`id` and `active` = ?), `name` = ? where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, "John", 1}, b.GetBindings())
+}
+
+// TODO use real database connection
+//func TestUpdateOrInsertMethod(t *testing.T) {
+//	conn, _ := goeloquent.DB.DefaultConnection()
+//	conn.Statement("drop table if exists users", nil)
+//	conn.Statement("create table users (id int auto_increment primary key, name varchar(255), email varchar(255), active int)", nil)
+//	b := GetBuilder(false)
+//	b.From("users").Where("id", 1).UpdateOrInsert(map[string]interface{}{
+//		"name":  "John",
+//		"email": "foo",
+//	}, map[string]interface{}{
+//		"active": 1,
+//	})
+//	assert.Equal(t, "insert into `users` (`email`, `name`, `active`) values (?, ?, ?)", b.ToSql())
+//	assert.ElementsMatch(t, []interface{}{"foo", "John", 1}, b.GetBindings())
+//
+//
+//	b.From("users").Where("id", 1).UpdateOrInsert(map[string]interface{}{
+//		"name":  "John",
+//		"email": "foo",
+//	}, map[string]interface{}{
+//		"active": 0,
+//	})
+//	assert.Equal(t, "update `users` set `active` = ? where `name` = ? and `email` = ?", b.ToSql())
+//	assert.ElementsMatch(t, []interface{}{0, "John", "foo"}, b.GetBindings())
+//}
+
+func TestUpdateOrInsertMethodWorksWithEmptyUpdateValues(t *testing.T) {
+
+}
