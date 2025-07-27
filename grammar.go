@@ -335,8 +335,8 @@ func (g *MysqlGrammar) CompileUpsert(query *QueryBuilder, values []map[string]in
 	return sql + strings.Join(parts, ", "), bindings
 
 }
-func (g *MysqlGrammar) CompileInsertGetId(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
-	return g.CompileInsert(query, values)
+func (g *MysqlGrammar) CompileInsertGetId(query *QueryBuilder, values map[string]interface{}) (string, []interface{}) {
+	return g.CompileInsert(query, []map[string]interface{}{values})
 }
 func (g *MysqlGrammar) CompileInsertOrIgnore(query *QueryBuilder, values []map[string]interface{}) (string, []interface{}) {
 	str, bindings := g.CompileInsert(query, values)
