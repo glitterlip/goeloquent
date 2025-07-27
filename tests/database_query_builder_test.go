@@ -2027,3 +2027,114 @@ func TestSubqueriesBindings(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `email` = (select max(id) from `users` where `email` = ? group by `id` having `id` = ? order by email like ?) or `id` = ? group by `id` having `id` = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{"gmail", 4, "%.com", "foo", 5}, b.GetBindings())
 }
+
+func TestInsertMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Insert(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?)", b.RawSql)
+	assert.ElementsMatch(t, []interface{}{"foo", "John"}, b.GetBindings())
+}
+
+func TestInsertUsingMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").InsertUsing([]interface{}{"name", "email"}, func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Select("name", "email").From("contacts").Where("active", 1)
+	})
+	assert.Equal(t, "insert into `users` (`name`, `email`) select `name`, `email` from `contacts` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+
+func TestInsertUsingWithEmptyColumns(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").InsertUsing([]interface{}{}, func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.From("contacts").Where("active", 1)
+	})
+	assert.Equal(t, "insert into `users` select * from `contacts` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+}
+
+func TestInsertUsingInvalidSubquery(t *testing.T) {
+}
+func TestInsertOrIgnoreMethod(t *testing.T) {
+
+}
+func TestMysqlInsertOrIgnoreMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").InsertOrIgnore(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "insert ignore into `users` (`email`, `name`) values (?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John"}, b.GetBindings())
+}
+
+func TestPostgresInsertOrIgnoreMethod(t *testing.T)       {}
+func TestSQLiteInsertOrIgnoreMethod(t *testing.T)         {}
+func TestSqlServerInsertOrIgnoreMethod(t *testing.T)      {}
+func TestInsertOrIgnoreUsingMethod(t *testing.T)          {}
+func TestSqlServerInsertOrIgnoreUsingMethod(t *testing.T) {}
+func TestMySqlInsertOrIgnoreUsingMethod(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").InsertOrIgnoreUsing([]interface{}{"name", "email"}, func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Select("name", "email").From("contacts").Where("active", 1)
+	})
+
+	assert.Equal(t, "insert ignore into `users` (`name`, `email`) select `name`, `email` from `contacts` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestMySqlInsertOrIgnoreUsingInvalidSubquery(t *testing.T) {
+	b := GetBuilder()
+	_, err := b.From("users").InsertOrIgnoreUsing([]interface{}{}, nil)
+	assert.Error(t, goeloquent.ErrorSubQueryInvalid, err)
+
+}
+func TestPostgresInsertOrIgnoreUsingMethod(t *testing.T)           {}
+func TestPostgresInsertOrIgnoreUsingWithEmptyColumns(t *testing.T) {}
+func TestPostgresInsertOrIgnoreUsingInvalidSubquery(t *testing.T)  {}
+func TestSQLiteInsertOrIgnoreUsingMethod(t *testing.T)             {}
+func TestSQLiteInsertOrIgnoreUsingWithEmptyColumns(t *testing.T)   {}
+func TestSQLiteInsertOrIgnoreUsingInvalidSubquery(t *testing.T)    {}
+func TestInsertGetIdMethod(t *testing.T) {
+	b := GetBuilder()
+	_, e := b.From("users").InsertGetId(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Nil(t, e)
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John"}, b.GetBindings())
+}
+func TestInsertGetIdMethodRemovesExpressions(t *testing.T) {
+	b := GetBuilder()
+	_, e := b.From("users").InsertGetId(map[string]interface{}{
+		"name":  goeloquent.Raw("UPPER('John')"),
+		"email": "foo",
+	})
+	assert.Nil(t, e)
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, UPPER('John'))", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b.GetBindings())
+}
+func TestInsertGetIdWithEmptyValues(t *testing.T) {}
+func TestInsertMethodRespectsRawBindings(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Insert(map[string]interface{}{
+		"name":  goeloquent.Raw("UPPER('John')"),
+		"email": "foo",
+	})
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, UPPER('John'))", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo"}, b.GetBindings())
+}
+func TestMultipleInsertsWithExpressionValues(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Insert([]map[string]interface{}{
+		{"name": goeloquent.Raw("UPPER('John')"), "email": goeloquent.Raw("UPPER('email1')")},
+		{"name": goeloquent.Raw("UPPER('Jane')"), "email": goeloquent.Raw("UPPER('email2')")},
+	})
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (UPPER('email1'), UPPER('John')), (UPPER('email2'), UPPER('Jane'))", b.ToSql())
+
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
