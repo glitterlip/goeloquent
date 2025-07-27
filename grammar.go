@@ -323,7 +323,7 @@ func (g *MysqlGrammar) CompileInsert(query *QueryBuilder, values []map[string]in
 		sqls = append(sqls, sql)
 	}
 
-	return fmt.Sprintf("insert into %s (%s) values %s", g.WrapTable(query.FromTable), columns, strings.Join(sqls, ",")), res
+	return fmt.Sprintf("insert into %s (%s) values %s", g.WrapTable(query.FromTable), columns, strings.Join(sqls, ", ")), res
 }
 func (g *MysqlGrammar) CompileUpsert(query *QueryBuilder, values []map[string]interface{}, uniqueBy []string, update map[string]interface{}) (string, []interface{}) {
 	sql, bindings := g.CompileInsert(query, values)
