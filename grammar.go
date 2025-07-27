@@ -655,6 +655,10 @@ func (g *MysqlGrammar) CompileOffset(query *QueryBuilder) string {
 	return "offset " + strconv.Itoa(query.Offset)
 }
 
+func (g *MysqlGrammar) CompileTruncate(query *QueryBuilder) string {
+
+	return "truncate table " + g.WrapTable(query.FromTable)
+}
 func (g *MysqlGrammar) CompileLock(query *QueryBuilder) string {
 	switch query.Locks.(type) {
 	case string:
