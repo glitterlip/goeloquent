@@ -343,16 +343,18 @@ func (g *MysqlGrammar) CompileInsertOrIgnore(query *QueryBuilder, values []map[s
 	return strings.Replace(str, "insert", "insert ignore", 1), bindings
 }
 
-func (g *MysqlGrammar) CompileUpdate(query *QueryBuilder, values map[string]interface{}) string {
+func (g *MysqlGrammar) CompileUpdate(query *QueryBuilder, values map[string]interface{}) (string, []interface{}) {
 
+	var sql string
 	table := g.WrapTable(query.FromTable)
-	columns := g.CompileUpdateColumns(query, values)
+	columns, bindings := g.CompileUpdateColumns(query, values)
 	where := g.CompileWheres(query)
 	if len(query.Joins) > 0 {
-		return g.CompileUpdateWithJoins(query, table, columns, where)
+		sql = g.CompileUpdateWithJoins(query, table, columns, where)
 	} else {
-		return g.CompileUpdateWithoutJoins(query, table, columns, where)
+		sql = g.CompileUpdateWithoutJoins(query, table, columns, where)
 	}
+	return sql, bindings
 }
 func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[string]interface{}) string {
 	var parts []string
