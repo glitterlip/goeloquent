@@ -355,18 +355,51 @@ func (g *MysqlGrammar) CompileUpdate(query *QueryBuilder, values map[string]inte
 	}
 	return sql, bindings
 }
-func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[string]interface{}) string {
+func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[string]interface{}) (string, []interface{}) {
 	var parts []string
-	for key, value := range values {
-		if isJsonSelector(key) {
-			parts = append(parts, g.WrapJsonSelector(key)+" = "+g.Parameter(value))
-		} else {
-			parts = append(parts, g.Wrap(key)+" = "+g.Parameter(value))
+	var bindings []interface{}
+	var keys []string
+	for key, _ := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		switch value := values[key].(type) {
+		case *QueryBuilder:
+			parts = append(parts, g.Wrap(key)+" = ("+g.CompileSelect(value)+")")
+			bindings = append(bindings, value.RawBindings...)
+			continue
+		case QueryBuilder:
+			parts = append(parts, g.Wrap(key)+" = ("+g.CompileSelect(&value)+")")
+			bindings = append(bindings, value.RawBindings...)
+			continue
+		case func(*QueryBuilder):
+			subQuery := NewQueryBuilder()
+			value(subQuery)
+			parts = append(parts, g.Wrap(key)+" = ("+g.CompileSelect(subQuery)+")")
+			bindings = append(bindings, subQuery.RawBindings...)
+			continue
+		case func(*QueryBuilder) *QueryBuilder:
+			subQuery := NewQueryBuilder()
+			subQuery = value(subQuery)
+			parts = append(parts, g.Wrap(key)+" = ("+g.CompileSelect(subQuery)+")")
+			bindings = append(bindings, subQuery.GetBindings()...)
+			continue
+		case Expression:
+			parts = append(parts, g.Wrap(key)+" = "+string(value))
+			continue
 		}
-
+		if _, ok := values[key].(Expression); !ok {
+			bindings = append(bindings, values[key])
+		}
+		if IsJsonSelector(key) {
+			parts = append(parts, g.WrapJsonSelector(key)+" = "+g.Parameter(values[key]))
+		} else {
+			parts = append(parts, g.Wrap(key)+" = "+g.Parameter(values[key]))
+		}
 	}
 
-	return strings.Join(parts, ", ")
+	return strings.Join(parts, ", "), bindings
 }
 func (g *MysqlGrammar) CompileUpdateWithoutJoins(query *QueryBuilder, table, columns, where string) string {
 	sql := fmt.Sprintf("update %s set %s %s", table, columns, where)
