@@ -6,9 +6,12 @@ import (
 	"testing"
 )
 
-func GetBuilder() *goeloquent.QueryBuilder {
+func GetBuilder(pretend ...bool) *goeloquent.QueryBuilder {
 	stmt := goeloquent.NewStatement()
 	query := goeloquent.NewQueryBuilder(stmt)
+	if len(pretend) > 0 && pretend[0] == false {
+		return query
+	}
 	return query.Pretend()
 }
 func TestBasicSelect(t *testing.T) {
