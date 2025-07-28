@@ -106,13 +106,13 @@ func (g *MysqlGrammar) WrapJsonFieldAndPath(value interface{}) (string, string) 
 	parts := strings.SplitN(str, "->", 2)
 
 	if len(parts) > 1 {
-		return g.Wrap(parts[0]), g.WrapJsonPath(parts[1], "->")
+		return g.Wrap(parts[0]), ", " + g.WrapJsonPath(parts[1], "->")
 	} else {
 		return g.Wrap(parts[0]), ""
 	}
 }
 func (g *MysqlGrammar) WrapJsonPath(value, delimiter string) string {
-	re := regexp.MustCompile(`([\\]+)?'`)
+	re := regexp.MustCompile(`([\\\\]+)?\\'`)
 	value = re.ReplaceAllString(value, "''")
 
 	segments := strings.Split(value, delimiter)
@@ -400,7 +400,7 @@ func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[stri
 			bindings = append(bindings, values[key])
 		}
 		if IsJsonSelector(key) {
-			parts = append(parts, g.WrapJsonSelector(key)+" = "+g.Parameter(values[key]))
+			parts = append(parts, g.CompileJsonUpdateColumn(key, values[key]))
 		} else {
 			parts = append(parts, g.Wrap(key)+" = "+g.Parameter(values[key]))
 		}
@@ -854,7 +854,7 @@ func (g *MysqlGrammar) CompileWhereNotNull(where Where) string {
 	}
 	if IsJsonSelector(columnStr) {
 		field, path := g.WrapJsonFieldAndPath(where.Column)
-		return fmt.Sprintf("(json_extract(%s, %s) is not null AND json_type(json_extract(%s, %s)) != 'NULL')", field, path, field, path)
+		return fmt.Sprintf("(json_extract(%s%s) is not null AND json_type(json_extract(%s%s)) != 'NULL')", field, path, field, path)
 	}
 	return g.Wrap(where.Column) + " is not null"
 }
@@ -868,7 +868,7 @@ func (g *MysqlGrammar) CompileWhereNull(where Where) string {
 	}
 	if IsJsonSelector(columnStr) {
 		field, path := g.WrapJsonFieldAndPath(where.Column)
-		return fmt.Sprintf("(json_extract(%s, %s) is null OR json_type(json_extract(%s, %s)) = 'NULL')", field, path, field, path)
+		return fmt.Sprintf("(json_extract(%s%s) is null OR json_type(json_extract(%s%s)) = 'NULL')", field, path, field, path)
 	}
 	return g.Wrap(where.Column) + " is null"
 }
