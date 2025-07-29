@@ -396,17 +396,24 @@ func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[stri
 			parts = append(parts, g.Wrap(key)+" = "+string(value))
 			continue
 		}
-		if _, ok := values[key].(Expression); !ok {
-			bindings = append(bindings, values[key])
-		}
+
 		if IsJsonSelector(key) {
 			parts = append(parts, g.CompileJsonUpdateColumn(key, values[key]))
+			if _, ok := values[key].(bool); !ok {
+				if _, ok := values[key].(Expression); !ok {
+					bindings = append(bindings, values[key])
+				}
+			}
 		} else {
 			parts = append(parts, g.Wrap(key)+" = "+g.Parameter(values[key]))
+			if _, ok := values[key].(Expression); !ok {
+				bindings = append(bindings, values[key])
+			}
 		}
+
 	}
 
-	return strings.Join(parts, ", "), PrepareBindingsForUpdate(keys, bindings)
+	return strings.Join(parts, ", "), bindings
 }
 func (g *MysqlGrammar) CompileUpdateWithoutJoins(query *QueryBuilder, table, columns, where string) string {
 	sql := fmt.Sprintf("update %s set %s %s", table, columns, where)
@@ -667,19 +674,8 @@ func (g *MysqlGrammar) CompileTruncate(query *QueryBuilder) string {
 	return "truncate table " + g.WrapTable(query.FromTable)
 }
 func (g *MysqlGrammar) CompileLock(query *QueryBuilder) string {
-	switch query.Locks.(type) {
-	case string:
-		return query.Locks.(string)
-	case Expression:
-		return string(query.Locks.(Expression))
-	case bool:
-		if query.Locks.(bool) {
-			return "for update"
-		} else {
-			return "lock in share mode"
-		}
-	}
-	return ""
+
+	return query.Locks
 }
 func removeLeadingBoolean(str string) string {
 	re := regexp.MustCompile(`(?)(^and\s|^or\s)`)
@@ -1062,15 +1058,6 @@ func PrepareBindsForDelete(bindings map[Component][]interface{}) []interface{} {
 					res = append(res, bind)
 				}
 			}
-		}
-	}
-	return res
-}
-func PrepareBindingsForUpdate(keys []string, bindings []interface{}) []interface{} {
-	var res []interface{}
-	for i, key := range keys {
-		if _, ok := bindings[i].(bool); !ok && IsJsonSelector(key) {
-			res = append(res, bindings[i])
 		}
 	}
 	return res
