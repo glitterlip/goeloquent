@@ -392,9 +392,6 @@ func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[stri
 			parts = append(parts, g.Wrap(key)+" = ("+g.CompileSelect(subQuery)+")")
 			bindings = append(bindings, subQuery.GetBindings()...)
 			continue
-		case Expression:
-			parts = append(parts, g.Wrap(key)+" = "+string(value))
-			continue
 		}
 
 		if IsJsonSelector(key) {
