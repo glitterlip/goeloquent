@@ -406,7 +406,7 @@ func (g *MysqlGrammar) CompileUpdateColumns(query *QueryBuilder, values map[stri
 		}
 	}
 
-	return strings.Join(parts, ", "), bindings
+	return strings.Join(parts, ", "), PrepareBindingsForUpdate(keys, bindings)
 }
 func (g *MysqlGrammar) CompileUpdateWithoutJoins(query *QueryBuilder, table, columns, where string) string {
 	sql := fmt.Sprintf("update %s set %s %s", table, columns, where)
@@ -1051,4 +1051,27 @@ func (g *MysqlGrammar) CompileHavingNotNull(having Having) string {
 
 func (g *MysqlGrammar) CompileHavingNested(having Having) string {
 	return "(" + g.CompileHavings(having.Query.Havings)[7:] + ")"
+}
+
+func PrepareBindsForDelete(bindings map[Component][]interface{}) []interface{} {
+	var res []interface{}
+	for com, binds := range bindings {
+		if com != COMPONENT_SELECT {
+			for _, bind := range binds {
+				if _, ok := bind.(Expression); !ok {
+					res = append(res, bind)
+				}
+			}
+		}
+	}
+	return res
+}
+func PrepareBindingsForUpdate(keys []string, bindings []interface{}) []interface{} {
+	var res []interface{}
+	for i, key := range keys {
+		if _, ok := bindings[i].(bool); !ok && IsJsonSelector(key) {
+			res = append(res, bindings[i])
+		}
+	}
+	return res
 }
