@@ -2700,3 +2700,67 @@ func TestMergeWheresCanMergeWheresAndBindings(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `name` = ? and `email` = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{"John", "test"}, b.GetBindings())
 }
+func TestPrepareValueAndOperator(t *testing.T) {
+	//test PrepareParams instead
+	b := GetBuilder()
+	b.Where("name", "John")
+	where := b.Wheres[0]
+	assert.Equal(t, "name", where.Column)
+	assert.Equal(t, "=", where.Operator)
+	assert.Equal(t, "John", where.Value)
+	assert.Equal(t, "and", where.Boolean)
+	assert.Equal(t, goeloquent.WhereTypeBasic, where.Type)
+
+	b.Where("email", "like", goeloquent.Raw("%@gmail.com"))
+	where = b.Wheres[1]
+	assert.Equal(t, "email", where.Column)
+	assert.Equal(t, "like", where.Operator)
+	assert.Equal(t, goeloquent.Raw("%@gmail.com"), where.Value)
+	assert.Equal(t, "and", where.Boolean)
+	assert.Equal(t, goeloquent.WhereTypeBasic, where.Type)
+
+	b.OrWhere("role", "admin")
+	where = b.Wheres[2]
+	assert.Equal(t, "role", where.Column)
+	assert.Equal(t, "=", where.Operator)
+	assert.Equal(t, "admin", where.Value)
+	assert.Equal(t, "or", where.Boolean)
+	assert.Equal(t, goeloquent.WhereTypeBasic, where.Type)
+
+	b.OrWhereNotIn("status", []interface{}{"banned", "inactive"})
+	where = b.Wheres[3]
+	assert.Equal(t, "status", where.Column)
+	assert.Equal(t, []interface{}{"banned", "inactive"}, where.Values)
+	assert.Equal(t, "or", where.Boolean)
+	assert.Equal(t, goeloquent.WhereTypeNotIn, where.Type)
+
+	b1 := GetBuilder()
+	b1.WhereNull("deleted_at", goeloquent.Not)
+	where1 := b1.Wheres[0]
+	assert.Equal(t, "deleted_at", where1.Column)
+	assert.Equal(t, goeloquent.WhereTypeNotNull, where1.Type)
+	assert.Equal(t, "and", where1.Boolean)
+
+	b2 := GetBuilder()
+	b2.Table("users").WhereNull("deleted_at").Where("role", "in", []interface{}{"admin", "user"}, goeloquent.Or, goeloquent.Not).Where("tag", "in", []interface{}{"tag1", "tag2"})
+
+	where2 := b2.Wheres[1]
+	assert.Equal(t, "role", where2.Column)
+	assert.Equal(t, []interface{}{"admin", "user"}, where2.Values)
+	assert.Equal(t, "or", where2.Boolean)
+	assert.Equal(t, goeloquent.WhereTypeNotIn, where2.Type)
+	assert.Equal(t, "select * from `users` where `deleted_at` is null or `role` not in (?, ?) and `tag` in (?, ?)", b2.ToSql())
+
+}
+func TestPrepareValueAndOperatorExpectException(t *testing.T) {
+}
+func TestProvidingNullWithOperatorsBuildsCorrectly(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("name", nil)
+	assert.Equal(t, "select * from `users` where `name` is null", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("bot", nil).Where("name", "!=", nil).Where("email", "<=>", nil, goeloquent.Or).Where("age", "<>", nil)
+	assert.Equal(t, "select * from `users` where `bot` is null and `name` is not null and `email` is null and `age` is not null", b1.ToSql())
+}
