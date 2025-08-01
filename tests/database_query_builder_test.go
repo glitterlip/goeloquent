@@ -2764,3 +2764,33 @@ func TestProvidingNullWithOperatorsBuildsCorrectly(t *testing.T) {
 	b1.Select().From("users").Where("bot", nil).Where("name", "!=", nil).Where("email", "<=>", nil, goeloquent.Or).Where("age", "<>", nil)
 	assert.Equal(t, "select * from `users` where `bot` is null and `name` is not null and `email` is null and `age` is not null", b1.ToSql())
 }
+func TestDynamicWhere(t *testing.T) {
+}
+func TestDynamicWhereIsNotGreedy(t *testing.T) {
+}
+func TestCallTriggersDynamicWhere(t *testing.T) {
+}
+func TestBuilderThrowsExpectedExceptionWithUndefinedMethod(t *testing.T) {
+}
+func TestMySqlLock(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("foo", "bar").Lock()
+	assert.Equal(t, "select * from `users` where `foo` = ? for update", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"bar"}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("foo", "bar").Lock(false)
+	assert.Equal(t, "select * from `users` where `foo` = ? lock in share mode", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"bar"}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").Where("foo", "bar").Lock("lock in share mode")
+	assert.Equal(t, "select * from `users` where `foo` = ? lock in share mode", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{"bar"}, b2.GetBindings())
+}
+func TestPostgresLock(t *testing.T) {
+}
+func TestSqlServerLock(t *testing.T) {
+}
+func TestSelectWithLockUsesWritePdo(t *testing.T) {
+}
