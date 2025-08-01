@@ -2358,3 +2358,137 @@ func TestTruncateMethodWithPrefixAndSchema(t *testing.T) {
 	assert.Equal(t, "truncate table `myschema`.`prefix_users`", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
+func TestPreserveAddsClosureToArray(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+
+	})
+	assert.Equal(t, 1, len(b.BeforeQueryCallBacks))
+	assert.IsType(t, goeloquent.StatementFunc(nil), b.BeforeQueryCallBacks[0])
+
+	b1 := GetBuilder()
+	b1.AfterQuery(func(statement *goeloquent.Statement) {
+
+	})
+	assert.Equal(t, 1, len(b1.AfterQueryCallBacks))
+	assert.IsType(t, goeloquent.StatementFunc(nil), b1.AfterQueryCallBacks[0])
+}
+
+func TestApplyPreserveCleansArray(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+
+	})
+	assert.Equal(t, 1, len(b.BeforeQueryCallBacks))
+	b.ApplyBeforeQueryCallbacks()
+	assert.Equal(t, 0, len(b.BeforeQueryCallBacks))
+
+	b1 := GetBuilder()
+	b1.AfterQuery(func(statement *goeloquent.Statement) {
+
+	})
+	assert.Equal(t, 1, len(b1.AfterQueryCallBacks))
+	b1.ApplyAfterQueryCallbacks()
+	assert.Equal(t, 0, len(b1.AfterQueryCallBacks))
+}
+
+func TestPreservedAreAppliedByToSql(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.Where("foo", "bar")
+	})
+	sql := b.Select().From("users").ToSql()
+	assert.Equal(t, "select * from `users` where `foo` = ?", sql)
+	assert.ElementsMatch(t, []interface{}{"bar"}, b.GetBindings())
+}
+
+func TestPreservedAreAppliedByInsert(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.From("users")
+	})
+	b.Insert(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?)", b.RawSql)
+	assert.ElementsMatch(t, []interface{}{"foo", "John"}, b.GetBindings())
+}
+func TestPreservedAreAppliedByInsertGetId(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.From("users")
+	})
+	_, err := b.InsertGetId(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?)", b.RawSql)
+	assert.ElementsMatch(t, []interface{}{"foo", "John"}, b.GetBindings())
+}
+
+func TestPreservedAreAppliedByInsertUsing(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.From("users")
+	})
+	b.InsertUsing([]interface{}{"name", "email"}, func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Select("name", "email").From("contacts").Where("active", 1)
+	})
+	assert.Equal(t, "insert into `users` (`name`, `email`) select `name`, `email` from `contacts` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestPreservedAreAppliedByUpsert(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.From("users")
+	})
+	b.Upsert([]map[string]interface{}{
+		{"name": "John", "email": "foo"},
+		{"name": "Jane", "email": "bar"},
+	}, []string{"email"}, []string{"name"})
+	assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?), (?, ?) on duplicate key update `name` = values(`name`)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John", "bar", "Jane"}, b.GetBindings())
+}
+func TestPreservedAreAppliedByUpdate(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.Where("id", 1)
+	}).From("users")
+	b.Update(map[string]interface{}{
+		"name":  "John",
+		"email": "foo",
+	})
+	assert.Equal(t, "update `users` set `email` = ?, `name` = ? where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"foo", "John", 1}, b.GetBindings())
+}
+func TestPreservedAreAppliedByDelete(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.Where("id", 1)
+	}).From("users")
+	b.Delete()
+	assert.Equal(t, "delete from `users` where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestPreservedAreAppliedByTruncate(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.From("users")
+	})
+	b.Truncate()
+	assert.Equal(t, "truncate table `users`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+
+func TestPreservedAreAppliedByExists(t *testing.T) {
+	b := GetBuilder()
+	b.BeforeQuery(func(statement *goeloquent.Statement) {
+		statement.From("users")
+	})
+	var exists bool
+	b.Exists(&exists)
+	assert.Equal(t, "select exists(select * from `users`) as `exists`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
