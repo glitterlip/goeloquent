@@ -2673,3 +2673,30 @@ func TestSqlServerWrappingJson(t *testing.T) {
 }
 func TestSqliteWrappingJson(t *testing.T) {
 }
+func TestSQLiteOrderBy(t *testing.T) {
+}
+func TestSqlServerLimitsAndOffsets(t *testing.T) {
+}
+func TestMySqlSoundsLikeOperator(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("name", "sounds like", "John")
+	assert.Equal(t, "select * from `users` where `name` sounds like ?", b.ToSql())
+}
+func TestBitwiseOperators(t *testing.T) {
+}
+func TestMergeWheresCanMergeWheresAndBindings(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").Where("name", "=", "John")
+	b.MergeWheres([]goeloquent.Where{
+		{
+			Type:     goeloquent.WhereTypeBasic,
+			Column:   "email",
+			Operator: "=",
+			Value:    "test",
+			Boolean:  "and",
+		},
+	}, []interface{}{"test"})
+	assert.Equal(t, "select * from `users` where `name` = ? and `email` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"John", "test"}, b.GetBindings())
+}
