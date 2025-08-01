@@ -1059,3 +1059,9 @@ func PrepareBindsForDelete(bindings map[Component][]interface{}) []interface{} {
 	}
 	return res
 }
+
+func (g *MysqlGrammar) GetOperators() map[string]struct{} {
+	return map[string]struct{}{
+		"sounds like": {},
+	}
+}

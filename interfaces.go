@@ -42,4 +42,5 @@ type Grammar interface {
 	CompileDelete(*QueryBuilder) string
 	GetError() error
 	SetTablePrefix(prefix string)
+	GetOperators() map[string]struct{}
 }
