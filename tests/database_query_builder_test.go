@@ -2492,3 +2492,184 @@ func TestPreservedAreAppliedByExists(t *testing.T) {
 	assert.Equal(t, "select exists(select * from `users`) as `exists`", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
+
+func TestPostgresInsertGetId(t *testing.T) {}
+
+func TestMySqlWrapping(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users")
+	assert.Equal(t, "select * from `users`", b.ToSql())
+}
+func TestMySqlUpdateWrappingJson(t *testing.T) {
+	after := "drop table if exists `users`;"
+	before := after + "create table `users` (id int auto_increment primary key, name json, email varchar(255), active int);"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		conn.Table("users").Insert(map[string]interface{}{
+			"name":   goeloquent.Raw("json_object('first_name', 'john', 'last_name','doe')"),
+			"active": 1,
+		})
+		q, err := conn.Query().From("users").Where("active", 1).
+			Update(map[string]interface{}{
+				"name->first_name": "jane",
+				"name->last_name":  "doe1",
+			})
+		assert.Nil(t, err)
+		assert.Equal(t, "update `users` set `name` = json_set(`name`, '$.\"first_name\"', ?), `name` = json_set(`name`, '$.\"last_name\"', ?) where `active` = ?", q.ToSql())
+
+		c, err := q.Result.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, c, int64(1))
+	})
+
+}
+func TestMySqlUpdateWrappingNestedJson(t *testing.T) {
+	after := "drop table if exists `users`;"
+	before := after + "create table `users` (id int auto_increment primary key, name json, email varchar(255), active int);"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		conn.Table("users").Insert(map[string]interface{}{
+			"name":   goeloquent.Raw("json_object('meta', json_object('first_name', 'john', 'last_name', 'foo'))"),
+			"active": 1,
+		})
+		q, err := conn.Query().From("users").Where("active", 1).
+			Update(map[string]interface{}{
+				"name->meta->last_name":  "baz",
+				"name->meta->first_name": "foo",
+			})
+		assert.Nil(t, err)
+		assert.Equal(t, "update `users` set `name` = json_set(`name`, '$.\"meta\".\"first_name\"', ?), `name` = json_set(`name`, '$.\"meta\".\"last_name\"', ?) where `active` = ?", q.ToSql())
+
+		assert.ElementsMatch(t, []interface{}{"foo", "baz", 1}, q.GetBindings())
+		c, err := q.Result.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, c, int64(1))
+	})
+}
+func TestMySqlUpdateWrappingJsonArray(t *testing.T) {
+
+}
+
+func TestMySqlUpdateWrappingJsonPathArrayIndex(t *testing.T) {
+
+	after := "drop table if exists `users`;"
+	before := "drop table if exists `users`;create table `users` (id int auto_increment primary key, options json,meta json, email varchar(255), active int);"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		conn.Table("users").Insert(map[string]interface{}{
+			"active":  1,
+			"options": goeloquent.Raw("json_array(json_object('2fa', true), json_object('2fa', true))"),
+			"meta":    goeloquent.Raw("json_object('tags', json_array(json_array('foo', 'bar'), json_array('baz', 'qux')) )"),
+		})
+		q, err := conn.Query().From("users").Where("active", 1).
+			Update(map[string]interface{}{
+				"options->[1]->2fa": false,
+				"meta->tags[0][2]":  "prime",
+			})
+		assert.Nil(t, err)
+
+		assert.Equal(t, "update `users` set `meta` = json_set(`meta`, '$.\"tags\"[0][2]', ?), `options` = json_set(`options`, '$[1].\"2fa\"', false) where `active` = ?", q.RawSql)
+		assert.ElementsMatch(t, []interface{}{"prime", 1}, q.GetBindings())
+		c, err := q.Result.RowsAffected()
+		assert.Nil(t, err)
+		assert.Equal(t, c, int64(1))
+	})
+}
+
+func TestMySqlUpdateWithJsonPreparesBindingsCorrectly(t *testing.T) {
+
+	b := GetBuilder()
+	b.From("users").Where("id", 1).Update(map[string]interface{}{
+		"options->enabled": false,
+		"updated_at":       "2025-01-01 00:00:00",
+	})
+	assert.Equal(t, "update `users` set `options` = json_set(`options`, '$.\"enabled\"', false), `updated_at` = ? where `id` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"2025-01-01 00:00:00", 1}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users").Where("id", 0).Update(map[string]interface{}{
+		"options->size": 43,
+		"updated_at":    "2025-01-01 00:00:00",
+	})
+	assert.Equal(t, "update `users` set `options` = json_set(`options`, '$.\"size\"', ?), `updated_at` = ? where `id` = ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{43, "2025-01-01 00:00:00", 0}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.From("users").Where("id", 0).Update(map[string]interface{}{
+		"options->size": goeloquent.Raw("43"),
+	})
+	assert.Equal(t, "update `users` set `options` = json_set(`options`, '$.\"size\"', 43) where `id` = ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{0}, b2.GetBindings())
+}
+
+func TestPostgresUpdateWrappingJson(t *testing.T) {
+}
+
+func TestPostgresUpdateWrappingJsonArray(t *testing.T) {
+}
+func TestPostgresUpdateWrappingJsonPathArrayIndex(t *testing.T) {
+}
+func TestSQLiteUpdateWrappingJsonArray(t *testing.T) {
+}
+func TestSQLiteUpdateWrappingNestedJsonArray(t *testing.T) {
+}
+func TestSQLiteUpdateWrappingJsonPathArrayIndex(t *testing.T) {
+}
+func TestMySqlWrappingJsonWithString(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("name->first_name", "John")
+	assert.Equal(t, "select * from `users` where json_unquote(json_extract(`name`, '$.\"first_name\"')) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"John"}, b.GetBindings())
+}
+func TestMySqlWrappingJsonWithInteger(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("info->age", 30)
+	assert.Equal(t, "select * from `users` where json_unquote(json_extract(`info`, '$.\"age\"')) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{30}, b.GetBindings())
+}
+func TestMySqlWrappingJsonWithDouble(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("info->height", 1.75)
+	assert.Equal(t, "select * from `users` where json_unquote(json_extract(`info`, '$.\"height\"')) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1.75}, b.GetBindings())
+}
+func TestMySqlWrappingJsonWithBoolean(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("info->active", true)
+	assert.Equal(t, "select * from `users` where json_extract(`info`, '$.\"active\"') = true", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+func TestMySqlWrappingJsonWithBooleanAndIntegerThatLooksLikeOne(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("info->active", true).Where("item->active", false).Where("items->bool", "=", 0).Where("items->not", "=", 1)
+	assert.Equal(t, "select * from `users` where json_extract(`info`, '$.\"active\"') = true and json_extract(`item`, '$.\"active\"') = false and json_unquote(json_extract(`items`, '$.\"bool\"')) = ? and json_unquote(json_extract(`items`, '$.\"not\"')) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{0, 1}, b.GetBindings())
+}
+func TestJsonPathEscaping(t *testing.T) {
+
+}
+func TestMySqlWrappingJson(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereRaw(`info->'$."details"' = 1`)
+	assert.Equal(t, "select * from `users` where info->'$.\"details\"' = 1", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").Where("users.items->price", "=", 1).OrderBy("items->price")
+	assert.Equal(t, "select * from `users` where json_unquote(json_extract(`users`.`items`, '$.\"price\"')) = ? order by json_unquote(json_extract(`items`, '$.\"price\"')) asc", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From("users").Where("items->price->in_user", "=", 1)
+	assert.Equal(t, "select * from `users` where json_unquote(json_extract(`items`, '$.\"price\".\"in_user\"')) = ?", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users").Where("items->price->in_user", "=", 1).Where("items->age", 2)
+	assert.Equal(t, "select * from `users` where json_unquote(json_extract(`items`, '$.\"price\".\"in_user\"')) = ? and json_unquote(json_extract(`items`, '$.\"age\"')) = ?", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 2}, b3.GetBindings())
+}
+func TestPostgresWrappingJson(t *testing.T) {
+
+}
+func TestSqlServerWrappingJson(t *testing.T) {
+}
+func TestSqliteWrappingJson(t *testing.T) {
+}
