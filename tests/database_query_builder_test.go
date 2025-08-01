@@ -7,12 +7,50 @@ import (
 )
 
 func GetBuilder(pretend ...bool) *goeloquent.QueryBuilder {
-	stmt := goeloquent.NewStatement()
-	query := goeloquent.NewQueryBuilder(stmt)
 	if len(pretend) > 0 && pretend[0] == false {
+		stmt := goeloquent.NewStatement(GetConnection())
+		query := goeloquent.NewQueryBuilder(stmt)
 		return query
 	}
+	stmt := goeloquent.NewStatement()
+	query := goeloquent.NewQueryBuilder(stmt)
 	return query.Pretend()
+}
+func GetConnection() goeloquent.Connection {
+	dsn := os.Getenv("GOELOQUENT_TEST_DSN")
+	if dsn == "" {
+		panic("set an environment variable GOELOQUENT_TEST_DSN to run tests")
+	}
+	conn, err := goeloquent.Open("test", goeloquent.DBConfig{
+		Driver: goeloquent.DriverMysql,
+		DSN:    dsn,
+	})
+	if err != nil {
+		panic("failed to connect to database: " + err.Error())
+	}
+	return conn
+}
+func RunWithDB(before, after string, test func(conn goeloquent.Connection)) {
+	conn := GetConnection()
+	defer func() {
+		if after != "" {
+			conn.Statement(strings.ReplaceAll(after, `"`, "`"), nil)
+		}
+	}()
+	if before != "" {
+		for _, s := range strings.Split(before, ";") {
+			if s == "" {
+				continue
+			}
+			_, err := conn.Statement(strings.ReplaceAll(s, `"`, "`"), nil)
+			if err != nil {
+				panic("failed to run before statement: " + err.Error())
+			}
+		}
+	}
+
+	test(conn)
+
 }
 func TestBasicSelect(t *testing.T) {
 	query := GetBuilder()
