@@ -2794,3 +2794,42 @@ func TestSqlServerLock(t *testing.T) {
 }
 func TestSelectWithLockUsesWritePdo(t *testing.T) {
 }
+func TestBindingOrder(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").Join("second", func(b *goeloquent.JoinBuilder) *goeloquent.JoinBuilder {
+		b.Where("deleted", 0)
+		return b
+	}).Where("active", 1).GroupBy("city").Having("ppl", ">", 7).OrderByRaw("match ('foo') against(?)", []interface{}{"bar"})
+	assert.Equal(t, "select * from `users` inner join `second` on `deleted` = ? where `active` = ? group by `city` having `ppl` > ? order by match ('foo') against(?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{0, 1, 7, "bar"}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users").OrderByRaw("match ('foo') against(?)", []interface{}{"bar"}).Having("ppl", ">", 7).GroupBy("city").Where("active", 1).Join("second", func(b *goeloquent.JoinBuilder) *goeloquent.JoinBuilder {
+		b.Where("deleted", 0)
+		return b
+	})
+
+	assert.Equal(t, "select * from `users` inner join `second` on `deleted` = ? where `active` = ? group by `city` having `ppl` > ? order by match ('foo') against(?)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{0, 1, 7, "bar"}, b1.GetBindings())
+}
+func TestAddBindingWithArrayMergesBindings(t *testing.T) {
+	b := GetBuilder()
+	b.AddBinding([]interface{}{"foo", "bar"}, goeloquent.COMPONENT_WHERE)
+	b.AddBinding([]interface{}{"baz"}, goeloquent.COMPONENT_WHERE)
+	assert.Equal(t, []interface{}{"foo", "bar", "baz"}, b.GetBindings())
+
+}
+func TestAddBindingWithArrayMergesBindingsInCorrectOrder(t *testing.T) {
+	b := GetBuilder()
+	b.AddBinding([]interface{}{"bar", "baz"}, goeloquent.COMPONENT_HAVING)
+	b.AddBinding([]interface{}{"foo"}, goeloquent.COMPONENT_WHERE)
+	assert.Equal(t, []interface{}{"foo", "bar", "baz"}, b.GetBindings())
+}
+func TestAddBindingWithEnum(t *testing.T) {
+
+}
+func TestMergeBuilders(t *testing.T) {
+}
+func TestMergeBuildersBindingOrder(t *testing.T) {
+}
