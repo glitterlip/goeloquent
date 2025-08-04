@@ -3,6 +3,9 @@ package tests
 import (
 	"github.com/glitterlip/goeloquent/v2"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -34,7 +37,7 @@ func RunWithDB(before, after string, test func(conn goeloquent.Connection)) {
 	conn := GetConnection()
 	defer func() {
 		if after != "" {
-			conn.Statement(strings.ReplaceAll(after, `"`, "`"), nil)
+			conn.GetDB().Exec(strings.ReplaceAll(after, `"`, "`"))
 		}
 	}()
 	if before != "" {
@@ -42,7 +45,8 @@ func RunWithDB(before, after string, test func(conn goeloquent.Connection)) {
 			if s == "" {
 				continue
 			}
-			_, err := conn.Statement(strings.ReplaceAll(s, `"`, "`"), nil)
+			_, err := conn.GetDB().Exec(strings.ReplaceAll(s, `"`, "`"))
+
 			if err != nil {
 				panic("failed to run before statement: " + err.Error())
 			}
@@ -1382,7 +1386,7 @@ func TestForPageBeforeId(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users").ForPageBeforeId(15, 0)
 	assert.Equal(t, "select * from `users` where `id` < ? order by `id` desc limit 15", b.ToSql())
-	assert.ElementsMatch(t, []interface{}{0}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{int64(0)}, b.GetBindings())
 
 }
 
@@ -1390,12 +1394,12 @@ func TestForPageAfterId(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users").ForPageAfterId(15, 0)
 	assert.Equal(t, "select * from `users` where `id` > ? order by `id` asc limit 15", b.ToSql())
-	assert.ElementsMatch(t, []interface{}{0}, b.GetBindings())
+	assert.ElementsMatch(t, []interface{}{int64(0)}, b.GetBindings())
 
 	b1 := GetBuilder()
 	b1.Select().From("users").ForPageAfterId(15, 10)
 	assert.Equal(t, "select * from `users` where `id` > ? order by `id` asc limit 15", b1.ToSql())
-	assert.ElementsMatch(t, []interface{}{10}, b1.GetBindings())
+	assert.ElementsMatch(t, []interface{}{int64(10)}, b1.GetBindings())
 }
 
 func TestGetCountForPaginationWithBindings(t *testing.T) {
