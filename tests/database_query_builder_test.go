@@ -3336,3 +3336,9 @@ func TestWhereJsonLengthMySql(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `id` = ? or json_length(`options`, '$.\"languages\"') > 4", b2.ToSql())
 	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
 }
+func TestWhereJsonLengthPostgres(t *testing.T) {
+}
+func TestWhereJsonLengthSqlite(t *testing.T) {
+}
+func TestWhereJsonLengthSqlServer(t *testing.T) {
+}
