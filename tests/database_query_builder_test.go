@@ -3155,3 +3155,27 @@ func TestCursorPaginateWithUnionWheresMultipleOrders(t *testing.T) {
 }
 func TestCursorPaginateWithUnionWheresAndAliassedOrderColumns(t *testing.T) {
 }
+func TestWhereExpression(t *testing.T) {
+}
+func TestWhereRowValues(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").WhereRowValues([]interface{}{"age", "year"}, "<", []interface{}{2, 3})
+	assert.Equal(t, "select * from `users` where (`age`, `year`) < (?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{2, 3}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").Where("status", 1).OrWhereRowValues([]interface{}{"active", "inactive"}, ">", []interface{}{1, 0})
+	assert.Equal(t, "select * from `users` where `status` = ? or (`active`, `inactive`) > (?, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1, 0}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").WhereRowValues([]interface{}{"age", "year"}, ">", []interface{}{2, goeloquent.Raw("3")})
+	assert.Equal(t, "select * from `users` where (`age`, `year`) > (?, 3)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{2}, b.GetBindings())
+}
+func TestWhereRowValuesArityMismatch(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").Where("status", 1).OrWhereRowValues([]interface{}{"active", "inactive"}, ">", []interface{}{1})
+	assert.Equal(t, "", b.ToSql())
+	assert.ErrorIs(t, goeloquent.ErrorWhereRowValuesMismatch, b.GetError())
+}
