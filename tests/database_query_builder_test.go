@@ -2844,3 +2844,25 @@ func TestSubSelect(t *testing.T) {
 }
 func TestSubSelectResetBindings(t *testing.T) {
 }
+func TestSqlServerWhereDate(t *testing.T) {
+}
+func TestUppercaseLeadingBooleansAreRemoved(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").Where("active", "=", 1, "AND")
+	assert.Equal(t, "select * from `users` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestLowercaseLeadingBooleansAreRemoved(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").Where("active", "=", 1, "and")
+	assert.Equal(t, "select * from `users` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestCaseInsensitiveLeadingBooleansAreRemoved(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("active", "=", 1, "And")
+	assert.Equal(t, "select * from `users` where `active` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
