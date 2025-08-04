@@ -2866,3 +2866,202 @@ func TestCaseInsensitiveLeadingBooleansAreRemoved(t *testing.T) {
 	assert.Equal(t, "select * from `users` where `active` = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
 }
+func TestTableValuedFunctionAsTableInSqlServer(t *testing.T) {
+
+}
+func TestChunkWithLastChunkComplete(t *testing.T) {
+
+	before := "drop table if exists `users`;" + "create table `users` (id int auto_increment primary key, name varchar(255), status varchar(255));"
+	after := "drop table if exists `users`;"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		b := conn.Query()
+		var users []map[string]interface{}
+		for i := 0; i < 10; i++ {
+			var status string
+			if i%2 == 0 {
+				status = "active"
+			} else {
+				status = "inactive"
+			}
+			users = append(users, map[string]interface{}{
+				"name":   "User" + strconv.Itoa(i),
+				"status": status,
+			})
+		}
+		r, err := b.Table("users").Insert(&users)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(10), r.RowsAffected())
+
+		var count int64
+		b = conn.Query()
+		_, err = b.Table("users").OrderBy("id").Where("status", "active").Count(&count)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(5), count)
+		var dest []map[string]interface{}
+		count = 0
+		b = conn.Query()
+		stop, e := b.Where("status", "active").
+			Where("id", ">", 1).
+			OrderBy("id").
+			From("users").
+			Chunk(&dest, 2, func(dest interface{}) (bool, error) {
+				items := *(dest.(*[]map[string]interface{}))
+				count += int64(len(items))
+				for _, user := range items {
+					assert.Equal(t, "active", user["status"])
+				}
+				return false, nil
+			})
+		assert.Equal(t, int64(4), count)
+		assert.False(t, stop)
+		assert.Nil(t, e)
+
+	})
+}
+func TestChunkWithLastChunkPartial(t *testing.T) {
+	before := "drop table if exists `users`;" + "create table `users` (id int auto_increment primary key, name varchar(255), status varchar(255));"
+	after := "drop table if exists `users`;"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		b := conn.Query()
+		var users []map[string]interface{}
+		for i := 0; i < 10; i++ {
+			var status string
+			if i%2 == 0 {
+				status = "active"
+			} else {
+				status = "inactive"
+			}
+			users = append(users, map[string]interface{}{
+				"name":   "User" + strconv.Itoa(i),
+				"status": status,
+			})
+		}
+		r, err := b.Table("users").Insert(&users)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(10), r.RowsAffected())
+
+		var count int64
+		b = conn.Query()
+		_, err = b.Table("users").OrderBy("id").Where("status", "active").Count(&count)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(5), count)
+		var dest []map[string]interface{}
+		count = 0
+		b = conn.Query()
+		stop, e := b.Where("status", "active").
+			OrderBy("id").
+			From("users").
+			Chunk(&dest, 2, func(dest interface{}) (bool, error) {
+				items := *(dest.(*[]map[string]interface{}))
+				count += int64(len(items))
+				for _, user := range items {
+					assert.Equal(t, "active", user["status"])
+				}
+				return false, nil
+			})
+		assert.Equal(t, int64(5), count)
+		assert.False(t, stop)
+		assert.Nil(t, e)
+
+	})
+}
+func TestChunkCanBeStoppedByReturningFalse(t *testing.T) {
+	before := "drop table if exists `users`;" + "create table `users` (id int auto_increment primary key, name varchar(255), status varchar(255));"
+	after := "drop table if exists `users`;"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		b := conn.Query()
+		var users []map[string]interface{}
+		for i := 0; i < 10; i++ {
+			var status string
+			if i%2 == 0 {
+				status = "active"
+			} else {
+				status = "inactive"
+			}
+			users = append(users, map[string]interface{}{
+				"name":   "User" + strconv.Itoa(i),
+				"status": status,
+			})
+		}
+		r, err := b.Table("users").Insert(&users)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(10), r.RowsAffected())
+
+		var count int64
+		b = conn.Query()
+		_, err = b.Table("users").OrderBy("id").Count(&count)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(10), count)
+		var dest []map[string]interface{}
+		count = 0
+		b = conn.Query()
+		stop, e := b.OrderBy("id").From("users").
+			Chunk(&dest, 2, func(dest interface{}) (bool, error) {
+				items := *(dest.(*[]map[string]interface{}))
+				count += int64(len(items))
+
+				if count > 3 {
+					return true, nil
+				}
+				return false, nil
+			})
+		assert.Equal(t, int64(4), count)
+		assert.True(t, stop)
+		assert.Nil(t, e)
+
+	})
+}
+func TestChunkWithCountZero(t *testing.T) {
+	before := "drop table if exists `users`;" + "create table `users` (id int auto_increment primary key, name varchar(255), status varchar(255));"
+	after := "drop table if exists `users`;"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		b := conn.Query()
+		var users []map[string]interface{}
+		for i := 0; i < 10; i++ {
+			var status string
+			if i%2 == 0 {
+				status = "active"
+			} else {
+				status = "inactive"
+			}
+			users = append(users, map[string]interface{}{
+				"name":   "User" + strconv.Itoa(i),
+				"status": status,
+			})
+		}
+		r, err := b.Table("users").Insert(&users)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(10), r.RowsAffected())
+
+		var count int64
+		b = conn.Query()
+		_, err = b.Table("users").OrderBy("id").Count(&count)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(10), count)
+		var dest []map[string]interface{}
+		var called bool
+		b = conn.Query()
+		stopped, err := b.OrderBy("id").From("users").Where("status", nil).
+			ChunkById(&dest, 2, "id", func(dest interface{}) (bool, error) {
+				called = true
+				return false, nil
+			})
+		assert.False(t, called)
+		assert.Nil(t, err)
+		assert.False(t, stopped)
+
+	})
+}
+func TestChunkByIdOnArrays(t *testing.T) {
+
+}
+func TestChunkPaginatesUsingIdWithLastChunkComplete(t *testing.T) {
+}
+func TestChunkPaginatesUsingIdWithLastChunkPartial(t *testing.T) {
+}
+func TestChunkPaginatesUsingIdWithCountZero(t *testing.T) {
+}
+func TestChunkPaginatesUsingIdWithAlias(t *testing.T) {
+}
+func TestChunkPaginatesUsingIdDesc(t *testing.T) {
+}
