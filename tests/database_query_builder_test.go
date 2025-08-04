@@ -3065,3 +3065,93 @@ func TestChunkPaginatesUsingIdWithAlias(t *testing.T) {
 }
 func TestChunkPaginatesUsingIdDesc(t *testing.T) {
 }
+func TestPaginate(t *testing.T) {
+	var perPage = 2
+	var page = 3
+	var columns = []string{"id", "name"}
+	before := "drop table if exists `users`;" + "create table `users` (id int auto_increment primary key, name varchar(255), status varchar(255));"
+	after := "drop table if exists `users`;"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		b := conn.Query()
+		var users []map[string]interface{}
+		for i := 0; i < 10; i++ {
+			var status string
+			if i%2 == 0 {
+				status = "active"
+			} else {
+				status = "inactive"
+			}
+			users = append(users, map[string]interface{}{
+				"name":   "User" + strconv.Itoa(i),
+				"status": status,
+			})
+		}
+		r, err := b.Table("users").Insert(&users)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(10), r.RowsAffected())
+		b = conn.Query()
+
+		var res []map[string]interface{}
+		var sqls []string
+		var bindings []interface{}
+		goeloquent.DB.Listen(goeloquent.EventQueryExecuted, func(name goeloquent.EventName, params ...interface{}) bool {
+			st := params[0].(*goeloquent.Statement)
+			sqls = append(sqls, st.RawSql)
+			bindings = append(bindings, st.GetBindings()...)
+			return true
+		})
+
+		p, _, err := b.From("users").Where("id", ">", 1).Paginate(&res, int64(perPage), int64(page), columns)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(9), p.Total)
+		items := p.Items.(*[]map[string]interface{})
+		assert.Equal(t, 2, len(*items))
+		assert.ElementsMatch(t, []string{
+			"select count(*) as aggregate from `users` where `id` > ?",
+			"select `id`, `name` from `users` where `id` > ? limit 2 offset 4",
+		}, sqls)
+		assert.ElementsMatch(t, []interface{}{1, 1}, bindings)
+
+	})
+}
+func TestPaginateWithDefaultArguments(t *testing.T) {
+
+}
+func TestPaginateWhenNoResults(t *testing.T) {
+}
+func TestPaginateWithSpecificColumns(t *testing.T) {
+}
+func TestPaginateWithTotalOverride(t *testing.T) {
+}
+func TestCursorPaginate(t *testing.T) {
+}
+func TestCursorPaginateMultipleOrderColumns(t *testing.T) {
+}
+func TestCursorPaginateWithDefaultArguments(t *testing.T) {
+}
+func TestCursorPaginateWhenNoResults(t *testing.T) {
+}
+func TestCursorPaginateWithSpecificColumns(t *testing.T) {
+}
+func TestCursorPaginateWithMixedOrders(t *testing.T) {
+}
+func TestCursorPaginateWithDynamicColumnInSelectRaw(t *testing.T) {
+}
+func TestCursorPaginateWithDynamicColumnWithCastInSelectRaw(t *testing.T) {
+}
+func TestCursorPaginateWithDynamicColumnInSelectSub(t *testing.T) {
+}
+func TestCursorPaginateWithUnionWheres(t *testing.T) {
+}
+func TestCursorPaginateWithMultipleUnionsAndMultipleWheres(t *testing.T) {
+}
+func TestCursorPaginateWithUnionMultipleWheresMultipleOrders(t *testing.T) {
+}
+func TestCursorPaginateWithUnionWheresWithRawOrderExpression(t *testing.T) {
+}
+func TestCursorPaginateWithUnionWheresReverseOrder(t *testing.T) {
+}
+func TestCursorPaginateWithUnionWheresMultipleOrders(t *testing.T) {
+}
+func TestCursorPaginateWithUnionWheresAndAliassedOrderColumns(t *testing.T) {
+}
