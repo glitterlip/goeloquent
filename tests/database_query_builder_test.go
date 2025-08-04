@@ -3183,4 +3183,156 @@ func TestWhereRowValuesArityMismatch(t *testing.T) {
 	assert.Equal(t, "", b.ToSql())
 	assert.ErrorIs(t, goeloquent.ErrorWhereRowValuesMismatch, b.GetError())
 }
+func TestWhereJsonContainsMySql(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").WhereJsonContains("options", []interface{}{"en"})
+
+	assert.Equal(t, "select * from `users` where json_contains(`options`, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\"]"}, b.GetBindings())
+
 	b = GetBuilder()
+	b.From("users").WhereJsonContains("users.options->languages", []interface{}{"en"})
+	assert.Equal(t, "select * from `users` where json_contains(`users`.`options`, ?, '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\"]"}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").Where("id", 1).OrWhereJsonContains("options->languages", goeloquent.Raw("'[\"en\"]'"))
+	assert.Equal(t, "select * from `users` where `id` = ? or json_contains(`options`, '[\"en\"]', '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+}
+func TestWhereJsonOverlapsMySql(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").WhereJsonOverlaps("options", []interface{}{"en", "fr"})
+
+	assert.Equal(t, "select * from `users` where json_overlaps(`options`, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\",\"fr\"]"}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").WhereJsonOverlaps("users.options->languages", []interface{}{"en", "fr"})
+	assert.Equal(t, "select * from `users` where json_overlaps(`users`.`options`, ?, '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\",\"fr\"]"}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").Where("id", 1).OrWhereJsonOverlaps("options->languages", goeloquent.Raw("'[\"en\",\"fr\"]'"))
+	assert.Equal(t, "select * from `users` where `id` = ? or json_overlaps(`options`, '[\"en\",\"fr\"]', '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+
+}
+func TestWhereJsonContainsPostgres(t *testing.T) {
+}
+func TestWhereJsonContainsSqlite(t *testing.T) {
+}
+func TestWhereJsonContainsSqlServer(t *testing.T) {
+}
+func TestWhereJsonDoesntContainMySql(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").WhereJsonDoesntContain("options", []interface{}{"en"})
+
+	assert.Equal(t, "select * from `users` where not json_contains(`options`, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\"]"}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").WhereJsonDoesntContain("users.options->languages", []interface{}{"en"})
+	assert.Equal(t, "select * from `users` where not json_contains(`users`.`options`, ?, '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\"]"}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").Where("id", 1).OrWhereJsonDoesntContain("options->languages", goeloquent.Raw("'[\"en\"]'"))
+	assert.Equal(t, "select * from `users` where `id` = ? or not json_contains(`options`, '[\"en\"]', '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestWhereJsonDoesntOverlapMySql(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").WhereJsonDoesntOverlap("options", []interface{}{"en", "fr"})
+	assert.Equal(t, "select * from `users` where not json_overlaps(`options`, ?)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\",\"fr\"]"}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").WhereJsonDoesntOverlap("users.options->languages", []interface{}{"en", "fr"})
+	assert.Equal(t, "select * from `users` where not json_overlaps(`users`.`options`, ?, '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"[\"en\",\"fr\"]"}, b.GetBindings())
+
+	b = GetBuilder()
+	b.From("users").Where("id", 1).OrWhereJsonDoesntOverlap("options->languages", goeloquent.Raw("'[\"en\",\"fr\"]'"))
+	assert.Equal(t, "select * from `users` where `id` = ? or not json_overlaps(`options`, '[\"en\",\"fr\"]', '$.\"languages\"')", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestWhereJsonDoesntContainPostgres(t *testing.T) {
+}
+func TestWhereJsonDoesntContainSqlite(t *testing.T) {
+}
+func TestWhereJsonDoesntContainSqlServer(t *testing.T) {
+}
+func TestWhereJsonContainsKeyMySql(t *testing.T) {
+
+	var res []map[string]interface{}
+	b := GetBuilder()
+	_, err := b.From("users").WhereJsonContainsKey("users.options->languages").Get(&res)
+	assert.Nil(t, err)
+	assert.Equal(t, "select * from `users` where ifnull(json_contains_path(`users`.`options`, 'one', '$.\"languages\"'), 0)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	_, err = b1.From("users").WhereJsonContainsKey("options->languages->primary").Get(&res)
+	assert.Nil(t, err)
+	assert.Equal(t, "select * from `users` where ifnull(json_contains_path(`options`, 'one', '$.\"languages\".\"primary\"'), 0)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	_, err = b2.From("users").Where("id", 1).OrWhereJsonContainsKey("options->languages", goeloquent.Raw("'en'")).Get(&res)
+	assert.Nil(t, err)
+	assert.Equal(t, "select * from `users` where `id` = ? or ifnull(json_contains_path(`options`, 'one', '$.\"languages\"'), 0)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	_, err = b3.From("users").WhereJsonContainsKey("options->languages->primary").OrWhereJsonContainsKey("options->languages[0][1]").Get(&res)
+	assert.Nil(t, err)
+	assert.Equal(t, "select * from `users` where ifnull(json_contains_path(`options`, 'one', '$.\"languages\".\"primary\"'), 0) or ifnull(json_contains_path(`options`, 'one', '$.\"languages\"[0][1]'), 0)", b3.ToSql())
+}
+func TestWhereJsonContainsKeyPostgres(t *testing.T) {
+}
+func TestWhereJsonContainsKeySqlite(t *testing.T) {
+}
+func TestWhereJsonContainsKeySqlServer(t *testing.T) {
+}
+func TestWhereJsonDoesntContainKeyMySql(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").WhereJsonDoesntContainKey("options->languages")
+
+	assert.Equal(t, "select * from `users` where not ifnull(json_contains_path(`options`, 'one', '$.\"languages\"'), 0)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users").WhereJsonDoesntContainKey("options->languages->primary")
+	assert.Equal(t, "select * from `users` where not ifnull(json_contains_path(`options`, 'one', '$.\"languages\".\"primary\"'), 0)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.From("users").Where("id", 1).OrWhereJsonDoesntContainKey("options->languages", goeloquent.Raw("'en'"))
+	assert.Equal(t, "select * from `users` where `id` = ? or not ifnull(json_contains_path(`options`, 'one', '$.\"languages\"'), 0)", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+}
+func TestWhereJsonDoesntContainKeyPostgres(t *testing.T) {
+}
+func TestWhereJsonDoesntContainKeySqlite(t *testing.T) {
+}
+func TestWhereJsonDoesntContainKeySqlServer(t *testing.T) {
+}
+func TestWhereJsonLengthMySql(t *testing.T) {
+	b := GetBuilder()
+	b.From("users").WhereJsonLength("options", 0)
+
+	assert.Equal(t, "select * from `users` where json_length(`options`) = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{0}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.From("users").WhereJsonLength("users.options->languages", ">", 3)
+	assert.Equal(t, "select * from `users` where json_length(`users`.`options`, '$.\"languages\"') > ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{3}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.From("users").Where("id", 1).OrWhereJsonLength("options->languages", ">", goeloquent.Raw("4"))
+	assert.Equal(t, "select * from `users` where `id` = ? or json_length(`options`, '$.\"languages\"') > 4", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b2.GetBindings())
+}
