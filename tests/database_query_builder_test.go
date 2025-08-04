@@ -3179,3 +3179,4 @@ func TestWhereRowValuesArityMismatch(t *testing.T) {
 	assert.Equal(t, "", b.ToSql())
 	assert.ErrorIs(t, goeloquent.ErrorWhereRowValuesMismatch, b.GetError())
 }
+	b = GetBuilder()
