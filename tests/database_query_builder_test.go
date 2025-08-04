@@ -2833,3 +2833,14 @@ func TestMergeBuilders(t *testing.T) {
 }
 func TestMergeBuildersBindingOrder(t *testing.T) {
 }
+func TestSubSelect(t *testing.T) {
+	b := GetBuilder()
+	b.From("one").Select("foo", "bar").Where("k", "v").SelectSub(func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.From("two").Select("baz").Where("k2", "v2")
+	}, "sub")
+	assert.Equal(t, "select `foo`, `bar`, (select `baz` from `two` where `k2` = ?) as `sub` from `one` where `k` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{"v2", "v"}, b.GetBindings())
+
+}
+func TestSubSelectResetBindings(t *testing.T) {
+}
