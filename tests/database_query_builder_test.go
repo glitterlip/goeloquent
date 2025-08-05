@@ -3453,3 +3453,47 @@ func TestIgnoreIndexMySql(t *testing.T) {
 	assert.Equal(t, "select * from `users` ignore index (index_name)", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
+func TestUseIndexSqlite(t *testing.T) {
+}
+func TestForceIndexSqlite(t *testing.T) {
+}
+func TestIgnoreIndexSqlite(t *testing.T) {
+}
+func TestUseIndexSqlServer(t *testing.T) {
+}
+func TestForceIndexSqlServer(t *testing.T) {
+}
+func TestIgnoreIndexSqlServer(t *testing.T) {
+}
+func TestClone(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users")
+	clone := goeloquent.Clone(b).Where("id", 1)
+	assert.Equal(t, "select * from `users` where `id` = ?", clone.ToSql())
+	assert.Equal(t, "select * from `users`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, clone.GetBindings())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
+func TestCloneWithout(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("id", 1).OrderBy("name")
+	clone := b.CloneWithout([]goeloquent.Component{goeloquent.COMPONENT_ORDER}, []goeloquent.Component{})
+	assert.Equal(t, "select * from `users` where `id` = ?", clone.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, clone.GetBindings())
+	assert.Equal(t, "select * from `users` where `id` = ? order by `name` asc", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestCloneWithoutBindings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("id", 1).OrderBy("name")
+	clone := b.CloneWithout([]goeloquent.Component{goeloquent.COMPONENT_WHERE}, []goeloquent.Component{goeloquent.COMPONENT_WHERE})
+	assert.Equal(t, "select * from `users` order by `name` asc", clone.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, clone.GetBindings())
+	assert.Equal(t, "select * from `users` where `id` = ? order by `name` asc", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1}, b.GetBindings())
+}
+func TestToRawSql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("id", 1).OrderBy("name")
+	assert.Equal(t, "select * from `users` where `id` = 1 order by `name` asc", b.ToRawSql())
+}
