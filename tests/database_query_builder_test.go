@@ -1007,6 +1007,13 @@ func TestJsonWhereNotNullExpressionMysql(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
 }
 func TestArrayWhereNulls(t *testing.T) {
+	b := GetBuilder()
+	b.WhereNull([]interface{}{"email", "name"}).From("users")
+	assert.Equal(t, "select * from `users` where `email` is null and `name` is null", b.ToSql())
+
+	b = GetBuilder()
+	b.Where("name", "test").OrWhereNull([]interface{}{"email", "name"}).From("users")
+	assert.Equal(t, "select * from `users` where `name` = ? or `email` is null or `name` is null", b.ToSql())
 }
 func TestBasicWhereNotNulls(t *testing.T) {
 	b := GetBuilder()
@@ -1021,6 +1028,13 @@ func TestBasicWhereNotNulls(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1}, b1.GetBindings())
 }
 func TestArrayWhereNotNulls(t *testing.T) {
+	b := GetBuilder()
+	b.WhereNotNull([]interface{}{"email", "name"}).From("users")
+	assert.Equal(t, "select * from `users` where `email` is not null and `name` is not null", b.ToSql())
+
+	b = GetBuilder()
+	b.Where("name", "test").OrWhereNotNull([]interface{}{"email", "name"}).From("users")
+	assert.Equal(t, "select * from `users` where `name` = ? or `email` is not null or `name` is not null", b.ToSql())
 }
 
 func TestGroupBys(t *testing.T) {
