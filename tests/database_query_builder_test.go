@@ -3403,3 +3403,25 @@ func TestFromRawWithWhereOnTheMainQuery(t *testing.T) {
 	assert.Equal(t, "select * from (select max(last_seen_at) as last from `user_sessions`) as `sessions` where `last_seen_at` > ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{1520652582}, b.GetBindings())
 }
+func TestFromQuestionMarkOperatorOnPostgres(t *testing.T) {
+}
+func TestUseIndexMySql(t *testing.T) {
+
+	b := GetBuilder()
+	b.Select().From("users").UseIndex("index_name")
+	assert.Equal(t, "select * from `users` use index (index_name)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+}
+func TestForceIndexMySql(t *testing.T) {
+	b1 := GetBuilder()
+	b1.Select().From("users").ForceIndex("index_name")
+	assert.Equal(t, "select * from `users` force index (index_name)", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+}
+func TestIgnoreIndexMySql(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").IgnoreIndex("index_name")
+	assert.Equal(t, "select * from `users` ignore index (index_name)", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+}
