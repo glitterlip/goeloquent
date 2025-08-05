@@ -1517,8 +1517,21 @@ func TestWhereWithArrayConditions(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1, 2}, b2.GetBindings())
 
 }
-
+func TestNestedWheres(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("age", ">", 25).OrWhere(func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Where("name", "foo").Where("email", "bar")
+	}).Where("status", "active")
+	assert.Equal(t, "select * from `users` where `age` > ? or (`name` = ? and `email` = ?) and `status` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{25, "foo", "bar", "active"}, b.GetBindings())
+}
 func TestNestedWhereBindings(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users").Where("age", ">", 25).OrWhere(func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Where("name", "foo").Where("email", "bar")
+	}).Where("status", "active")
+	assert.Equal(t, "select * from `users` where `age` > ? or (`name` = ? and `email` = ?) and `status` = ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{25, "foo", "bar", "active"}, b.GetBindings())
 }
 
 func TestWhereNot(t *testing.T) {
