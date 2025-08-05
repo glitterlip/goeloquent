@@ -3342,3 +3342,64 @@ func TestWhereJsonLengthSqlite(t *testing.T) {
 }
 func TestWhereJsonLengthSqlServer(t *testing.T) {
 }
+func TestFrom(t *testing.T) {
+	b := GetBuilder()
+	b.Select().From("users")
+	assert.Equal(t, "select * from `users`", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b.GetBindings())
+
+	b1 := GetBuilder()
+	b1.Select().From("users as u")
+	assert.Equal(t, "select * from `users` as `u`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
+	b2 := GetBuilder()
+	b2.Select().From(goeloquent.Raw("users as u"))
+	assert.Equal(t, "select * from users as u", b2.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b2.GetBindings())
+
+	b3 := GetBuilder()
+	b3.Select().From("users", "u")
+	assert.Equal(t, "select * from `users` as `u`", b3.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b3.GetBindings())
+}
+func TestFromSub(t *testing.T) {
+	b := GetBuilder()
+	b.FromSub(func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Select(goeloquent.Raw("max(last_seen_at) as last")).From("user_sessions").Where("active", 1)
+	}, "sessions").Where("bar", ">", 1)
+	assert.Equal(t, "select * from (select max(last_seen_at) as last from `user_sessions` where `active` = ?) as `sessions` where `bar` > ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1}, b.GetBindings())
+
+}
+func TestFromSubWithPrefix(t *testing.T) {
+	c := GetConnection()
+	c.SetTablePrefix("goelo_")
+	b := c.Query()
+
+	b.FromSub(func(builder *goeloquent.QueryBuilder) *goeloquent.QueryBuilder {
+		return builder.Select(goeloquent.Raw("max(last_seen_at) as last_seen")).From("user_sessions").Where("active", 1)
+	}, "sessions").Where("bar", ">", 1)
+	assert.Equal(t, "select * from (select max(last_seen_at) as last_seen from `goelo_user_sessions` where `active` = ?) as `sessions` where `bar` > ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1, 1}, b.GetBindings())
+}
+func TestFromSubWithoutBindings(t *testing.T) {
+
+	b := GetBuilder()
+	b.FromSub([]interface{}{"invalid"}, "sessions")
+	assert.ErrorIs(t, goeloquent.ErrorSubQueryInvalid, b.GetError())
+}
+func TestFromRaw(t *testing.T) {
+	b := GetBuilder()
+	b.FromRaw("(select max(last_seen_at) as last from `user_sessions`) as `sessions`")
+	assert.Equal(t, "select * from (select max(last_seen_at) as last from `user_sessions`) as `sessions`", b.ToSql())
+
+}
+func TestFromRawOnSqlServer(t *testing.T) {
+}
+func TestFromRawWithWhereOnTheMainQuery(t *testing.T) {
+	b := GetBuilder()
+	b.FromRaw("(select max(last_seen_at) as last from `user_sessions`) as `sessions`").Where("last_seen_at", ">", 1520652582)
+	assert.Equal(t, "select * from (select max(last_seen_at) as last from `user_sessions`) as `sessions` where `last_seen_at` > ?", b.ToSql())
+	assert.ElementsMatch(t, []interface{}{1520652582}, b.GetBindings())
+}
