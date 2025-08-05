@@ -2301,31 +2301,32 @@ func TestUpdateMethodWorksWithQueryAsValue(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1, "John", 1}, b.GetBindings())
 }
 
-// TODO use real database connection
-//func TestUpdateOrInsertMethod(t *testing.T) {
-//	conn, _ := goeloquent.DB.DefaultConnection()
-//	conn.Statement("drop table if exists users", nil)
-//	conn.Statement("create table users (id int auto_increment primary key, name varchar(255), email varchar(255), active int)", nil)
-//	b := GetBuilder(false)
-//	b.From("users").Where("id", 1).UpdateOrInsert(map[string]interface{}{
-//		"name":  "John",
-//		"email": "foo",
-//	}, map[string]interface{}{
-//		"active": 1,
-//	})
-//	assert.Equal(t, "insert into `users` (`email`, `name`, `active`) values (?, ?, ?)", b.ToSql())
-//	assert.ElementsMatch(t, []interface{}{"foo", "John", 1}, b.GetBindings())
-//
-//
-//	b.From("users").Where("id", 1).UpdateOrInsert(map[string]interface{}{
-//		"name":  "John",
-//		"email": "foo",
-//	}, map[string]interface{}{
-//		"active": 0,
-//	})
-//	assert.Equal(t, "update `users` set `active` = ? where `name` = ? and `email` = ?", b.ToSql())
-//	assert.ElementsMatch(t, []interface{}{0, "John", "foo"}, b.GetBindings())
-//}
+func TestUpdateOrInsertMethod(t *testing.T) {
+	before := "drop table if exists users;"
+	after := "create table users (id int auto_increment primary key, name varchar(255), email varchar(255), active int)"
+
+	RunWithDB(before+after, after, func(conn goeloquent.Connection) {
+		b := conn.Query()
+		b.From("users").UpdateOrInsert(map[string]interface{}{
+			"email": "Jim",
+		}, map[string]interface{}{
+			"name": "John",
+		})
+		assert.Equal(t, "insert into `users` (`email`, `name`) values (?, ?)", b.ToSql())
+		assert.ElementsMatch(t, []interface{}{"Jim", "John"}, b.GetBindings())
+
+		b = conn.Query()
+		b.From("users").UpdateOrInsert(map[string]interface{}{
+			"email": "Jim",
+		}, map[string]interface{}{
+			"name": "Jim",
+		})
+		assert.Equal(t, "update `users` set `name` = ? where (`email` = ?) limit 1", b.ToSql())
+		assert.ElementsMatch(t, []interface{}{"Jim", "Jim"}, b.GetBindings())
+
+	})
+
+}
 
 func TestUpdateOrInsertMethodWorksWithEmptyUpdateValues(t *testing.T) {
 
