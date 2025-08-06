@@ -1,21 +1,24 @@
 package goeloquent
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 type Connection interface {
 	GetTablePrefix() string
+	SetTablePrefix(prefix string) Connection
 	GetDB() *sql.DB
 	Query() *Statement
 	Table(table interface{}, alias ...string) *Statement
 	Model(model ...interface{}) *Statement
 	Raw(value string) Expression
-	SelectOne(query string, bindings interface{}) (*Statement, error)
-	Select(query string, bindings interface{}) (*Statement, error)
-	Insert(query string, bindings interface{}) (*Statement, error)
-	Update(query string, bindings interface{}) (*Statement, error)
-	Delete(query string, bindings interface{}) (*Statement, error)
-	Statement(query string, bindings interface{}) (*Statement, error)
-	AffectingStatement(query string, bindings interface{}) (*Statement, error)
+	SelectOne(*Statement) *Statement
+	Select(*Statement) *Statement
+	Insert(*Statement) *Statement
+	Update(*Statement) *Statement
+	Delete(*Statement) *Statement
+	Statement(*Statement) *Statement
+	AffectingStatement(*Statement) *Statement
 	Transaction(tx func(*Statement) error, options ...*sql.TxOptions) error
 	BeginTransaction(options ...*sql.TxOptions) *Statement
 	Commit() *Statement
