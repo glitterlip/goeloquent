@@ -41,9 +41,18 @@ type Grammar interface {
 	CompileRandom(seed ...interface{}) string
 	CompileSelect(*QueryBuilder) string
 	CompileInsert(*QueryBuilder, []map[string]interface{}) (string, []interface{})
+	CompileInsertUsing(*QueryBuilder, []interface{}, string) string
+	CompileInsertOrIgnore(*QueryBuilder, []map[string]interface{}) (string, []interface{})
+	CompileInsertOrIgnoreUsing(*QueryBuilder, []interface{}, string) string
+	CompileInsertGetId(*QueryBuilder, map[string]interface{}) (string, []interface{})
 	CompileUpdate(*QueryBuilder, map[string]interface{}) (string, []interface{})
+	CompileUpsert(*QueryBuilder, []map[string]interface{}, []string, []string) (string, []interface{})
 	CompileDelete(*QueryBuilder) string
+	CompileTruncate(*QueryBuilder) string
+	CompileExists(*QueryBuilder) string
 	GetError() error
 	SetTablePrefix(prefix string)
 	GetOperators() map[string]struct{}
+	SubstituteBindingsIntoRawSql(sqlStr string, bindings []interface{}) string
+}
 }
