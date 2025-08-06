@@ -203,7 +203,7 @@ func (g *MysqlGrammar) GetDateFormat() string {
 
 func (g *MysqlGrammar) WrapTable(tableName interface{}, prefix ...string) string {
 	var tablePrefix string
-	if len(prefix) > 0 {
+	if len(prefix) > 0 && len(prefix[0]) > 0 {
 		tablePrefix = prefix[0]
 	} else {
 		tablePrefix = g.TablePrefix
