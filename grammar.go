@@ -935,7 +935,7 @@ func (g *MysqlGrammar) CompileWhereJsonContains(where Where) string {
 	}
 
 	field, path := g.WrapJsonFieldAndPath(where.Column)
-	return not + "json_contains(" + field + ", " + where.Value.(string) + path + ")"
+	return not + "json_contains(" + field + ", " + g.Parameter(where.Value) + path + ")"
 }
 
 func (g *MysqlGrammar) CompileWhereJsonOverlaps(where Where) string {
@@ -958,7 +958,7 @@ func (g *MysqlGrammar) CompileWhereJsonContainsKey(where Where) string {
 	}
 
 	field, path := g.WrapJsonFieldAndPath(where.Column)
-	return fmt.Sprintf("%sifnull(json_contains_path(%s, \\'one\\'%s), 0)", not, field, path)
+	return fmt.Sprintf("%sifnull(json_contains_path(%s, 'one'%s), 0)", not, field, path)
 }
 
 func (g *MysqlGrammar) CompileWhereJsonLength(where Where) string {
