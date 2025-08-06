@@ -652,9 +652,17 @@ func (g *MysqlGrammar) CompileOrdersToArray(query *QueryBuilder) []string {
 	}
 	return orders
 }
-func (g *MysqlGrammar) CompileRandom(seed ...int) string {
+func (g *MysqlGrammar) CompileRandom(seed ...interface{}) string {
 	if len(seed) > 0 {
-		return "RAND(" + strconv.Itoa(seed[0]) + ")"
+		var seedValue string
+		switch seed[0].(type) {
+		case string:
+			seedValue = seed[0].(string)
+		case int, int64:
+			seedValue = strconv.FormatInt(seed[0].(int64), 10)
+
+		}
+		return "RAND(" + seedValue + ")"
 	}
 	return "RAND()"
 }
