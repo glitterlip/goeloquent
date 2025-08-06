@@ -513,7 +513,7 @@ func (g *MysqlGrammar) CompileGroupLimit(query *QueryBuilder) string {
 	sql := Concatenate(components)
 	sql = fmt.Sprintf("select * from (%s) as %s where %s <= %d", sql, table, row, limit)
 	if offset > 0 {
-		sql = " and " + row + " > " + strconv.Itoa(offset)
+		sql = " and " + row + " > " + strconv.Itoa(int(offset))
 	}
 
 	return sql + " order by " + row
