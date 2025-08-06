@@ -659,11 +659,11 @@ func (g *MysqlGrammar) CompileRandom(seed ...int) string {
 	return "RAND()"
 }
 func (g *MysqlGrammar) CompileLimit(query *QueryBuilder) string {
-	return "limit " + strconv.Itoa(query.LimitNum)
+	return "limit " + strconv.Itoa(int(query.LimitNum))
 }
 
 func (g *MysqlGrammar) CompileOffset(query *QueryBuilder) string {
-	return "offset " + strconv.Itoa(query.OffsetNum)
+	return "offset " + strconv.Itoa(int(query.OffsetNum))
 }
 
 func (g *MysqlGrammar) CompileTruncate(query *QueryBuilder) string {
