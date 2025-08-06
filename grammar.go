@@ -587,7 +587,7 @@ func (g *MysqlGrammar) CompileColumns(query *QueryBuilder) string {
 }
 
 func (g *MysqlGrammar) CompileFrom(query *QueryBuilder) string {
-	return "from " + g.WrapTable(query.FromTable)
+	return "from " + g.WrapTable(query.FromTable, query.TablePrefix)
 }
 
 func (g *MysqlGrammar) CompileIndexHint(query *QueryBuilder) string {
