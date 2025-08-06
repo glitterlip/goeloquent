@@ -1073,3 +1073,62 @@ func (g *MysqlGrammar) GetOperators() map[string]struct{} {
 		"sounds like": {},
 	}
 }
+func (g *MysqlGrammar) SubstituteBindingsIntoRawSql(sqlStr string, bindings []interface{}) string {
+
+	length := len(sqlStr)
+	var escaped []string
+	for _, binding := range bindings {
+		escaped = append(escaped, g.Escape(binding))
+	}
+	var query string
+	var isStringLiteral bool
+	for i := 0; i < length; i++ {
+		char := sqlStr[i : i+1]
+		var nextChat string
+		if length == i+1 {
+			nextChat = ""
+		} else {
+			nextChat = sqlStr[i+1 : i+2]
+		}
+		combine := char + nextChat
+		if strings.Contains(combine, `\'`) || strings.Contains(combine, "''") || strings.Contains(combine, "??") {
+			query += combine
+			i += 1
+		} else if char == "'" {
+			query += char
+			isStringLiteral = !isStringLiteral
+
+		} else if char == "?" && !isStringLiteral {
+
+			query += escaped[0]
+			escaped = escaped[1:]
+		} else {
+			query += char
+		}
+
+	}
+
+	return query
+}
+func (g *MysqlGrammar) Escape(value interface{}) string {
+	switch t := value.(type) {
+	case types.Nil:
+		return "NULL"
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64, uintptr:
+		return fmt.Sprintf("%d", value)
+	case float32, float64:
+		return fmt.Sprintf("%f", value)
+	case bool:
+		if t {
+			return "TRUE"
+		} else {
+			return "FALSE"
+		}
+	case time.Time:
+		return fmt.Sprintf("'%s'", t.Format(time.RFC3339))
+	case string:
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(t, "'", "''"))
+	}
+	return ""
+}
