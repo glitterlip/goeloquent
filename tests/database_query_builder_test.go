@@ -1166,7 +1166,7 @@ func TestOrderBySubQueries(t *testing.T) {
 func TestOrderByInvalidDirectionParam(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users").OrderBy("name", "invalid")
-	assert.Error(t, b.Statement.Error, "invalid direction for order by: invalid")
+	assert.Equal(t, b.Statement.Error.Error(), "invalid direction for order by: invalid")
 }
 
 func TestHavings(t *testing.T) {
@@ -2168,7 +2168,7 @@ func TestMySqlInsertOrIgnoreUsingMethod(t *testing.T) {
 func TestMySqlInsertOrIgnoreUsingInvalidSubquery(t *testing.T) {
 	b := GetBuilder()
 	_, err := b.From("users").InsertOrIgnoreUsing([]interface{}{}, nil)
-	assert.Error(t, goeloquent.ErrorSubQueryInvalid, err)
+	assert.Equal(t, goeloquent.ErrorSubQueryInvalid.Error(), err.Error())
 
 }
 func TestPostgresInsertOrIgnoreUsingMethod(t *testing.T)           {}
@@ -3216,7 +3216,7 @@ func TestWhereRowValuesArityMismatch(t *testing.T) {
 	b := GetBuilder()
 	b.From("users").Where("status", 1).OrWhereRowValues([]interface{}{"active", "inactive"}, ">", []interface{}{1})
 	assert.Equal(t, "", b.ToSql())
-	assert.ErrorIs(t, goeloquent.ErrorWhereRowValuesMismatch, b.GetError())
+	assert.Equal(t, goeloquent.ErrorWhereRowValuesMismatch.Error(), b.GetError().Error())
 }
 func TestWhereJsonContainsMySql(t *testing.T) {
 	b := GetBuilder()
@@ -3422,7 +3422,7 @@ func TestFromSubWithoutBindings(t *testing.T) {
 
 	b := GetBuilder()
 	b.FromSub([]interface{}{"invalid"}, "sessions")
-	assert.ErrorIs(t, goeloquent.ErrorSubQueryInvalid, b.GetError())
+	assert.Equal(t, goeloquent.ErrorSubQueryInvalid.Error(), b.GetError().Error())
 }
 func TestFromRaw(t *testing.T) {
 	b := GetBuilder()
