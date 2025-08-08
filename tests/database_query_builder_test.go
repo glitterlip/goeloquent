@@ -486,6 +486,13 @@ func TestOrWhereYearMysql(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{2023, 2024}, b.GetBindings())
 }
 func TestWhereTimeMysql(t *testing.T) {
+
+	b1 := GetBuilder()
+	b1.Select("*").From("users").WhereTime("updated_at", ">", "13:00:00").WhereTime("created_at", "!=", "14:00:00", goeloquent.Or)
+	assert.Equal(t, "select * from `users` where time(`updated_at`) > ? or time(`created_at`) != ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{"13:00:00", "14:00:00"}, b1.GetBindings())
+}
+func TestWhereTimeOperatorOptionalMySql(t *testing.T) {
 	b := GetBuilder()
 	b.Select("*").From("users").WhereTime("created_at", "12:00", goeloquent.Or)
 	assert.Equal(t, "select * from `users` where time(`created_at`) = ?", b.ToSql())
