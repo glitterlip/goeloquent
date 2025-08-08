@@ -3417,6 +3417,7 @@ func TestFromSubWithPrefix(t *testing.T) {
 	}, "sessions").Where("bar", ">", 1)
 	assert.Equal(t, "select * from (select max(last_seen_at) as last_seen from `goelo_user_sessions` where `active` = ?) as `sessions` where `bar` > ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{1, 1}, b.GetBindings())
+	c.SetTablePrefix("")
 }
 func TestFromSubWithoutBindings(t *testing.T) {
 
