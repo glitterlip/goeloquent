@@ -181,3 +181,66 @@ func TestScanMap(t *testing.T) {
 
 	})
 }
+func TestScanStruct(t *testing.T) {
+	type UserStruct struct {
+		ID        int
+		Name      string
+		Age       int
+		CreatedAt time.Time
+		UpdatedAt time.Time
+	}
+	after := "drop table if exists scanstruct;"
+	before := after + "create table scanstruct (id int auto_increment primary key, name varchar(255), age int, created_at datetime, updated_at datetime);"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		user := &UserStruct{
+			Name:      "John Doe",
+			Age:       30,
+			CreatedAt: time.Date(2023, time.October, 1, 12, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2023, time.December, 1, 12, 0, 0, 0, time.UTC),
+		}
+		user1 := UserStruct{
+			Name:      "Jane Doe",
+			Age:       25,
+			CreatedAt: time.Date(2023, time.October, 2, 12, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2023, time.December, 2, 12, 0, 0, 0, time.UTC),
+		}
+		user2 := UserStruct{
+			Name:      "Alice Smith",
+			Age:       28,
+			CreatedAt: time.Date(2023, time.October, 3, 12, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2023, time.December, 3, 12, 0, 0, 0, time.UTC),
+		}
+		r, err := conn.Query().Table("scanstruct").Insert(user)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), r.LastInsertId())
+		assert.Equal(t, int64(1), r.RowsAffected())
+		r, err = conn.Query().Table("scanstruct").Insert([]UserStruct{user1, user2})
+		assert.Nil(t, err)
+		assert.Equal(t, int64(2), r.LastInsertId())
+		assert.Equal(t, int64(2), r.RowsAffected())
+		var scan1 UserStruct
+		var users []UserStruct
+		r, err = conn.Query().Table("scanstruct").First(&scan1)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), r.RowsFetched())
+		assert.Equal(t, "John Doe", scan1.Name)
+		assert.Equal(t, 30, scan1.Age)
+		assert.Equal(t, time.Date(2023, time.October, 1, 12, 0, 0, 0, time.UTC), scan1.CreatedAt)
+		assert.Equal(t, time.Date(2023, time.December, 1, 12, 0, 0, 0, time.UTC), scan1.UpdatedAt)
+		r, err = conn.Query().Table("scanstruct").Where("id", ">", 1).Select("name", "age", "created_at", "updated_at").Get(&users)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(2), r.RowsFetched())
+		assert.Equal(t, 2, len(users))
+
+		assert.Equal(t, "Jane Doe", users[0].Name)
+		assert.Equal(t, 25, users[0].Age)
+		assert.Equal(t, time.Date(2023, time.October, 2, 12, 0, 0, 0, time.UTC), users[0].CreatedAt)
+		assert.Equal(t, time.Date(2023, time.December, 2, 12, 0, 0, 0, time.UTC), users[0].UpdatedAt)
+		assert.Equal(t, "Alice Smith", users[1].Name)
+		assert.Equal(t, 28, users[1].Age)
+		assert.Equal(t, time.Date(2023, time.October, 3, 12, 0, 0, 0, time.UTC), users[1].CreatedAt)
+		assert.Equal(t, time.Date(2023, time.December, 3, 12, 0, 0, 0, time.UTC), users[1].UpdatedAt)
+
+	})
+
+}
