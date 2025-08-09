@@ -127,3 +127,57 @@ year_col year
 
 	})
 }
+
+func TestScanMap(t *testing.T) {
+	after := "drop table if exists scanmap;"
+	before := `drop table if exists scanmap;create table scanmap (id int auto_increment primary key, name varchar(255), age int, created_at datetime, updated_at datetime);`
+
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+
+		b := conn.Query()
+		r, err := b.Table("scanmap").Insert(map[string]interface{}{
+			"name":       "John Doe",
+			"age":        30,
+			"created_at": "2023-10-01 12:00:00",
+			"updated_at": "2023-12-01 12:00:00",
+		})
+
+		assert.Nil(t, err)
+
+		var result map[string]interface{}
+		_, err = conn.Query().Table("scanmap").Select("name", "age", "created_at", "updated_at").First(&result)
+		assert.Nil(t, err)
+		assert.Equal(t, r.LastInsertId(), int64(1))
+		assert.Equal(t, "John Doe", result["name"])
+		assert.Equal(t, int64(30), result["age"])
+		assert.Equal(t, time.Date(2023, time.October, 1, 12, 0, 0, 0, time.UTC), result["created_at"])
+		assert.Equal(t, time.Date(2023, time.December, 1, 12, 0, 0, 0, time.UTC), result["updated_at"])
+
+		r, e := conn.Table("scanmap").Insert([]map[string]interface{}{
+			{"name": "Jane Doe", "age": 25, "created_at": "2023-10-02 12:00:00", "updated_at": "2023-12-02 12:00:00"},
+			{"name": "Alice Smith", "age": 28, "created_at": "2023-10-03 12:00:00", "updated_at": "2023-12-03 12:00:00"},
+		})
+		assert.Nil(t, e)
+		assert.Equal(t, int64(2), r.LastInsertId())
+		assert.Equal(t, r.RowsAffected(), int64(2))
+		var results []map[string]interface{}
+
+		r, err = conn.Query().Table("scanmap").Select("name", "age", "created_at", "updated_at").Get(&results)
+		assert.Nil(t, err)
+		assert.Equal(t, 3, len(results))
+		assert.Equal(t, int64(3), r.RowsFetched())
+		assert.Equal(t, "John Doe", results[0]["name"])
+		assert.Equal(t, int64(30), results[0]["age"])
+		assert.Equal(t, time.Date(2023, time.October, 1, 12, 0, 0, 0, time.UTC), results[0]["created_at"])
+		assert.Equal(t, time.Date(2023, time.December, 1, 12, 0, 0, 0, time.UTC), results[0]["updated_at"])
+		assert.Equal(t, "Jane Doe", results[1]["name"])
+		assert.Equal(t, int64(25), results[1]["age"])
+		assert.Equal(t, time.Date(2023, time.October, 2, 12, 0, 0, 0, time.UTC), results[1]["created_at"])
+		assert.Equal(t, time.Date(2023, time.December, 2, 12, 0, 0, 0, time.UTC), results[1]["updated_at"])
+		assert.Equal(t, "Alice Smith", results[2]["name"])
+		assert.Equal(t, int64(28), results[2]["age"])
+		assert.Equal(t, time.Date(2023, time.October, 3, 12, 0, 0, 0, time.UTC), results[2]["created_at"])
+		assert.Equal(t, time.Date(2023, time.December, 3, 12, 0, 0, 0, time.UTC), results[2]["updated_at"])
+
+	})
+}
