@@ -244,3 +244,35 @@ func TestScanStruct(t *testing.T) {
 	})
 
 }
+func TestScanValues(t *testing.T) {
+	after := "drop table if exists scanvalues;"
+	before := `drop table if exists scanvalues;create table scanvalues (id int auto_increment primary key, name varchar(255), age int);`
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		conn.Query().Table("scanvalues").Insert([]interface{}{
+			map[string]interface{}{
+				"name": "John Doe",
+				"age":  30,
+			},
+			map[string]interface{}{
+				"name": "Jane Doe",
+				"age":  25,
+			},
+			map[string]interface{}{
+				"name": "Alice Smith",
+				"age":  28,
+			},
+		})
+
+		var names []string
+		var ages []int
+		r, err := conn.Query().Table("scanvalues").Select("name").Get(&names)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(3), r.RowsFetched())
+		assert.Equal(t, []string{"John Doe", "Jane Doe", "Alice Smith"}, names)
+		r, err = conn.Query().Table("scanvalues").Where("age", ">", 25).Select("age").Get(&ages)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(2), r.RowsFetched())
+		assert.Equal(t, []int{30, 28}, ages)
+
+	})
+}
