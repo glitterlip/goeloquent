@@ -1,8 +1,12 @@
 package tests
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"github.com/glitterlip/goeloquent/v2"
 	"github.com/stretchr/testify/assert"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -274,5 +278,159 @@ func TestScanValues(t *testing.T) {
 		assert.Equal(t, int64(2), r.RowsFetched())
 		assert.Equal(t, []int{30, 28}, ages)
 
+	})
+}
+
+type TagString struct {
+	Tags []string `json:"tags"`
+}
+type ModelOptions struct {
+	Theme      string   `json:"theme"`
+	Roles      []string `json:"roles"`
+	JoinedYear int      `json:"joined_year"`
+	Address    struct {
+		Country string `json:"country"`
+		City    string `json:"city"`
+	}
+	IsBaned bool `json:"is_baned"`
+}
+
+func (ts *TagString) Scan(value interface{}) error {
+	if value == nil {
+		ts.Tags = nil
+		return nil
+	}
+	str := string(value.([]byte))
+	if str == "" {
+		ts.Tags = nil
+	} else {
+		ts.Tags = strings.Split(str, ",")
+	}
+	return nil
+}
+func (ts TagString) Value() (driver.Value, error) {
+	if ts.Tags == nil {
+		return "", nil
+	}
+	return strings.Join(ts.Tags, ","), nil
+}
+func (mo *ModelOptions) Scan(value interface{}) error {
+	bs, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+
+	return json.Unmarshal(bs, mo)
+}
+func (mo ModelOptions) Value() (driver.Value, error) {
+
+	bs, err := json.Marshal(mo)
+	if err != nil {
+		return nil, err
+	}
+	return bs, nil
+}
+
+type TestModel struct {
+	*goeloquent.EloquentModel
+	Id      int          `goelo:"column:id;primaryKey"`
+	Tags    TagString    `goelo:"column:tags;"`
+	Options ModelOptions `goelo:"column:options;"`
+}
+
+func (m *TestModel) GetTableName(st *goeloquent.Statement) string {
+	return "test_models"
+}
+func TestValuerScanner(t *testing.T) {
+
+	after := "drop table if exists test_model;"
+	before := after + `create table test_model (
+id int auto_increment primary key,
+tags varchar(255),
+options json
+);`
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+
+		r, err := conn.Query().Insert(&TestModel{
+			Tags: TagString{
+				Tags: []string{"tag1", "tag2", "tag3"},
+			},
+			Options: ModelOptions{
+				Theme:      "dark",
+				Roles:      []string{"admin", "user"},
+				JoinedYear: 2023,
+				Address: struct {
+					Country string `json:"country"`
+					City    string `json:"city"`
+				}{
+					Country: "USA",
+					City:    "New York",
+				},
+				IsBaned: false,
+			},
+		})
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), r.RowsAffected())
+
+		var model TestModel
+		r, err = conn.Query().Table("test_model").First(&model)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), r.RowsFetched())
+		assert.Equal(t, 1, model.Id)
+		assert.Equal(t, []string{"tag1", "tag2", "tag3"}, model.Tags.Tags)
+		assert.Equal(t, "dark", model.Options.Theme)
+		assert.Equal(t, []string{"admin", "user"}, model.Options.Roles)
+		assert.Equal(t, 2023, model.Options.JoinedYear)
+		assert.Equal(t, "USA", model.Options.Address.Country)
+		assert.Equal(t, "New York", model.Options.Address.City)
+		assert.False(t, model.Options.IsBaned)
+
+		conn.Query().Table("test_models").Truncate()
+
+		r, err = conn.Query().Insert([]TestModel{
+			{
+				Tags:    TagString{},
+				Options: ModelOptions{},
+			},
+			{
+				Tags: TagString{
+					Tags: []string{"tag4", "tag5"},
+				},
+			},
+		})
+		assert.Nil(t, err)
+		assert.Equal(t, "insert into `test_model` (`options`, `tags`) values (?, ?), (?, ?)", r.RawSql)
+		assert.Equal(t, r.GetBindings(), []interface{}{nil, nil, nil, "tag4,tag5"})
+
+		var models = [1]TestModel{}
+		r, err = conn.Query().Table("test_model").Get(&models)
+
+		assert.Nil(t, err)
+		assert.Equal(t, int64(3), r.RowsFetched())
+		assert.Equal(t, 1, len(models))
+		assert.Equal(t, 1, models[0].Id)
+		assert.Equal(t, []string{"tag1", "tag2", "tag3"}, models[0].Tags.Tags)
+		assert.Equal(t, ModelOptions{
+			Theme:      "dark",
+			Roles:      []string{"admin", "user"},
+			JoinedYear: 2023,
+			Address: struct {
+				Country string `json:"country"`
+				City    string `json:"city"`
+			}{
+				Country: "USA",
+				City:    "New York",
+			},
+			IsBaned: false,
+		}, models[0].Options)
+		var models1 []TestModel
+		r, err = conn.Query().Table("test_model").Get(&models1)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(3), r.RowsFetched())
+		assert.Equal(t, 3, len(models1))
+		assert.Equal(t, 0, len(models1[1].Tags.Tags))
+		assert.True(t, reflect.ValueOf(models1[1].Options).IsZero())
+		assert.Equal(t, []string{"tag4", "tag5"}, models1[2].Tags.Tags)
+		assert.Equal(t, ModelOptions{}, models1[2].Options)
 	})
 }
