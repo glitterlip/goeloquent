@@ -90,3 +90,34 @@ func TestConflicts(t *testing.T) {
 	_, err := goeloquent.ParseModel(&ConflictModel{})
 	assert.Equal(t, err.Error(), "Parse model failed:github.com/glitterlip/goeloquent/v2/tests/ConflictModel can not use guarded with fillable")
 }
+type DefaultModel struct {
+	*goeloquent.EloquentModel
+	Id    int64  `json:"id" goelo:"column:id;primaryKey;"`
+	Name  string `json:"name" goelo:"column:name;"`
+	Email string `json:"email" goelo:"column:email;"`
+	Role  string `json:"role" goelo:"column:role;"`
+}
+
+func (d *DefaultModel) GetDefaults() map[string]interface{} {
+	return map[string]interface{}{
+		"role": "user",
+	}
+}
+
+func TestDefaultAttributes(t *testing.T) {
+	model := &DefaultModel{}
+	parsed, err := goeloquent.ParseModel(model)
+	assert.Nil(t, err)
+
+	assert.Equal(t, map[string]interface{}{
+		"role": "user",
+		"Role": "user",
+	}, parsed.DefaultAttributes)
+
+	model.Init(model).Fill(map[string]interface{}{
+		"id":   int64(1),
+		"name": "test",
+	})
+
+	assert.Equal(t, "user", model.Role)
+}
