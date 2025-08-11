@@ -38,3 +38,33 @@ func TestFillables(t *testing.T) {
 	assert.Equal(t, "test", model.Name)
 	assert.Equal(t, "", model.Email)
 }
+
+type GuardedModel struct {
+	*goeloquent.EloquentModel
+	Id    int64  `json:"id" goelo:"column:id;primaryKey;"`
+	Name  string `json:"name" goelo:"column:name;"`
+	Email string `json:"email" goelo:"column:email;"`
+}
+
+func (g *GuardedModel) GetGuarded() map[string]struct{} {
+	return map[string]struct{}{
+		"name": {},
+	}
+}
+func TestGuards(t *testing.T) {
+	model := &GuardedModel{}
+	parsed, err := goeloquent.ParseModel(model)
+	assert.Nil(t, err)
+	assert.Equal(t, map[string]struct{}{
+		"Name": {},
+		"name": {},
+	}, parsed.Guards)
+
+	model.Init(model).Fill(map[string]interface{}{
+		"name":  "test",
+		"Name":  "test",
+		"email": "john@github.com",
+	})
+	assert.Equal(t, "", model.Name)
+	assert.Equal(t, "john@github.com", model.Email)
+}
