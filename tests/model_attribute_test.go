@@ -68,3 +68,25 @@ func TestGuards(t *testing.T) {
 	assert.Equal(t, "", model.Name)
 	assert.Equal(t, "john@github.com", model.Email)
 }
+
+type ConflictModel struct {
+	*goeloquent.EloquentModel
+	Id    int64  `json:"id" goelo:"column:id;primaryKey;"`
+	Name  string `json:"name" goelo:"column:name;"`
+	Email string `json:"email" goelo:"column:email;"`
+}
+
+func (c *ConflictModel) GetGuarded() map[string]struct{} {
+	return map[string]struct{}{
+		"name": {},
+	}
+}
+func (c *ConflictModel) GetFillable() map[string]struct{} {
+	return map[string]struct{}{
+		"email": {},
+	}
+}
+func TestConflicts(t *testing.T) {
+	_, err := goeloquent.ParseModel(&ConflictModel{})
+	assert.Equal(t, err.Error(), "Parse model failed:github.com/glitterlip/goeloquent/v2/tests/ConflictModel can not use guarded with fillable")
+}
