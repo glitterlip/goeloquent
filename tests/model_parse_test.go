@@ -51,13 +51,13 @@ type TestEloqumentModel struct {
 	PostsCount int64        `json:"postsCount" goelo:"withAggregate:Posts;"`
 }
 
-func (t *TestEloqumentModel) EloquentGetGuarded() map[string]struct{} {
+func (t *TestEloqumentModel) GetGuarded() map[string]struct{} {
 	return map[string]struct{}{
 		"id":     {},
 		"status": {},
 	}
 }
-func (t *TestEloqumentModel) EloquentGetWithRelations() map[string]goeloquent.RelationFunc {
+func (t *TestEloqumentModel) GetWithRelations() map[string]goeloquent.RelationFunc {
 	return map[string]goeloquent.RelationFunc{
 		"Phone": func(builder *goeloquent.Statement) {
 			builder.Where("countrycode", "+2")
@@ -65,7 +65,7 @@ func (t *TestEloqumentModel) EloquentGetWithRelations() map[string]goeloquent.Re
 	}
 }
 
-func (t *TestEloqumentModel) EloquentGetWithRelationAggregates() map[string]goeloquent.RelationAggregate {
+func (t *TestEloqumentModel) GetWithRelationAggregates() map[string]goeloquent.RelationAggregate {
 	return map[string]goeloquent.RelationAggregate{
 		"PostCount": {
 			FuncName:          "Count",
@@ -78,7 +78,7 @@ func (t *TestEloqumentModel) EloquentGetWithRelationAggregates() map[string]goel
 		},
 	}
 }
-func (t *TestEloqumentModel) EloquentGetDefaultAttributes() map[string]interface{} {
+func (t *TestEloqumentModel) GetDefaults() map[string]interface{} {
 	return map[string]interface{}{
 		"status": "active",
 		"name":   "default name",
