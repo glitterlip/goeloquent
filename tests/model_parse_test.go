@@ -106,12 +106,12 @@ func TestParseEloquentModel(t *testing.T) {
 	assert.Equal(t, meta.EloquentModelFieldIndex, 0)
 
 	assert.Equal(t, meta.Guards, map[string]struct{}{
-		"id":     {},
-		"status": {},
+		"Id": {},
+		"id": {},
 	})
 	assert.Equal(t, meta.DefaultAttributes, map[string]interface{}{
-		"status": "active",
-		"name":   "default name",
+		"Name": "default name",
+		"name": "default name",
 	})
 	st := goeloquent.NewStatement()
 	goeloquent.NewQueryBuilder(st)
