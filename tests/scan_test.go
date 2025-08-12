@@ -485,5 +485,11 @@ func TestFieldCast(t *testing.T) {
 			"{\"name\":\"Test User\",\"Age\":30}",
 		}, st.GetBindings())
 
+		var model CastModel
+		_, err = conn.Query().Table("cast_model").First(&model)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), model.Id)
+		assert.Equal(t, []string{"one", "two", "three"}, model.Strings)
+
 	})
 }
