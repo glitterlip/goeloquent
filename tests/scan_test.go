@@ -434,3 +434,56 @@ options json
 		assert.Equal(t, ModelOptions{}, models1[2].Options)
 	})
 }
+
+type CastModel struct {
+	Id          int64                  `json:"id" goelo:"column:id;primaryKey"`
+	Strings     []string               `json:"strings" goelo:"column:strings;"`
+	Maps        map[string]interface{} `json:"maps" goelo:"column:maps;"`
+	StructField struct {
+		Name            string `json:"name"`
+		Age             int
+		unexportedField string
+	} `goelo:"column:struct_field;"`
+}
+
+func TestFieldCast(t *testing.T) {
+	after := "drop table if exists cast_model;"
+	before := after + `create table cast_model (id int auto_increment primary key, strings varchar(255), maps json,struct_field json);`
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+
+		st, err := conn.Query().Insert(&CastModel{
+			Strings: []string{"one", "two", "three"},
+			Maps: map[string]interface{}{
+				"key1": "value1",
+				"key2": 123,
+				"key3": true,
+				"key4": []string{"list1", "list2"},
+				"key5": map[string]interface{}{
+					"nestedKey1": "nestedValue1",
+					"nestedKey2": 456,
+					"nestedKey3": false,
+					"nestedKey4": []int{1, 2, 3},
+				},
+			},
+			StructField: struct {
+				Name            string `json:"name"`
+				Age             int
+				unexportedField string
+			}{
+				Name:            "Test User",
+				Age:             30,
+				unexportedField: "This is unexported",
+			},
+		})
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), st.RowsAffected())
+		assert.Equal(t, int64(1), st.LastInsertId())
+		assert.Equal(t, "insert into `cast_model` (`maps`, `strings`, `struct_field`) values (?, ?, ?)", st.RawSql)
+		assert.Equal(t, []interface{}{
+			`{"key1":"value1","key2":123,"key3":true,"key4":["list1","list2"],"key5":{"nestedKey1":"nestedValue1","nestedKey2":456,"nestedKey3":false,"nestedKey4":[1,2,3]}}`,
+			"[\"one\",\"two\",\"three\"]",
+			"{\"name\":\"Test User\",\"Age\":30}",
+		}, st.GetBindings())
+
+	})
+}
