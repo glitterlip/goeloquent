@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"database/sql"
 	"github.com/glitterlip/goeloquent/v2"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -91,6 +92,7 @@ func TestConflicts(t *testing.T) {
 	_, err := goeloquent.ParseModel(&ConflictModel{})
 	assert.Equal(t, err.Error(), "Parse model failed:github.com/glitterlip/goeloquent/v2/tests/ConflictModel can not use guarded with fillable")
 }
+
 type DefaultModel struct {
 	*goeloquent.EloquentModel
 	Id    int64  `json:"id" goelo:"column:id;primaryKey;"`
@@ -122,6 +124,7 @@ func TestDefaultAttributes(t *testing.T) {
 
 	assert.Equal(t, "user", model.Role)
 }
+
 type OriginalModel struct {
 	*goeloquent.EloquentModel
 	Id    int64  `json:"id" goelo:"column:id;primaryKey;"`
@@ -200,4 +203,30 @@ func TestGetDirtyAttributes(t *testing.T) {
 		"bool":  false,
 		"time":  sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)},
 	}, model.GetDirty())
+}
+func TestGetChangedAttributes(t *testing.T) {
+	now := time.Now()
+	model := &DirtyModel{
+		Name:  "original",
+		Email: "original@gmail.com",
+		Time:  sql.NullTime{Valid: true, Time: now.Add(time.Hour)},
+		Bool:  true,
+	}
+	model.Init(model).Fill(map[string]interface{}{
+		"Name":  "new",
+		"Email": "new@github.com",
+	})
+	model.Time = sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)}
+	model.Bool = false
+	model.Save()
+
+	assert.Nil(t, model.Error)
+	assert.Equal(t, model.RawSql, "insert into `dirty_model` (`bool`, `email`, `name`, `time`) values (?, ?, ?, ?)")
+	assert.Equal(t, map[string]interface{}{
+		"name":  "new",
+		"email": "new@github.com",
+		"time":  sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)},
+		"bool":  false,
+	}, model.GetChanges())
+
 }
