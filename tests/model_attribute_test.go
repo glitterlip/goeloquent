@@ -144,3 +144,60 @@ func TestGetOriginal(t *testing.T) {
 	assert.Equal(t, "original@gmail.com", model.GetOriginal("email"))
 
 }
+
+type DirtyModel struct {
+	*goeloquent.EloquentModel
+	Id    int64        `json:"id" goelo:"column:id;primaryKey;"`
+	Name  string       `json:"name" goelo:"column:name;"`
+	Email string       `json:"email" goelo:"column:email;"`
+	Time  sql.NullTime `json:"time" goelo:"column:time;"`
+	Bool  bool         `json:"bool" goelo:"column:bool;"`
+}
+
+func TestIsDirty(t *testing.T) {
+	now := time.Now()
+	model := &DirtyModel{
+		Name:  "original",
+		Email: "original@gmail.com",
+		Time:  sql.NullTime{Valid: true, Time: now.Add(time.Hour)},
+		Bool:  true,
+	}
+	model.Init(model).Fill(map[string]interface{}{
+		"Name":  "new",
+		"Email": "new@github.com",
+	})
+	model.Time = sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)}
+	model.Bool = false
+
+	assert.True(t, model.IsDirty("Name"))
+	assert.True(t, model.IsDirty("Email"))
+	assert.True(t, model.IsDirty("Time"))
+	assert.True(t, model.IsDirty("Bool"))
+
+}
+
+func TestGetDirtyAttributes(t *testing.T) {
+	now := time.Now()
+	model := &DirtyModel{
+		Name:  "original",
+		Email: "original@gmail.com",
+		Time:  sql.NullTime{Valid: true, Time: now.Add(time.Hour)},
+		Bool:  true,
+	}
+	model.Init(model).Fill(map[string]interface{}{
+		"name":  "new",
+		"email": "new@github.com",
+	})
+	assert.Equal(t, map[string]interface{}{
+		"name":  "new",
+		"email": "new@github.com",
+	}, model.GetDirty())
+	model.Time = sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)}
+	model.Bool = false
+	assert.Equal(t, map[string]interface{}{
+		"name":  "new",
+		"email": "new@github.com",
+		"bool":  false,
+		"time":  sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)},
+	}, model.GetDirty())
+}
