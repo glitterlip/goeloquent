@@ -193,3 +193,33 @@ func Scan(rows *sql.Rows, dest interface{}, mapping map[string]string) (count in
 	return count, err
 
 }
+
+func ScanMap(mapValue map[string]interface{}, values []interface{}, columns []string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch r.(type) {
+			case string:
+				err = errors.New("failed to scan map: " + r.(string))
+			case error:
+				err = r.(error)
+			default:
+				err = errors.New("failed to scan map")
+			}
+		}
+	}()
+	for i, column := range columns {
+		v := reflect.Indirect(reflect.ValueOf(values[i]))
+		if v.IsValid() {
+			mapValue[column] = v.Interface()
+			if valuer, ok := mapValue[column].(driver.Valuer); ok {
+				mapValue[column], _ = valuer.Value()
+			} else if bs, ok := mapValue[column].(sql.RawBytes); ok {
+				mapValue[column] = string(bs)
+			}
+		} else {
+			mapValue[column] = nil
+		}
+	}
+
+	return nil
+}
