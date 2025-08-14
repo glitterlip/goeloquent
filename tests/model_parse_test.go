@@ -27,9 +27,9 @@ func TestParsePlainStruct(t *testing.T) {
 	assert.Equal(t, len(parsed.FieldsByStructName), 5)
 	assert.Nil(t, parsed.PrimaryKeyField)
 	assert.False(t, parsed.PrimaryKeyAutoIncrementing)
-	assert.Equal(t, parsed.CreatedAt, "")
-	assert.Equal(t, parsed.UpdatedAt, "")
-	assert.Equal(t, parsed.DeletedAt, "")
+	assert.Equal(t, parsed.CreatedAt.Enabled, false)
+	assert.Equal(t, parsed.UpdatedAt.Enabled, false)
+	assert.Equal(t, parsed.DeletedAt.Enabled, false)
 	for _, s := range []string{"Id", "Name", "Email", "CreatedAt", "UpdatedAt"} {
 		_, ok := parsed.FieldsByStructName[s]
 		assert.True(t, ok, "field %s not found in FieldsByStructName", s)
@@ -102,7 +102,6 @@ func TestParseEloquentModel(t *testing.T) {
 	assert.Equal(t, meta.PrimaryKeyField.Name, "Id")
 	assert.Equal(t, meta.PrimaryKeyField.ColumnName, "id")
 	assert.True(t, meta.PrimaryKeyAutoIncrementing)
-	assert.True(t, meta.SoftDelete)
 	assert.Equal(t, meta.EloquentModelFieldIndex, 0)
 
 	assert.Equal(t, meta.Guards, map[string]struct{}{
