@@ -4,6 +4,7 @@ import (
 	"github.com/glitterlip/goeloquent/v2"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 type FillableModel struct {
@@ -120,4 +121,26 @@ func TestDefaultAttributes(t *testing.T) {
 	})
 
 	assert.Equal(t, "user", model.Role)
+}
+type OriginalModel struct {
+	*goeloquent.EloquentModel
+	Id    int64  `json:"id" goelo:"column:id;primaryKey;"`
+	Name  string `json:"name" goelo:"column:name;"`
+	Email string `json:"email" goelo:"column:email;"`
+}
+
+func TestGetOriginal(t *testing.T) {
+	model := &OriginalModel{
+		Name:  "original",
+		Email: "original@gmail.com",
+	}
+	_, err := goeloquent.ParseModel(model)
+	model.Init(model)
+
+	model.Name = "changed"
+	model.Email = "changed@gmail.com"
+	assert.Nil(t, err)
+	assert.Equal(t, "original", model.GetOriginal("name"))
+	assert.Equal(t, "original@gmail.com", model.GetOriginal("email"))
+
 }
