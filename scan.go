@@ -223,3 +223,106 @@ func ScanMap(mapValue map[string]interface{}, values []interface{}, columns []st
 
 	return nil
 }
+
+func ScanStruct(rows *sql.Rows, destPtr reflect.Value, columns []string, columnTypes []*sql.ColumnType) (err error) {
+	scanArgs := make([]interface{}, len(columns))
+	needCast := false
+	defer func() {
+		if r := recover(); r != nil {
+			switch r.(type) {
+			case string:
+				err = fmt.Errorf("failed to scan struct: %w", errors.New(r.(string)))
+			case error:
+				err = fmt.Errorf("failed to scan struct: %w", r.(error))
+			}
+		}
+	}()
+	config, err := GetParsedModel(destPtr.Interface())
+	if err != nil {
+		return err
+	}
+	var pivots, aggreagates map[string]interface{}
+	for i, column := range columns {
+		field, ok := config.FieldsByColumnName[column]
+		if ok {
+			if field.NeedCast {
+				needCast = true
+				scanArgs[i] = new(string)
+			} else {
+				scanArgs[i] = destPtr.Elem().FieldByName(field.Name).Addr().Interface()
+			}
+		} else if strings.Contains(column, OrmAggregateAlias) {
+			if aggreagates == nil {
+				aggreagates = make(map[string]interface{})
+			}
+			aggregateColumn := strings.TrimPrefix(column, OrmAggregateAlias)
+			aggregateDest := reflect.New(columnTypes[i].ScanType())
+			scanArgs[i] = aggregateDest.Interface()
+			aggreagates[aggregateColumn] = i
+
+		} else {
+			if pivots == nil {
+				pivots = make(map[string]interface{})
+			}
+			pivotColumn := strings.TrimPrefix(column, PivotAlias)
+			pivotDest := reflect.New(columnTypes[i].ScanType())
+			scanArgs[i] = pivotDest.Interface()
+			pivots[pivotColumn] = i
+		}
+
+	}
+	if err = rows.Scan(scanArgs...); err != nil {
+		return err
+	}
+	if needCast {
+		for i, column := range columns {
+			field, ok := config.FieldsByColumnName[column]
+			if ok {
+				if field.NeedCast {
+					ptr := reflect.New(field.FieldType).Interface()
+					json.Unmarshal([]byte(*scanArgs[i].(*string)), ptr)
+					destPtr.Elem().FieldByName(field.Name).Set(reflect.ValueOf(ptr).Elem())
+				}
+			}
+		}
+	}
+	if config.IsEloquent && destPtr.Elem().Field(config.EloquentModelFieldIndex).IsNil() {
+		origin := map[string]interface{}{}
+		for i, c := range columns {
+			origin[c] = scanArgs[i]
+		}
+		base := EloquentModel{
+			Pivot:              map[string]interface{}{},
+			WithAggregates:     map[string]float64{},
+			Context:            nil,
+			Booted:             false,
+			Exists:             true,
+			WasRecentlyCreated: false,
+			Origin:             origin,
+			Changes:            nil,
+			ModelPointer:       destPtr,
+			Related:            reflect.Value{},
+			MutedEvents:        nil,
+			Scopes:             nil,
+		}
+		destPtr.Elem().Field(config.EloquentModelFieldIndex).Set(reflect.ValueOf(&base))
+	}
+	if len(pivots) > 0 {
+		for pivotColumn, i := range pivots {
+			pivots[pivotColumn] = reflect.ValueOf(scanArgs[i.(int)]).Elem().Interface()
+		}
+
+		destPtr.Elem().FieldByIndex([]int{config.EloquentModelFieldIndex, EloquentModelPivotFieldIndex}).Set(reflect.ValueOf(pivots))
+	}
+	if len(aggreagates) > 0 {
+		for aggregateColumn, i := range aggreagates {
+			aggreagates[aggregateColumn] = reflect.ValueOf(scanArgs[i.(int)]).Elem().Interface()
+			if _, ok := config.EagerRelationAggregates[aggregateColumn]; ok {
+				destPtr.Elem().FieldByName(aggregateColumn).Set(reflect.ValueOf(aggreagates[aggregateColumn]))
+			}
+		}
+		destPtr.Elem().FieldByIndex([]int{config.EloquentModelFieldIndex, EloquentModelAggregateFieldIndex}).Set(reflect.ValueOf(aggreagates))
+	}
+
+	return nil
+}
