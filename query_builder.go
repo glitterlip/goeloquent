@@ -1,14 +1,23 @@
 package goeloquent
 
 import (
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 )
 
 type Component string
 type HavingType string
 type BooleanType string
 type NotType bool
+type JoinType string
 
 const (
 	COMPONENT_SELECT      Component = "select"
@@ -69,19 +78,19 @@ const (
 	HavingTypeExpression HavingType = "expression"
 	HavingTypeNested     HavingType = "nested"
 
-	JoinTypeInner string = "inner"
-	JoinTypeLeft  string = "left"
-	JoinTypeRight string = "right"
-	JoinTypeCross string = "cross"
-	JoinTypeFull  string = "full"
+	JoinTypeInner JoinType = "inner"
+	JoinTypeLeft  JoinType = "left"
+	JoinTypeRight JoinType = "right"
+	JoinTypeCross JoinType = "cross"
+	JoinTypeFull  JoinType = "full"
 
-	OrderDirectionAsc  string = "asc"
-	OrderDirectionDesc string = "desc"
+	And BooleanType = "and"
+	Or  BooleanType = "or"
 
-	And   BooleanType = "and"
-	Or    BooleanType = "or"
-	False NotType     = false
-	True  NotType     = true
+	Not NotType = true
+
+	DEFAULT_USE = 1 //use "=" as default operator
+	DEFAULT_NOT = 0
 )
 
 var (
