@@ -22,14 +22,16 @@ func Open(name string, config DBConfig) (Connection, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
-		return nil, err
+	if !config.DisableAutomaticPing {
+		if err := db.Ping(); err != nil {
+			return nil, err
+		}
 	}
+
 	connection := MysqlConnection{
 		DBConfig: &config,
 		DB:       db,
 	}
-
 	DB.Connections.Store(name, &connection)
 	return &connection, nil
 }
