@@ -170,32 +170,43 @@ var (
 		"~~*":            {},
 		"!~~*":           {},
 	}
+	ShortCutOperators = map[string]struct{}{
+		"in":          {},
+		"not in":      {},
+		"between":     {},
+		"not between": {},
+	}
 )
 
 type QueryBuilder struct {
-	Statement  *Statement
-	Grammar    Grammar
-	Components map[Component]struct{}
-	Bindings   map[Component][]interface{}
-	Aggregate  Aggregate
-	Columns    []interface{}
-	Distinct   interface{}
-	From       interface{}
-	IndexHint  IndexHint
-	IsJoin     bool
-	Joins      []*JoinBuilder
-	Wheres     []Where
-	Groups     []interface{}
-	Havings    []Having
-	Orders     []Order
-	Limit      int
-	Grouplimit GroupLimit
-	Offset     int
+	Statement       *Statement
+	Grammar         Grammar
+	Components      map[Component]struct{}
+	Bindings        map[Component][]interface{}
+	Aggregates      Aggregate
+	Columns         []interface{}
+	IsDistinct      interface{}
+	IsExist         bool
+	DistinctColumns []string
+	FromTable       interface{}
+	IndexHint       IndexHint
+	IsJoin          bool
+	Joins           []*JoinBuilder
+	Wheres          []Where
+	Groups          []interface{}
+	Havings         []Having
+	Orders          []Order
+	LimitNum        int64
+	Grouplimit      GroupLimit
+	OffsetNum       int64
 	//Unions unsupported,use raw sql
-	//Lock //todo
+	Locks                string
 	BeforeQueryCallBacks []StatementFunc
 	AfterQueryCallBacks  []StatementFunc
 	TablePrefix          string
+	Pretending           bool
+	RawSql               string        //compiled sql
+	RawBindings          []interface{} //compiled sql bindings
 }
 type Aggregate struct {
 	AggregateName    string        //aggregate function
