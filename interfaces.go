@@ -55,4 +55,62 @@ type Grammar interface {
 	GetOperators() map[string]struct{}
 	SubstituteBindingsIntoRawSql(sqlStr string, bindings []interface{}) string
 }
+type ModelHasGuarded interface {
+	GetGuarded() map[string]struct{}
+}
+type ModelHasFillable interface {
+	GetFillable() map[string]struct{}
+}
+type ModelHasDefaults interface {
+	GetDefaults() map[string]interface{}
+}
+type ModelHasGlobalScopes interface {
+	GetGlobalScopes() map[string]ScopeFunc
+}
+type ModelWithRelations interface {
+	GetWithRelations() map[string]RelationFunc
+}
+type ModelWithRelationAggregates interface {
+	GetWithRelationAggregates() map[string]RelationAggregate
+}
+
+// todo stop when event callback return false
+type ModelHasSavingEvent interface {
+	Saving(*Statement) error
+}
+type ModelHasSavedEvent interface {
+	Saved(*Statement) error
+}
+type ModelHasCreatingEvent interface {
+	Creating(*Statement) error
+}
+type ModelHasCreatedEvent interface {
+	Created(*Statement) error
+}
+type ModelHasUpdatingEvent interface {
+	Updating(*Statement) error
+}
+type ModelHasUpdatedEvent interface {
+	Updated(*Statement) error
+}
+type ModelHasDeletingEvent interface {
+	Deleting(*Statement) error
+}
+type ModelHasDeletedEvent interface {
+	Deleted(*Statement) error
+}
+type ModelHasRestoringEvent interface {
+	Restoring(*Statement) error
+}
+type ModelHasRestoredEvent interface {
+	Restored(*Statement) error
+}
+type ModelHasForceDeletingEvent interface {
+	ForceDeleting(*Statement) error
+}
+type ModelHasForceDeletedEvent interface {
+	ForceDeleted(*Statement) error
+}
+type ModelHasRetrivedEvent interface {
+	Retrived(*Statement) error
 }
