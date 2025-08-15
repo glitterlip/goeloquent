@@ -2,6 +2,7 @@ package goeloquent
 
 import (
 	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 	"sync"
 )
 
@@ -17,6 +18,9 @@ func init() {
 func Open(name string, config DBConfig) (Connection, error) {
 	if conn, ok := DB.Connections.Load(name); ok {
 		return conn.(*MysqlConnection), nil
+	}
+	if config.Driver != DriverMysql {
+		return nil, ErrorUpsupportedDriver
 	}
 	db, err := sql.Open(string(config.Driver), config.DSN)
 	if err != nil {
