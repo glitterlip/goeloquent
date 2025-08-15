@@ -183,6 +183,31 @@ func TestScanMap(t *testing.T) {
 		assert.Equal(t, time.Date(2023, time.October, 3, 12, 0, 0, 0, time.UTC), results[2]["created_at"])
 		assert.Equal(t, time.Date(2023, time.December, 3, 12, 0, 0, 0, time.UTC), results[2]["updated_at"])
 
+		b = conn.Query()
+		_, err = b.Table("scanmap").Insert(map[string]interface{}{
+			"name": map[string]interface{}{
+				"first":    "John",
+				"last":     "Doe",
+				"standard": true,
+				"utf8len":  8,
+				"order":    []string{"first", "last"},
+			},
+			"age":        30,
+			"created_at": "2023-10-01 12:00:00",
+			"updated_at": "2023-12-01 12:00:00",
+		})
+		assert.Nil(t, err)
+		var result1 map[string]interface{}
+		_, err = conn.Query().Table("scanmap").Select("name", "age", "created_at", "updated_at").Where("id", "=", 4).First(&result1)
+		assert.Nil(t, err)
+		var m map[string]interface{}
+		err = json.Unmarshal([]byte(result1["name"].(string)), &m)
+		assert.Nil(t, err)
+		assert.Equal(t, "John", m["first"])
+		assert.Equal(t, "Doe", m["last"])
+		assert.Equal(t, true, m["standard"])
+		assert.Equal(t, float64(8), m["utf8len"])
+		assert.Equal(t, []interface{}{"first", "last"}, m["order"])
 	})
 }
 func TestScanStruct(t *testing.T) {
@@ -437,13 +462,13 @@ options json
 
 type CastModel struct {
 	Id          int64                  `json:"id" goelo:"column:id;primaryKey"`
-	Strings     []string               `json:"strings" goelo:"column:strings;"`
-	Maps        map[string]interface{} `json:"maps" goelo:"column:maps;"`
+	Strings     []string               `json:"strings" goelo:"column:strings;cast:json;"`
+	Maps        map[string]interface{} `json:"maps" goelo:"column:maps;cast:json;"`
 	StructField struct {
 		Name            string `json:"name"`
 		Age             int
 		unexportedField string
-	} `goelo:"column:struct_field;"`
+	} `goelo:"column:struct_field;cast:json;"`
 }
 
 func TestFieldCast(t *testing.T) {
