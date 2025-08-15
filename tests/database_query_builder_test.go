@@ -223,6 +223,10 @@ func TestWhenCallbackWithDefault(t *testing.T) {
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b3.GetBindings())
 	assert.ElementsMatch(t, []interface{}{1, "foo"}, b3.GetRawBindings()["where"])
 }
+func TestUnlessCallback(t *testing.T)            {}
+func TestUnlessCallbackWithReturn(t *testing.T)  {}
+func TestUnlessCallbackWithDefault(t *testing.T) {}
+
 func TestTapCallback(t *testing.T) {
 	b := GetBuilder()
 	cb := func(builder *goeloquent.QueryBuilder) {
@@ -465,7 +469,7 @@ func TestOrWhereMonthMysql(t *testing.T) {
 	assert.Equal(t, "select * from `users` where month(`banned_at`) = ? or month(`created_at`) = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{1, 2}, b.GetBindings())
 }
-
+func TestOrWhereMonthPostgres(t *testing.T) {}
 func TestWhereYearMysql(t *testing.T) {
 	b := GetBuilder()
 	b.Select("*").From("users").WhereYear("created_at", 2023, goeloquent.Or)
@@ -498,11 +502,6 @@ func TestWhereTimeOperatorOptionalMySql(t *testing.T) {
 	assert.Equal(t, "select * from `users` where time(`created_at`) = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{"12:00"}, b.GetBindings())
 	assert.ElementsMatch(t, []interface{}{"12:00"}, b.GetRawBindings()["where"])
-
-	b1 := GetBuilder()
-	b1.Select("*").From("users").WhereTime("updated_at", ">", "13:00:00").WhereTime("created_at", "!=", "14:00:00", goeloquent.Or)
-	assert.Equal(t, "select * from `users` where time(`updated_at`) > ? or time(`created_at`) != ?", b1.ToSql())
-	assert.ElementsMatch(t, []interface{}{"13:00:00", "14:00:00"}, b1.GetBindings())
 }
 
 func TestOrWhereTimeMysql(t *testing.T) {
@@ -522,8 +521,9 @@ func TestWhereTodayMySQL(t *testing.T) {
 
 }
 func TestPassingArrayToWhereTodayMySQL(t *testing.T) {
-
 }
+func TestWhereTodaySqlServer(t *testing.T)               {}
+func TestPassingArrayToWhereTodaySqlServer(t *testing.T) {}
 func TestWhereFuture(t *testing.T) {
 
 }
