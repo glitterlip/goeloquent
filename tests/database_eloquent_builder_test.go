@@ -92,3 +92,11 @@ func TestFirstMethod(t *testing.T) {
 
 	})
 }
+func TestQualifyColumn(t *testing.T) {
+	conn := GetConnection()
+	eb := conn.Model(&EloquentUser{})
+	assert.Equal(t, eb.QualifyColumn("name"), "eloquent_users.name")
+	assert.Equal(t, eb.QualifyColumn("id"), "eloquent_users.id")
+	assert.Equal(t, eb.QualifyColumn("email"), "eloquent_users.email")
+	assert.Equal(t, eb.QualifyColumn("created_at"), "eloquent_users.created_at")
+}
