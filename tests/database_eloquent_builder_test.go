@@ -58,3 +58,37 @@ func TestFindMethod(t *testing.T) {
 	})
 
 }
+
+func TestFirstMethod(t *testing.T) {
+	after := "drop table if exists eloquent_users;"
+	before := after + "create table eloquent_users (id int auto_increment primary key, name varchar(255), email varchar(255), created_at datetime, updated_at datetime, deleted_at datetime);"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		user := &EloquentUser{}
+		st, err := conn.Model(user).Find(user, 1)
+		assert.ErrorIs(t, err, goeloquent.ErrorNotFound)
+		assert.Equal(t, st.RawSql, "select * from `eloquent_users` where `id` = ? limit 1")
+		assert.Equal(t, st.GetBindings(), []interface{}{1})
+
+		user.Init(user)
+		st, err = user.Save(map[string]interface{}{
+			"name":  "John Doe",
+			"email": "john@gmail.com",
+		})
+
+		assert.Nil(t, err)
+		assert.Equal(t, st.RowsAffected(), int64(1))
+		var user1 EloquentUser
+
+		st, err = conn.Model(user).Where("name", "John Doe").First(&user1, []interface{}{"id", "name", "email"})
+		assert.NoError(t, err)
+		assert.Equal(t, st.RawSql, "select `id`, `name`, `email` from `eloquent_users` where `name` = ? limit 1")
+		assert.Equal(t, st.GetBindings(), []interface{}{"John Doe"})
+		assert.Equal(t, user1.Id, int64(1))
+		assert.Equal(t, user1.Name, "John Doe")
+		assert.Equal(t, user1.Email, "john@gmail.com")
+		assert.Empty(t, user1.CreatedAt)
+		assert.Empty(t, user1.UpdatedAt)
+		assert.Empty(t, user1.DeletedAt)
+
+	})
+}
