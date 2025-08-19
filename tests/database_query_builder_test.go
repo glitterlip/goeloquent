@@ -1,12 +1,13 @@
 package tests
 
 import (
-	"github.com/glitterlip/goeloquent/v2"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/glitterlip/goeloquent/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 func GetBuilder(pretend ...bool) *goeloquent.QueryBuilder {
@@ -2936,6 +2937,13 @@ func TestChunkWithLastChunkComplete(t *testing.T) {
 		_, err = b.Table("users").OrderBy("id").Where("status", "active").Count(&count)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(5), count)
+
+		var sts []*goeloquent.Statement
+		goeloquent.DB.Listen(goeloquent.EventQueryExecuted, func(name goeloquent.EventName, i ...interface{}) bool {
+			sts = append(sts, i[0].(*goeloquent.Statement))
+			return true
+		})
+
 		var dest []map[string]interface{}
 		count = 0
 		b = conn.Query()
@@ -2954,6 +2962,13 @@ func TestChunkWithLastChunkComplete(t *testing.T) {
 		assert.Equal(t, int64(4), count)
 		assert.False(t, stop)
 		assert.Nil(t, e)
+		assert.Equal(t, 3, len(sts))
+		assert.Equal(t, "select * from `users` where `status` = ? and `id` > ? order by `id` asc limit 2 offset 0", sts[0].ToSql())
+		assert.ElementsMatch(t, []interface{}{"active", 1}, sts[0].GetBindings())
+		assert.Equal(t, "select * from `users` where `status` = ? and `id` > ? order by `id` asc limit 2 offset 2", sts[1].ToSql())
+		assert.ElementsMatch(t, []interface{}{"active", 1}, sts[1].GetBindings())
+		assert.Equal(t, "select * from `users` where `status` = ? and `id` > ? order by `id` asc limit 2 offset 4", sts[2].ToSql())
+		assert.ElementsMatch(t, []interface{}{"active", 1}, sts[2].GetBindings())
 
 	})
 }
@@ -2984,6 +2999,13 @@ func TestChunkWithLastChunkPartial(t *testing.T) {
 		_, err = b.Table("users").OrderBy("id").Where("status", "active").Count(&count)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(5), count)
+
+		var sts []*goeloquent.Statement
+		goeloquent.DB.Listen(goeloquent.EventQueryExecuted, func(name goeloquent.EventName, i ...interface{}) bool {
+			sts = append(sts, i[0].(*goeloquent.Statement))
+			return true
+		})
+
 		var dest []map[string]interface{}
 		count = 0
 		b = conn.Query()
@@ -3001,6 +3023,14 @@ func TestChunkWithLastChunkPartial(t *testing.T) {
 		assert.Equal(t, int64(5), count)
 		assert.False(t, stop)
 		assert.Nil(t, e)
+		assert.Equal(t, 3, len(sts))
+		assert.Equal(t, "select * from `users` where `status` = ? order by `id` asc limit 2 offset 0", sts[0].ToSql())
+		assert.ElementsMatch(t, []interface{}{"active"}, sts[0].GetBindings())
+		assert.Equal(t, "select * from `users` where `status` = ? order by `id` asc limit 2 offset 2", sts[1].ToSql())
+		assert.ElementsMatch(t, []interface{}{"active"}, sts[1].GetBindings())
+		assert.Equal(t, "select * from `users` where `status` = ? order by `id` asc limit 2 offset 4", sts[2].ToSql())
+		assert.ElementsMatch(t, []interface{}{"active"}, sts[2].GetBindings())
+		assert.Equal(t, int64(1), sts[2].RowsFetched())
 
 	})
 }
@@ -3034,6 +3064,11 @@ func TestChunkCanBeStoppedByReturningFalse(t *testing.T) {
 		var dest []map[string]interface{}
 		count = 0
 		b = conn.Query()
+		var sts []*goeloquent.Statement
+		goeloquent.DB.Listen(goeloquent.EventQueryExecuted, func(name goeloquent.EventName, i ...interface{}) bool {
+			sts = append(sts, i[0].(*goeloquent.Statement))
+			return true
+		})
 		stop, e := b.OrderBy("id").From("users").
 			Chunk(&dest, 2, func(dest interface{}) (bool, error) {
 				items := *(dest.(*[]map[string]interface{}))
@@ -3047,6 +3082,7 @@ func TestChunkCanBeStoppedByReturningFalse(t *testing.T) {
 		assert.Equal(t, int64(4), count)
 		assert.True(t, stop)
 		assert.Nil(t, e)
+		assert.Equal(t, 2, len(sts))
 
 	})
 }
