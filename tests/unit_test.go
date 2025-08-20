@@ -1,9 +1,12 @@
 package tests
 
 import (
-	"github.com/glitterlip/goeloquent/v2"
+	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/glitterlip/goeloquent/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestToSnakeCase(t *testing.T) {
@@ -69,6 +72,43 @@ func TestEquals(t *testing.T) {
 		result := goeloquent.Equals(test.a, test.b, test.kind)
 		if result != test.expected {
 			t.Errorf("Equals(%v, %v) = %v; want %v", test.a, test.b, result, test.expected)
+		}
+	}
+}
+
+func TestGroupItems(t *testing.T) {
+	type GroupUser struct {
+		Id      int64  `json:"id" goelo:"column:id;primaryKey;autoIncrement:false"`
+		Name    string `json:"name" goelo:"column:name;"`
+		GroupId int64  `json:"group_id" goelo:"column:group_id"`
+	}
+
+	var users = []GroupUser{
+		{Id: 1, Name: "Alice", GroupId: 2},
+		{Id: 2, Name: "Bob", GroupId: 2},
+		{Id: 3, Name: "Alice", GroupId: 3},
+		{Id: 4, Name: "Charlie", GroupId: 3},
+		{Id: 5, Name: "Bob", GroupId: 1},
+		{Id: 6, Name: "Bob1", GroupId: 3},
+	}
+	config, _ := goeloquent.GetParsedModel(&users)
+	grouped := goeloquent.GroupItemsByKey(users, "id", config, false)
+	assert.Equal(t, len(users), len(grouped))
+	for id, slice := range grouped {
+		userGroup := slice.([]GroupUser)
+		assert.Equal(t, 1, len(userGroup), "Expected one user per group for id %s", id)
+		for _, user := range userGroup {
+			assert.Equal(t, id, fmt.Sprint(user.Id), "Expected user ID to match group key %s", id)
+		}
+	}
+
+	groupByGroup := goeloquent.GroupItemsByKey(users, "group_id", config, false)
+	assert.Equal(t, 3, len(groupByGroup), "Expected 3 groups based on group_id")
+	for groupId, slice := range groupByGroup {
+		groupSlice := slice.([]GroupUser)
+		assert.Equal(t, groupId, fmt.Sprint(len(groupSlice)))
+		for _, groupUser := range groupSlice {
+			assert.Equal(t, groupId, fmt.Sprint(groupUser.GroupId), "Expected user GroupId to match group key %s", groupId)
 		}
 	}
 }
