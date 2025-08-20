@@ -1,6 +1,7 @@
 package goeloquent
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -92,14 +93,14 @@ func GroupItemsByKey(items interface{}, key string, config *ModelConfig, isSingl
 	name := field.Name
 	for i := 0; i < length; i++ {
 		itemV := itemsValue.Index(i)
-		if isPtr {
-			itemV = itemV.Elem()
+		if !isPtr {
+			itemV = itemV.Addr()
 		}
-		itemKey := itemV.FieldByName(name).Interface()
+		itemKey := itemV.Elem().FieldByName(name).Interface()
 		itemKeyStr := fmt.Sprint(itemKey)
 		if !isSingle {
 			if _, ok := grouped[fmt.Sprint(itemKey)]; !ok {
-				slice := reflect.MakeSlice(reflect.SliceOf(config.ModelType), 0, length)
+				slice := reflect.MakeSlice(reflect.SliceOf(reflect.PointerTo(config.ModelType)), 0, length)
 				slice = reflect.Append(slice, itemV)
 				grouped[itemKeyStr] = slice.Interface()
 			} else {
