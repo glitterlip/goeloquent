@@ -2,10 +2,11 @@ package tests
 
 import (
 	"database/sql"
-	"github.com/glitterlip/goeloquent/v2"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/glitterlip/goeloquent/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 type TestPlainModel struct {
@@ -44,7 +45,6 @@ type TestEloqumentModel struct {
 	Id         int64        `json:"id" goelo:"column:id;primaryKey;"`
 	Name       string       `json:"name" goelo:"column:name;"`
 	Email      string       `json:"email" goelo:"column:email;"`
-	Roles      UserRoles    `json:"roles" goelo:"column:roles;"`
 	CreatedAt  sql.NullTime `json:"createdAt" goelo:"column:created_at;CREATED_AT"`
 	UpdatedAt  sql.NullTime `json:"updatedAt" goelo:"column:updated_at;UPDATED_AT"`
 	DeletedAt  sql.NullTime `json:"deletedAt" goelo:"column:deleted_at;DELETED_AT"`
@@ -96,8 +96,8 @@ func TestParseEloquentModel(t *testing.T) {
 	assert.True(t, meta.IsEloquent)
 	assert.Equal(t, meta.Name, "github.com/glitterlip/goeloquent/v2/tests/TestEloqumentModel")
 	assert.Equal(t, meta.TableName, "test_eloqument_model")
-	assert.Equal(t, len(meta.FieldsByColumnName), 7)
-	assert.Equal(t, len(meta.FieldsByStructName), 8)
+	assert.Equal(t, len(meta.FieldsByColumnName), 6)
+	assert.Equal(t, len(meta.FieldsByStructName), 7)
 	assert.NotNil(t, meta.PrimaryKeyField)
 	assert.Equal(t, meta.PrimaryKeyField.Name, "Id")
 	assert.Equal(t, meta.PrimaryKeyField.ColumnName, "id")
