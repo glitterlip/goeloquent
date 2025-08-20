@@ -95,7 +95,7 @@ func TestGroupItems(t *testing.T) {
 	grouped := goeloquent.GroupItemsByKey(users, "id", config, false)
 	assert.Equal(t, len(users), len(grouped))
 	for id, slice := range grouped {
-		userGroup := slice.([]GroupUser)
+		userGroup := slice.([]*GroupUser)
 		assert.Equal(t, 1, len(userGroup), "Expected one user per group for id %s", id)
 		for _, user := range userGroup {
 			assert.Equal(t, id, fmt.Sprint(user.Id), "Expected user ID to match group key %s", id)
@@ -105,7 +105,7 @@ func TestGroupItems(t *testing.T) {
 	groupByGroup := goeloquent.GroupItemsByKey(users, "group_id", config, false)
 	assert.Equal(t, 3, len(groupByGroup), "Expected 3 groups based on group_id")
 	for groupId, slice := range groupByGroup {
-		groupSlice := slice.([]GroupUser)
+		groupSlice := slice.([]*GroupUser)
 		assert.Equal(t, groupId, fmt.Sprint(len(groupSlice)))
 		for _, groupUser := range groupSlice {
 			assert.Equal(t, groupId, fmt.Sprint(groupUser.GroupId), "Expected user GroupId to match group key %s", groupId)
