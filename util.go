@@ -10,6 +10,9 @@ import (
 var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
 var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 
+/*
+ToSnakeCase converts a camelCase or PascalCase string to snake_case.
+*/
 func ToSnakeCase(str string) string {
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
@@ -28,6 +31,10 @@ func IsJsonSelector(value string) bool {
 
 	return strings.Contains(value, "->")
 }
+
+/*
+Equals compares two values of the same kind and returns true if they are equal.
+*/
 func Equals(a, b interface{}, kind reflect.Kind) bool {
 	switch kind {
 	case reflect.Bool:
@@ -76,8 +83,86 @@ func Equals(a, b interface{}, kind reflect.Kind) bool {
 	}
 }
 
+func CloneQueryBuilder(query *QueryBuilder) *QueryBuilder {
+	b := &QueryBuilder{
+		Grammar:              query.Grammar,
+		Components:           make(map[Component]struct{}),
+		Bindings:             make(map[Component][]interface{}),
+		Aggregates:           query.Aggregates,
+		Columns:              append([]interface{}{}, query.Columns...),
+		IsDistinct:           query.IsDistinct,
+		IsExist:              query.IsExist,
+		DistinctColumns:      append([]string{}, query.DistinctColumns...),
+		FromTable:            query.FromTable,
+		IndexHint:            query.IndexHint,
+		IsJoin:               query.IsJoin,
+		Joins:                append([]*JoinBuilder{}, query.Joins...),
+		Wheres:               append([]Where{}, query.Wheres...),
+		Groups:               append([]interface{}{}, query.Groups...),
+		Havings:              append([]Having{}, query.Havings...),
+		Orders:               append([]Order{}, query.Orders...),
+		LimitNum:             query.LimitNum,
+		Grouplimit:           query.Grouplimit,
+		OffsetNum:            query.OffsetNum,
+		Locks:                query.Locks,
+		BeforeQueryCallBacks: append([]StatementFunc{}, query.BeforeQueryCallBacks...),
+		AfterQueryCallBacks:  append([]StatementFunc{}, query.AfterQueryCallBacks...),
+		TablePrefix:          query.TablePrefix,
+		Pretending:           query.Pretending,
+		Parent:               query.Parent,
+		//RawSql:               query.RawSql,
+		RawBindings: append([]interface{}{}, query.RawBindings...),
+	}
+
+	for component, _ := range query.Components {
+		b.Components[component] = struct{}{}
+	}
+	for component, bindings := range query.Bindings {
+		b.Bindings[component] = append(b.Bindings[component], bindings...)
+	}
+	b.Statement = CloneStatement(query.Statement)
+	b.Statement.QueryBuilder = b
+	b.Statement.Context = query.Statement.Context
+	return b
+}
+func CloneEloquentBuilder(eloquentBuilder *EloquentBuilder) *EloquentBuilder {
+	base := CloneQueryBuilder(eloquentBuilder.QueryBuilder)
+	eb := &EloquentBuilder{
+		Base:          base,
+		ModelConfig:   eloquentBuilder.ModelConfig,
+		Scopes:        map[string]ScopeFunc{},
+		RemovedScopes: map[string]struct{}{},
+		EagerLoad:     map[string]RelationFunc{},
+		Pivots:        append([]string{}, eloquentBuilder.Pivots...),
+		PivotWheres:   append([]Where{}, eloquentBuilder.Wheres...),
+	}
+	for s, scopeFunc := range eloquentBuilder.Scopes {
+		eb.Scopes[s] = scopeFunc
+	}
+	stmt := CloneStatement(eloquentBuilder.Statement)
+	eb.Statement = stmt
+	eb.Statement.QueryBuilder = base
+	eb.Statement.Eloquent = eb
+	eb.Statement.Context = base.Statement.Context
+
+	return eb
+}
+func CloneStatement(stmt *Statement) *Statement {
+	newStmt := &Statement{
+		Context:    stmt.Context,
+		Connection: stmt.Connection,
+		Tx:         stmt.Tx,
+		Error:      stmt.Error,
+		Eloquent:   stmt.Eloquent,
+		Pretending: stmt.Pretending,
+		Dest:       stmt.Dest,
+		DestValue:  stmt.DestValue,
+	}
+	return newStmt
+}
+
 /*
-GroupItemsByKey groups items by key.
+GroupItemsByKey groups items by key. return a map[stringKey][]*itemType
 */
 func GroupItemsByKey(items interface{}, key string, config *ModelConfig, isSingle bool) map[string]interface{} {
 	grouped := make(map[string]interface{})
