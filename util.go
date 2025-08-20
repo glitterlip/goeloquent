@@ -74,3 +74,43 @@ func Equals(a, b interface{}, kind reflect.Kind) bool {
 		return false
 	}
 }
+
+/*
+GroupItemsByKey groups items by key.
+*/
+func GroupItemsByKey(items interface{}, key string, config *ModelConfig, isSingle bool) map[string]interface{} {
+	grouped := make(map[string]interface{})
+	itemsValue := reflect.Indirect(reflect.ValueOf(items))
+	if itemsValue.Kind() != reflect.Slice && itemsValue.Kind() != reflect.Array {
+		panic("GroupItemsByKey: items must be a slice or array")
+	}
+
+	length := itemsValue.Len()
+
+	isPtr := itemsValue.Type().Elem().Kind() == reflect.Ptr
+	field := config.LookupField(key)
+	name := field.Name
+	for i := 0; i < length; i++ {
+		itemV := itemsValue.Index(i)
+		if isPtr {
+			itemV = itemV.Elem()
+		}
+		itemKey := itemV.FieldByName(name).Interface()
+		itemKeyStr := fmt.Sprint(itemKey)
+		if !isSingle {
+			if _, ok := grouped[fmt.Sprint(itemKey)]; !ok {
+				slice := reflect.MakeSlice(reflect.SliceOf(config.ModelType), 0, length)
+				slice = reflect.Append(slice, itemV)
+				grouped[itemKeyStr] = slice.Interface()
+			} else {
+				slice := reflect.ValueOf(grouped[itemKeyStr])
+				slice = reflect.Append(slice, itemV)
+				grouped[itemKeyStr] = slice.Interface()
+			}
+		} else {
+			grouped[itemKeyStr] = itemV.Interface()
+		}
+
+	}
+	return grouped
+}
