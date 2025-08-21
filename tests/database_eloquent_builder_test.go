@@ -31,7 +31,7 @@ func TestFindMethod(t *testing.T) {
 		user := &EloquentUser{}
 		st, err := conn.Model(user).Find(user, 1)
 		assert.ErrorIs(t, err, goeloquent.ErrorNotFound)
-		assert.Equal(t, st.RawSql, "select * from `eloquent_users` where `id` = ? limit 1")
+		assert.Equal(t, st.RawSql, "select * from `eloquent_users` where `eloquent_users`.`id` = ? limit 1")
 		assert.Equal(t, st.GetBindings(), []interface{}{1})
 
 		user.Init(user)
@@ -46,7 +46,7 @@ func TestFindMethod(t *testing.T) {
 
 		st, err = conn.Model(user).Find(&user1, 1)
 		assert.NoError(t, err)
-		assert.Equal(t, st.RawSql, "select * from `eloquent_users` where `id` = ? limit 1")
+		assert.Equal(t, st.RawSql, "select * from `eloquent_users` where `eloquent_users`.`id` = ? limit 1")
 		assert.Equal(t, st.GetBindings(), []interface{}{1})
 		assert.Equal(t, user1.Id, int64(1))
 		assert.Equal(t, user1.Name, "John Doe")
@@ -66,7 +66,7 @@ func TestFirstMethod(t *testing.T) {
 		user := &EloquentUser{}
 		st, err := conn.Model(user).Find(user, 1)
 		assert.ErrorIs(t, err, goeloquent.ErrorNotFound)
-		assert.Equal(t, st.RawSql, "select * from `eloquent_users` where `id` = ? limit 1")
+		assert.Equal(t, st.RawSql, "select * from `eloquent_users` where `eloquent_users`.`id` = ? limit 1")
 		assert.Equal(t, st.GetBindings(), []interface{}{1})
 
 		user.Init(user)
