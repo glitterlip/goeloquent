@@ -179,3 +179,35 @@ func TestRelationCountQueryCanBeBuilt(t *testing.T) {
 		assert.Equal(t, users1[0].HasOneUserInfo.Meta.Age, 30)
 	})
 }
+func TestRelationGetResults(t *testing.T) {
+	after := "drop table if exists models; drop table if exists user_info;"
+	before := after + "create table models (id int auto_increment  primary key, name varchar(255), email varchar(255), roles varchar(255), created_at datetime, updated_at datetime, deleted_at datetime); " +
+		"create table user_info (id int auto_increment primary key , user_id int, meta json)"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		conn.Table("models").Insert([]map[string]interface{}{
+			{"name": "John Doe", "email": "qqq"},
+			{"name": "Jane Doe1", "email": "www"},
+		})
+		conn.Table("user_info").Insert([]map[string]interface{}{
+			{"user_id": 3, "meta": `{"address":"address1","age":20,"verified":true,"tags":["tag1","tag2"]}`},
+			{"user_id": 1, "meta": `{"address":"address2","age":30,"verified":false,"tags":["tag3","tag4"]}`},
+			{"user_id": 2, "meta": `{"address":"address2","age":25,"verified":false,"tags":["tag3","tag4"]}`},
+		})
+		var sts []*goeloquent.Statement
+		goeloquent.DB.Listen(goeloquent.EventQueryExecuted, func(name goeloquent.EventName, i ...interface{}) bool {
+			sts = append(sts, i[0].(*goeloquent.Statement))
+			return true
+		})
+
+		var u HasOneUser
+		r, err := conn.Model(&u).First(&u)
+		assert.Equal(t, u.Id, int64(1))
+		var info HasOneUserInfo
+		r, err = u.UserInfoRelation().First(&info)
+		assert.Nil(t, err)
+		assert.Equal(t, info.UserId, u.Id)
+		assert.Equal(t, info.Meta.Age, 30)
+		assert.Equal(t, "select * from `user_info` where `user_info`.`user_id` = ? and `user_info`.`user_id` is not null limit 1", r.RawSql)
+		assert.Equal(t, r.GetBindings(), []interface{}{int64(1)})
+	})
+}
