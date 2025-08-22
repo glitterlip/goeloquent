@@ -144,3 +144,46 @@ func TestModelsAreProperlyMatchedToParentsHasMany(t *testing.T) {
 
 	})
 }
+
+func TestRelationGetResultsHasMany(t *testing.T) {
+	after := "drop table if exists models; drop table if exists addresses;"
+	before := after + "create table models (id int auto_increment  primary key, name varchar(255), account varchar(255)); " +
+		"create table addresses (id int auto_increment primary key , user_id int ,sort int, country varchar(255), address varchar(255))"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		var us []HasManyUser
+		var address []HasManyAddress
+		for i := 1; i <= 10; i++ {
+			us = append(us, HasManyUser{
+				Name:    fmt.Sprintf("User %d", i),
+				Account: fmt.Sprintf("account%d", i),
+			})
+			for j := 1; j <= i; j++ {
+				address = append(address, HasManyAddress{
+					UserId:  int64(i),
+					Sort:    j,
+					Country: fmt.Sprintf("Country %d", j),
+					Address: fmt.Sprintf("Address %d", j),
+				})
+			}
+
+		}
+		_, err := conn.Model(&us).Insert(&us)
+		assert.Nil(t, err)
+		_, err = conn.Model(&address).Insert(&address)
+		assert.Nil(t, err)
+
+		var user HasManyUser
+		_, err = conn.Model(&user).Find(&user, 5)
+		assert.Nil(t, err)
+		var addresses []HasManyAddress
+		_, err = user.AddressesRelation().Get(&addresses)
+		assert.Nil(t, err)
+		assert.Equal(t, user.Id, int64(len(addresses)))
+		for i, manyAddress := range addresses {
+			assert.Equal(t, fmt.Sprintf("Country %d", manyAddress.Sort), manyAddress.Country)
+			assert.Equal(t, fmt.Sprintf("Address %d", manyAddress.Sort), manyAddress.Address)
+			assert.Equal(t, user.Id, manyAddress.UserId)
+			assert.Equal(t, i+1, manyAddress.Sort)
+		}
+	})
+}
