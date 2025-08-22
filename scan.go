@@ -183,10 +183,14 @@ func Scan(rows *sql.Rows, dest interface{}, mapping map[string]string) (count in
 				}
 			}
 		default:
-			err = rows.Scan(dest)
-			if err != nil {
-				return 0, err
+			for rows.Next() {
+				count++
+				err = rows.Scan(dest)
+				if err != nil {
+					return 0, err
+				}
 			}
+
 		}
 	}
 
