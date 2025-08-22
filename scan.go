@@ -171,7 +171,7 @@ func Scan(rows *sql.Rows, dest interface{}, mapping map[string]string) (count in
 					reflectDestValue.Set(reflect.Append(reflectDestValue, elem))
 				}
 			}
-		case reflect.Struct:
+		case reflect.Struct, reflect.Interface:
 			if rows.Next() {
 				var elem reflect.Value
 				count++
