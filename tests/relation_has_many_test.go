@@ -144,7 +144,59 @@ func TestModelsAreProperlyMatchedToParentsHasMany(t *testing.T) {
 
 	})
 }
-
+func TestRelationCountQueryCanBeBuiltHasMany(t *testing.T) {
+	after := "drop table if exists models; drop table if exists addresses;"
+	before := after + "create table models (id int auto_increment  primary key, name varchar(255), account varchar(255)); " +
+		"create table addresses (id int auto_increment primary key , user_id int ,sort int, country varchar(255), address varchar(255))"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		var us []HasManyUser
+		var address []HasManyAddress
+		for i := 1; i <= 10; i++ {
+			us = append(us, HasManyUser{
+				Name:    fmt.Sprintf("User %d", i),
+				Account: fmt.Sprintf("account%d", i),
+			})
+			for j := 1; j <= i; j++ {
+				address = append(address, HasManyAddress{
+					UserId:  int64(i),
+					Sort:    j,
+					Country: fmt.Sprintf("Country %d", j),
+					Address: fmt.Sprintf("Address %d", j),
+				})
+			}
+		}
+		_, err := conn.Model(&us).Insert(&us)
+		assert.Nil(t, err)
+		_, err = conn.Model(&address).Insert(&address)
+		assert.Nil(t, err)
+		var sts []*goeloquent.Statement
+		goeloquent.DB.Listen(goeloquent.EventQueryExecuted, func(name goeloquent.EventName, i ...interface{}) bool {
+			sts = append(sts, i[0].(*goeloquent.Statement))
+			return true
+		})
+		var users2 []HasManyUser
+		_, err = conn.Model(&users2).With("Addresses").Has("Addresses", ">=", 9).Get(&users2)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(users2))
+		assert.Equal(t, 2, len(sts))
+		assert.Equal(t, "select * from `models` where (select count(*) from `addresses` where `models`.`id` = `addresses`.`user_id`) >= 9", sts[0].RawSql)
+		for _, user := range users2 {
+			assert.GreaterOrEqual(t, len(user.Addresses), 9)
+		}
+		var users3 []HasManyUser
+		_, err = conn.Model(&users3).With("Addresses").WhereHas("Addresses", func(q *goeloquent.Statement) {
+			q.Where("sort", ">", 8)
+		}).Get(&users3)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(users3))
+		assert.Equal(t, 4, len(sts))
+		assert.Equal(t, "select * from `models` where exists (select * from `addresses` where `models`.`id` = `addresses`.`user_id` and `sort` > ?)", sts[2].RawSql)
+		assert.Equal(t, []interface{}{8}, sts[2].GetBindings())
+		for _, user := range users3 {
+			assert.Greater(t, len(user.Addresses), 8)
+		}
+	})
+}
 func TestRelationGetResultsHasMany(t *testing.T) {
 	after := "drop table if exists models; drop table if exists addresses;"
 	before := after + "create table models (id int auto_increment  primary key, name varchar(255), account varchar(255)); " +
