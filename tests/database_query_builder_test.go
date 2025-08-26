@@ -1431,7 +1431,7 @@ func TestGetCountForPaginationWithBindings(t *testing.T) {
 	}, "posts")
 	b.Pretend()
 	var count int
-	c := goeloquent.Clone(b)
+	c := goeloquent.CloneQueryBuilder(b)
 	c.Without([]goeloquent.Component{goeloquent.COMPONENT_COLUMN, goeloquent.COMPONENT_ORDER, goeloquent.COMPONENT_OFFSET, goeloquent.COMPONENT_LIMIT},
 		[]goeloquent.Component{goeloquent.COMPONENT_SELECT, goeloquent.COMPONENT_ORDER}).
 		Count(&count)
@@ -1445,7 +1445,7 @@ func TestGetCountForPaginationWithColumnAliases(t *testing.T) {
 	b.Select(columns).From("posts")
 	b.Pretend()
 	var count int
-	c := goeloquent.Clone(b)
+	c := goeloquent.CloneQueryBuilder(b)
 	c.Without([]goeloquent.Component{goeloquent.COMPONENT_COLUMN, goeloquent.COMPONENT_ORDER, goeloquent.COMPONENT_OFFSET, goeloquent.COMPONENT_LIMIT},
 		[]goeloquent.Component{goeloquent.COMPONENT_SELECT, goeloquent.COMPONENT_ORDER}).
 		Count(&count, goeloquent.WithoutSelectAliases(columns)...)
@@ -3512,7 +3512,7 @@ func TestIgnoreIndexSqlServer(t *testing.T) {
 func TestClone(t *testing.T) {
 	b := GetBuilder()
 	b.Select().From("users")
-	clone := goeloquent.Clone(b).Where("id", 1)
+	clone := goeloquent.CloneQueryBuilder(b).Where("id", 1)
 	assert.Equal(t, "select * from `users` where `id` = ?", clone.ToSql())
 	assert.Equal(t, "select * from `users`", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{1}, clone.GetBindings())
