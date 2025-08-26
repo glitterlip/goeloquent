@@ -197,6 +197,19 @@ func TestRelationGetResultsBelongsToMany(t *testing.T) {
 			}
 		}
 
+		var role BelongsToManyRoles
+		sts = []*goeloquent.Statement{}
+		_, err = conn.Model(&BelongsToManyRoles{}).Where("id", 2).First(&role)
+		assert.Nil(t, err)
+		var users []*BelongsToManyUser
+		role.UsersRelation().Where("age", 35).Get(&users)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(sts))
+		assert.Equal(t, "select * from `users` inner join `role_user` on `role_user`.`user_id` = `users`.`id` where `role_user`.`role_id` = ? and `age` = ?", sts[1].RawSql)
+		assert.Equal(t, []interface{}{int64(2), 35}, sts[1].GetBindings())
+		assert.Equal(t, 1, len(users))
+		assert.Equal(t, 35, users[0].Age)
+
 	})
 }
 func TestRelationLoadsResultsBelongsToMany(t *testing.T) {
