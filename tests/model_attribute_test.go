@@ -2,10 +2,12 @@ package tests
 
 import (
 	"database/sql"
-	"github.com/glitterlip/goeloquent/v2"
-	"github.com/stretchr/testify/assert"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/glitterlip/goeloquent/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 type FillableModel struct {
@@ -157,6 +159,12 @@ type DirtyModel struct {
 	Bool  bool         `json:"bool" goelo:"column:bool;"`
 }
 
+func (d *DirtyModel) GetTableName(st *goeloquent.Statement) string {
+	return "dirty_model"
+}
+func (d *DirtyModel) GetConnectionName(st *goeloquent.Statement) string {
+	return "test"
+}
 func TestIsDirty(t *testing.T) {
 	now := time.Now()
 	model := &DirtyModel{
@@ -205,28 +213,32 @@ func TestGetDirtyAttributes(t *testing.T) {
 	}, model.GetDirty())
 }
 func TestGetChangedAttributes(t *testing.T) {
-	now := time.Now()
-	model := &DirtyModel{
-		Name:  "original",
-		Email: "original@gmail.com",
-		Time:  sql.NullTime{Valid: true, Time: now.Add(time.Hour)},
-		Bool:  true,
-	}
-	model.Init(model).Fill(map[string]interface{}{
-		"Name":  "new",
-		"Email": "new@github.com",
-	})
-	model.Time = sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)}
-	model.Bool = false
-	model.Save()
+	after := "drop table if exists `dirty_model`"
+	before := "create table `dirty_model` (`id` bigint unsigned not null auto_increment primary key, `name` varchar(255) not null, `email` varchar(255) not null, `time` datetime null, `bool` boolean not null default false) charset=utf8mb4 collate=utf8mb4_general_ci;"
+	RunWithDB(before, after, func(conn goeloquent.Connection) {
+		now := time.Now()
+		model := &DirtyModel{
+			Name:  "original",
+			Email: "original@gmail.com",
+			Time:  sql.NullTime{Valid: true, Time: now.Add(time.Hour)},
+			Bool:  true,
+		}
+		model.Init(model).Fill(map[string]interface{}{
+			"Name":  "new",
+			"Email": "new@github.com",
+		})
+		model.Time = sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)}
+		model.Bool = false
+		model.Save()
 
-	assert.Nil(t, model.Error)
-	assert.Equal(t, model.RawSql, "insert into `dirty_model` (`bool`, `email`, `name`, `time`) values (?, ?, ?, ?)")
-	assert.Equal(t, map[string]interface{}{
-		"name":  "new",
-		"email": "new@github.com",
-		"time":  sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)},
-		"bool":  false,
-	}, model.GetChanges())
+		assert.Nil(t, model.Error)
+		assert.Equal(t, model.RawSql, "insert into `dirty_model` (`bool`, `email`, `name`, `time`) values (?, ?, ?, ?)")
+		assert.Equal(t, map[string]interface{}{
+			"name":  "new",
+			"email": "new@github.com",
+			"time":  sql.NullTime{Valid: true, Time: now.Add(time.Hour * 2)},
+			"bool":  false,
+		}, model.GetChanges())
+	})
 
 }
