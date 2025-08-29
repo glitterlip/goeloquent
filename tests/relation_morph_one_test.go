@@ -202,6 +202,7 @@ func TestRelationGetResultsMorphOne(t *testing.T) {
 		assert.Equal(t, len(sts), 1)
 		assert.Equal(t, sts[0].RawSql, "select * from `images` where `imageable_id` = ? and `imageable_type` = ? and `imageable_id` is not null")
 		assert.Equal(t, []interface{}{int64(1), "MorphOneUser"}, sts[0].GetBindings())
+		assert.Equal(t, image.Id, int64(3))
 
 	})
 }
