@@ -111,7 +111,7 @@ func TestModelsAreProperlyMatchedToParentsMorphOne(t *testing.T) {
 		_, err = conn.Model(&MorphOneUser{}).With("Image").Get(&users)
 		assert.Nil(t, err)
 		assert.Equal(t, len(sts), 2)
-		assert.Equal(t, sts[1].RawSql, "select * from `images` where select * from `images` where `images`.`imageable_type` = ? and `images`.`imageable_id` is not null and `images`.`imageable_id` in (?, ?, ?, ?, ?)")
+		assert.Equal(t, sts[1].RawSql, "select * from `images` where `images`.`imageable_type` = ? and `images`.`imageable_id` is not null and `images`.`imageable_id` in (?, ?, ?, ?, ?)")
 		assert.Equal(t, []interface{}{"MorphOneUser", int64(1), int64(2), int64(3), int64(4), int64(5)}, sts[1].GetBindings())
 		assert.Equal(t, 5, len(users))
 		assert.Equal(t, users[0].Image.ImageableId, users[0].Id)
@@ -160,7 +160,7 @@ func TestRelationCountQueryCanBeBuiltMorphOne(t *testing.T) {
 			q.Where("url", "like", "%3.jpg%")
 		}).Get(&users1)
 		assert.Equal(t, len(sts), 1)
-		assert.Equal(t, "select * from `users` where exists (select * from `images` where `users`.`id` = `images`.`imageable_id` and `imageable_type` = ? and `url` like ?)", sts[0].RawSql)
+		assert.Equal(t, "select * from `users` where exists (select * from `images` where `users`.`id` = `images`.`imageable_id` and `images`.`imageable_type` = ? and `url` like ?)", sts[0].RawSql)
 		assert.Equal(t, []interface{}{"MorphOneUser", "%3.jpg%"}, sts[0].GetBindings())
 
 	})
