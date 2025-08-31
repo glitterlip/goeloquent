@@ -75,7 +75,7 @@ func TestEagerConstraintsAreProperlyAddedMorphOne(t *testing.T) {
 		_, err = conn.Model(&MorphOneUser{}).With("Image").Get(&users)
 		assert.ErrorIs(t, goeloquent.ErrorNotFound, err)
 		assert.Equal(t, len(sts), 2)
-		assert.Equal(t, sts[1].RawSql, "select * from `images` where `imageable_type` = ? and `imageable_id` is not null and `imageable_id` in (?, ?, ?, ?, ?)")
+		assert.Equal(t, sts[1].RawSql, "select * from `images` where `images`.`imageable_type` = ? and `images`.`imageable_id` is not null and `images`.`imageable_id` in (?, ?, ?, ?, ?)")
 		assert.Equal(t, []interface{}{"MorphOneUser", int64(1), int64(2), int64(3), int64(4), int64(5)}, sts[1].GetBindings())
 
 	})
