@@ -151,7 +151,7 @@ func TestRelationCountQueryCanBeBuiltMorphOne(t *testing.T) {
 		var users []MorphOneUser
 		_, err = conn.Model(&MorphOneUser{}).Has("Image").Get(&users)
 		assert.Equal(t, len(sts), 1)
-		assert.Equal(t, sts[0].RawSql, "select * from `users` where exists (select * from `images` where `users`.`id` = `images`.`imageable_id` and `imageable_type` = ?)")
+		assert.Equal(t, sts[0].RawSql, "select * from `users` where exists (select * from `images` where `users`.`id` = `images`.`imageable_id` and `images`.`imageable_type` = ?)")
 		assert.Equal(t, []interface{}{"MorphOneUser"}, sts[0].GetBindings())
 
 		sts = []*goeloquent.Statement{}
