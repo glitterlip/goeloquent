@@ -9,8 +9,10 @@ import (
 const DefaultConnectionName = "default"
 
 type DatabaseManager struct {
-	Connections sync.Map
-	Listeners   map[EventName][]func(EventName, ...interface{}) bool
+	Connections  sync.Map
+	Listeners    map[EventName][]func(EventName, ...interface{}) bool
+	ParsedModels sync.Map //store parsed models map[modelName]*ModelConfig
+	MorphMaps    sync.Map //convert string from database column to model for relation
 }
 
 func (m *DatabaseManager) Conn(name string) (Connection, error) {
@@ -87,4 +89,10 @@ func (m *DatabaseManager) Model(model ...interface{}) *EloquentBuilder {
 	eb.SetModel(model...)
 
 	return eb.Eloquent
+}
+
+func (m *DatabaseManager) SetMorphMaps(maps map[string]interface{}) {
+	for k, v := range maps {
+		m.MorphMaps.Store(k, v)
+	}
 }
