@@ -25,8 +25,16 @@ func (m *DatabaseManager) DefaultConnection() (Connection, error) {
 	if conn, ok := m.Connections.Load(DefaultConnectionName); ok {
 		return conn.(*MysqlConnection), nil
 	}
-	return nil, errors.New("default connection not found")
+	return nil, ErrorConnectionNotSet
 }
+
+/*
+Listen registers a listener for the specified event.
+
+If the listener is nil, it removes the listener for that event.
+
+listeners will stop if error happens or return a false
+*/
 func (m *DatabaseManager) Listen(name EventName, listener func(EventName, ...interface{}) bool) {
 	if listener == nil {
 		delete(m.Listeners, name)
@@ -65,7 +73,7 @@ func (m *DatabaseManager) DB(name ...string) (*sql.DB, error) {
 	if conn, ok := m.Connections.Load(DefaultConnectionName); ok {
 		return conn.(*MysqlConnection).GetDB(), nil
 	}
-	return nil, errors.New("default connection not found")
+	return nil, ErrorConnectionNotSet
 }
 func (m *DatabaseManager) Query() *Statement {
 	conn, err := m.DefaultConnection()
