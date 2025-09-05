@@ -3,10 +3,12 @@ package goeloquent
 import (
 	"errors"
 	"fmt"
+	"go/types"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Expression string
@@ -1008,6 +1010,9 @@ func (g *MysqlGrammar) CompileWhereYear(where Where) string {
 }
 
 func (g *MysqlGrammar) CompileWhereBasic(where Where) string {
+	if exp, ok := where.Column.(Expression); ok {
+		return string(exp)
+	}
 	operator := strings.ReplaceAll(where.Operator, "?", "??")
 
 	return g.Wrap(where.Column) + " " + operator + " " + g.Parameter(where.Value)
