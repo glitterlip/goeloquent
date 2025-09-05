@@ -101,6 +101,13 @@ func (m *DatabaseManager) Model(model ...interface{}) *EloquentBuilder {
 
 func (m *DatabaseManager) SetMorphMaps(maps map[string]interface{}) {
 	for k, v := range maps {
-		m.MorphMaps.Store(k, v)
+		if config, ok := v.(*ModelConfig); ok {
+			m.MorphMaps.Store(k, config)
+		} else {
+			config, err := ParseModel(v)
+			if err == nil {
+				m.MorphMaps.Store(k, config)
+			}
+		}
 	}
 }
