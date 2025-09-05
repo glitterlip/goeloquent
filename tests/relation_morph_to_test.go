@@ -14,6 +14,7 @@ type MorphToComment struct {
 	CommentableId   int64       `json:"commentable_id" goelo:"column:commentable_id;"`
 	CommentableType string      `json:"commentable_type" goelo:"column:commentable_type;"`
 	Commentable     interface{} `json:"commentable" goelo:"MorphTo:CommentRelation"`
+	Post            MorphToPost `json:"post" goelo:"MorphTo:PostRelation"`
 }
 
 func (m *MorphToComment) GetTableName(st *goeloquent.Statement) string {
@@ -24,6 +25,17 @@ func (m *MorphToComment) GetConnectionName(st *goeloquent.Statement) string {
 }
 func (m *MorphToComment) CommentRelation() *goeloquent.MorphToRelation {
 	return m.MorphTo(m, "commentable_id", "commentable_type")
+}
+func (m *MorphToComment) PostRelation() *goeloquent.MorphToRelation {
+	config, _ := goeloquent.GetParsedModel(&MorphToPost{})
+	r := m.MorphTo(m, "commentable_id", "commentable_type", map[string]*goeloquent.MorphToConfig{
+		"Post": {
+			ModelConfig: config,
+			RelatedKey:  "id",
+			MorphType:   "posts",
+		},
+	})
+	return r
 }
 
 type MorphToPost struct {
@@ -60,11 +72,9 @@ func TestSaveMethodSetsForeignKeyOnModelMorphTo(t *testing.T) {
 func TestEagerConstraintsAreProperlyAddedMorphTo(t *testing.T) {
 	after := "drop table if exists comments;drop table if exists posts;drop table if exists videos;"
 	before := after + "create table posts (id integer primary key auto_increment,title text,content text);create table videos (id integer primary key auto_increment,title text,url text);create table comments (id integer primary key auto_increment,content text,commentable_id integer,commentable_type text);"
-	postConfig, _ := goeloquent.ParseModel(&MorphToPost{})
-	videoConfig, _ := goeloquent.ParseModel(&MorphToVideo{})
 	goeloquent.DB.SetMorphMaps(map[string]interface{}{
-		"posts":  postConfig,
-		"videos": videoConfig,
+		"posts":  &MorphToPost{},
+		"videos": &MorphToVideo{},
 	})
 	RunWithDB(before, after, func(conn goeloquent.Connection) {
 		_, err := conn.Table("comments").Insert([]map[string]interface{}{
@@ -98,11 +108,9 @@ func TestEagerConstraintsAreProperlyAddedMorphTo(t *testing.T) {
 func TestModelsAreProperlyMatchedToParentsMorphTo(t *testing.T) {
 	after := "drop table if exists comments;drop table if exists posts;drop table if exists videos;"
 	before := after + "create table posts (id integer primary key auto_increment,title text,content text);create table videos (id integer primary key auto_increment,title text,url text);create table comments (id integer primary key auto_increment,content text,commentable_id integer,commentable_type text);"
-	postConfig, _ := goeloquent.ParseModel(&MorphToPost{})
-	videoConfig, _ := goeloquent.ParseModel(&MorphToVideo{})
 	goeloquent.DB.SetMorphMaps(map[string]interface{}{
-		"posts":  postConfig,
-		"videos": videoConfig,
+		"posts":  &MorphToPost{},
+		"videos": &MorphToVideo{},
 	})
 	RunWithDB(before, after, func(conn goeloquent.Connection) {
 		_, err := conn.Table("comments").Insert([]map[string]interface{}{
@@ -165,11 +173,9 @@ func TestModelsAreProperlyMatchedToParentsMorphTo(t *testing.T) {
 func TestRelationCountQueryCanBeBuiltMorphTo(t *testing.T) {
 	after := "drop table if exists comments;drop table if exists posts;drop table if exists videos;"
 	before := after + "create table posts (id integer primary key auto_increment,title text,content text);create table videos (id integer primary key auto_increment,title text,url text);create table comments (id integer primary key auto_increment,content text,commentable_id integer,commentable_type text);"
-	postConfig, _ := goeloquent.ParseModel(&MorphToPost{})
-	videoConfig, _ := goeloquent.ParseModel(&MorphToVideo{})
 	goeloquent.DB.SetMorphMaps(map[string]interface{}{
-		"posts":  postConfig,
-		"videos": videoConfig,
+		"posts":  &MorphToPost{},
+		"videos": &MorphToVideo{},
 	})
 	RunWithDB(before, after, func(conn goeloquent.Connection) {
 		_, err := conn.Table("comments").Insert([]map[string]interface{}{
@@ -226,7 +232,27 @@ func TestRelationCountQueryCanBeBuiltMorphTo(t *testing.T) {
 				assert.Equal(t, video.Id, comment.CommentableId)
 			}
 		}
+		sts = []*goeloquent.Statement{}
+		var comments1 []MorphToComment
+		_, err = conn.Model(&comments1).Has("Post").Get(&comments1)
+		assert.Nil(t, err)
+		assert.Equal(t, len(comments1), 2)
+		assert.Equal(t, len(sts), 1)
+		assert.Equal(t, sts[0].RawSql, "select * from `comments` where exists (select * from `posts` where `comments`.`commentable_id` = `posts`.`id` and `comments`.`commentable_type` = ?)")
+		assert.Equal(t, sts[0].GetBindings(), []interface{}{"posts"})
 
+		sts = []*goeloquent.Statement{}
+		var comments2 []MorphToComment
+		_, err = conn.Model(&comments2).With("Post").WhereHas("Post", func(st *goeloquent.Statement) {
+			st.Where("title", "this is post 2")
+		}).Get(&comments2)
+		assert.Nil(t, err)
+		assert.Equal(t, len(comments2), 1)
+		assert.Equal(t, len(sts), 2)
+		assert.Equal(t, sts[0].RawSql, "select * from `comments` where exists (select * from `posts` where `comments`.`commentable_id` = `posts`.`id` and `comments`.`commentable_type` = ? and `title` = ?)")
+		assert.Equal(t, sts[0].GetBindings(), []interface{}{"posts", "this is post 2"})
+		assert.Equal(t, comments2[0].CommentableId, comments2[0].Post.Id)
+		assert.Equal(t, comments2[0].Post.Title, "this is post 2")
 	})
 }
 func TestCreateMethodProperlyCreatesNewModelMorphTo(t *testing.T) {
@@ -234,11 +260,9 @@ func TestCreateMethodProperlyCreatesNewModelMorphTo(t *testing.T) {
 func TestRelationGetResultsMorphTo(t *testing.T) {
 	after := "drop table if exists comments;drop table if exists posts;drop table if exists videos;"
 	before := after + "create table posts (id integer primary key auto_increment,title text,content text);create table videos (id integer primary key auto_increment,title text,url text);create table comments (id integer primary key auto_increment,content text,commentable_id integer,commentable_type text);"
-	postConfig, _ := goeloquent.ParseModel(&MorphToPost{})
-	videoConfig, _ := goeloquent.ParseModel(&MorphToVideo{})
 	goeloquent.DB.SetMorphMaps(map[string]interface{}{
-		"posts":  postConfig,
-		"videos": videoConfig,
+		"posts":  &MorphToPost{},
+		"videos": &MorphToVideo{},
 	})
 	RunWithDB(before, after, func(conn goeloquent.Connection) {
 		_, err := conn.Table("comments").Insert([]map[string]interface{}{
