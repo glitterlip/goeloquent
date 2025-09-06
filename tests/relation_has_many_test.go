@@ -91,7 +91,7 @@ func TestEagerConstraintsAreProperlyAddedHasMany(t *testing.T) {
 
 		var users []HasManyUser
 		_, err = conn.Model(&users).With("Addresses").Get(&users)
-		assert.Nil(t, goeloquent.ErrorNotFound)
+		assert.Nil(t, err)
 		assert.Equal(t, 2, len(users))
 		assert.Equal(t, 2, len(sts))
 		assert.Equal(t, "select * from `addresses` where `addresses`.`user_id` in (?, ?)", sts[1].RawSql)
