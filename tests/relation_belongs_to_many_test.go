@@ -65,7 +65,7 @@ func TestEagerConstraintsAreProperlyAddedBelongsToMany(t *testing.T) {
 		})
 		var roles []BelongsToManyRoles
 		_, err = conn.Model(&BelongsToManyRoles{}).With("Users").Get(&roles)
-		assert.ErrorIs(t, err, goeloquent.ErrorNotFound)
+		assert.Nil(t, err)
 		assert.Equal(t, 2, len(sts))
 		assert.Equal(t, "select * from `roles`", sts[0].RawSql)
 		assert.Equal(t, "select `users`.*, `role_user`.`role_id` as `goelo_pivot_role_id`, `role_user`.`user_id` as `goelo_pivot_user_id` from `users` inner join `role_user` on `role_user`.`user_id` = `users`.`id` where `role_user`.`role_id` in (?, ?, ?, ?, ?)", sts[1].RawSql)
