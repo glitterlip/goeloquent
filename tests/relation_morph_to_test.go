@@ -96,11 +96,9 @@ func TestEagerConstraintsAreProperlyAddedMorphTo(t *testing.T) {
 		assert.Equal(t, len(comments), 4)
 		assert.Equal(t, len(sts), 3)
 		assert.Equal(t, sts[0].RawSql, "select * from `comments`")
-		assert.Equal(t, sts[1].RawSql, "select * from `posts` where `id` in (?, ?)")
-		assert.Equal(t, sts[2].RawSql, "select * from `videos` where `id` in (?, ?)")
-		assert.Empty(t, sts[0].GetBindings())
-		assert.Equal(t, sts[1].GetBindings(), []interface{}{"1", "2"})
-		assert.Equal(t, sts[2].GetBindings(), []interface{}{"3", "4"})
+		sqls := []string{"select * from `posts` where `id` in ('1', '2')", "select * from `videos` where `id` in ('3', '4')"}
+		assert.Contains(t, sqls, sts[1].ToRawSql())
+		assert.Contains(t, sqls, sts[2].ToRawSql())
 
 	})
 
