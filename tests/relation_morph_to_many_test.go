@@ -9,10 +9,11 @@ import (
 
 type Tag struct {
 	*goeloquent.EloquentModel
-	Id      int64       `json:"id" goelo:"column:id;primaryKey;autoIncrement"`
-	Name    string      `json:"name" goelo:"column:name"`
-	Valid   int8        `json:"valid" goelo:"column:valid"`
-	Tagable interface{} `json:"tagable" goelo:"MorphedByMany:TagablesRelation"`
+	Id     int64   `json:"id" goelo:"column:id;primaryKey;autoIncrement"`
+	Name   string  `json:"name" goelo:"column:name"`
+	Valid  int8    `json:"valid" goelo:"column:valid"`
+	Posts  []Post  `json:"posts" goelo:"MorphedByMany:PostsRelation"`
+	Videos []Video `json:"videos" goelo:"MorphedByMany:VideosRelation"`
 }
 
 func (t *Tag) GetTableName(st *goeloquent.Statement) string {
@@ -21,8 +22,12 @@ func (t *Tag) GetTableName(st *goeloquent.Statement) string {
 func (t *Tag) GetConnectionName(st *goeloquent.Statement) string {
 	return "test"
 }
-func (t *Tag) TagablesRelation() *goeloquent.MorphedByManyRelation {
-	return t.MorphedByMany(t, "tagables", "tag_id", "tagable_id", "tagable_type", "id", "id")
+
+func (t *Tag) PostsRelation() *goeloquent.MorphedByManyRelation {
+	return t.MorphedByMany(t, "tagables", "tag_id", "tagable_id", "tagable_type", "id", "id", "posts")
+}
+func (t *Tag) VideosRelation() *goeloquent.MorphedByManyRelation {
+	return t.MorphedByMany(t, "tagables", "tag_id", "tagable_id", "tagable_type", "id", "id", "videos")
 }
 
 type Post struct {
