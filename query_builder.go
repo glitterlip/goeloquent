@@ -208,6 +208,7 @@ type QueryBuilder struct {
 	Parent               *QueryBuilder
 	RawSql               string        //compiled sql
 	RawBindings          []interface{} //compiled sql bindings
+	Mapping              map[string]string
 }
 type Aggregate struct {
 	AggregateName    string        //aggregate function
