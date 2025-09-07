@@ -146,6 +146,28 @@ func TestAddingSelects(t *testing.T) {
 	b.Select("foo").AddSelect("bar").AddSelect("baz", "boom").AddSelect("bar").From("users")
 	assert.Nil(t, b.Statement.Error)
 	assert.Equal(t, "select `foo`, `bar`, `baz`, `boom`, `bar` from `users`", b.ToSql())
+
+	b1 := GetBuilder()
+	b1.From("users").AddSelect(map[string]interface{}{
+		"uid":    "id+1000000",
+		"masked": "CONCAT(SUBSTRING(phone_number, 1, 3),'****',SUBSTRING(phone_number, 8, 4) )",
+	})
+	assert.Nil(t, b1.Statement.GetError())
+	sqls := []string{
+		"select (id+1000000) as `uid`, (CONCAT(SUBSTRING(phone_number, 1, 3),'****',SUBSTRING(phone_number, 8, 4) )) as `masked` from `users`",
+		"select (CONCAT(SUBSTRING(phone_number, 1, 3),'****',SUBSTRING(phone_number, 8, 4) )) as `masked`, (id+1000000) as `uid` from `users`",
+	}
+	assert.Contains(t, sqls, b1.ToSql())
+
+	b2 := GetBuilder()
+	b2.From("users").AddSelect(map[string]string{
+		"id": "uid",
+	})
+	assert.Equal(t, b2.ToSql(), "select (uid) as `id` from `users`")
+
+	b3 := GetBuilder()
+	b3.From("users").AddSelect(1)
+	assert.ErrorContains(t, b3.Statement.GetError(), "unsupported type for AddSelect")
 }
 
 func TestBasicSelectWithPrefix(t *testing.T) {

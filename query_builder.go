@@ -552,6 +552,48 @@ func (q *QueryBuilder) ParseSub(query interface{}) (string, []interface{}) {
 	return "", nil
 }
 
+/*
+AddSelect Add a new select column to the query
+
+ 1. AddSelect([]string{"id","name"})
+
+    select id,name
+
+ 2. AddSelect(map[string]interface{}{
+    "uid":    "id+1000000",
+    "masked": "CONCAT(SUBSTRING(phone_number, 1, 3),'****',SUBSTRING(phone_number, 8, 4) )",
+    })
+
+    select id+1000000 as uid,CONCAT(SUBSTRING(phone_number, 1, 3),'****',SUBSTRING(phone_number, 8, 4) ) as masked
+
+ 3. AddSelect(map[string]string{
+    "username": "name",
+    })
+
+    select id as uid,name as username
+*/
+func (q *QueryBuilder) AddSelect(columns ...interface{}) *QueryBuilder {
+	q.Components[COMPONENT_COLUMN] = struct{}{}
+	for i := 0; i < len(columns); i++ {
+		switch columnType := columns[i].(type) {
+		case string, Expression:
+			q.Components[COMPONENT_COLUMN] = struct{}{}
+			q.Columns = append(q.Columns, columnType)
+		case map[string]interface{}:
+			for as, col := range columns[i].(map[string]interface{}) {
+				q.SelectSub(col, as)
+			}
+		case map[string]string:
+			for as, col := range columns[i].(map[string]string) {
+				q.SelectSub(col, as)
+			}
+		default:
+			q.Statement.AddError(errors.New("unsupported type for AddSelect"))
+		}
+	}
+	return q
+}
+
 
 }
 
