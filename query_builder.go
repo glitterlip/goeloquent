@@ -281,6 +281,56 @@ func NewQueryBuilder(stmt ...*Statement) *QueryBuilder {
 }
 
 // Select set the columns to be selected
+/*
+Without unset components and bindings
+*/
+func (q *QueryBuilder) Without(components []Component, bindings []Component) *QueryBuilder {
+	if q.RawSql != "" {
+		//unset compiled sql and bingdings
+		q.RawSql = ""
+		q.RawBindings = []interface{}{}
+	}
+	for _, component := range components {
+		delete(q.Components, component)
+		switch component {
+		case COMPONENT_SELECT:
+			q.Columns = nil
+		case COMPONENT_FROM:
+			q.FromTable = nil
+		case COMPONENT_JOIN:
+			q.IsJoin = false
+			q.Joins = nil
+		case COMPONENT_WHERE:
+			q.Wheres = nil
+		case COMPONENT_GROUP_BY:
+			q.Groups = nil
+		case COMPONENT_HAVING:
+			q.Havings = nil
+		case COMPONENT_ORDER:
+			q.Orders = nil
+		case COMPONENT_LIMIT:
+			q.LimitNum = 0
+		case COMPONENT_OFFSET:
+			q.OffsetNum = 0
+		case COMPONENT_GROUP_LIMIT:
+			q.Grouplimit = GroupLimit{}
+		case COMPONENT_LOCK:
+			q.Locks = ""
+		case COMPONENT_AGGREGRATE:
+			q.Aggregates = Aggregate{}
+		case COMPONENT_INDEX_HINT:
+			q.IndexHint = IndexHint{}
+		case COMPONENT_INSERT:
+			q.Statement.Dest = nil
+		case COMPONENT_COLUMN:
+			q.Columns = nil
+		}
+	}
+	for _, binding := range bindings {
+		delete(q.Bindings, binding)
+	}
+	return q
+}
 func (q *QueryBuilder) Select(columns ...interface{}) *QueryBuilder {
 	q.Components[COMPONENT_COLUMN] = struct{}{}
 	if q.Columns == nil {
