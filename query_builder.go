@@ -257,10 +257,6 @@ type IndexHint struct {
 	Index string
 }
 
-// todo: lock
-type Lock struct {
-}
-
 func NewQueryBuilder(stmt ...*Statement) *QueryBuilder {
 	qb := &QueryBuilder{
 		Grammar:    NewMysqlGrammar(),
@@ -479,6 +475,41 @@ func (q *QueryBuilder) GroupLimit(value int, column string) *QueryBuilder {
 		q.Grouplimit.Value = value
 		q.Grouplimit.Column = column
 		q.Components[COMPONENT_GROUP_LIMIT] = struct{}{}
+	}
+	return q
+}
+
+/*
+Lock Lock the selected rows in the table.
+
+ 1. Lock()
+
+    lock for update
+
+ 2. Lock(false)
+
+    lock in share mode
+
+ 3. Lock("lock in share mode")
+
+    lock in share mode
+*/
+func (q *QueryBuilder) Lock(locks ...interface{}) *QueryBuilder {
+	q.Components[COMPONENT_LOCK] = struct{}{}
+
+	if len(locks) > 0 {
+		switch locks[0].(type) {
+		case string:
+			q.Locks = locks[0].(string)
+		case bool:
+			if locks[0].(bool) {
+				q.Locks = "for update"
+			} else {
+				q.Locks = "lock in share mode"
+			}
+		}
+	} else {
+		q.Locks = "for update"
 	}
 	return q
 }
