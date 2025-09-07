@@ -425,6 +425,28 @@ func (q *QueryBuilder) FromSub(table interface{}, as string) *QueryBuilder {
 	return q.FromRaw(queryStr, bindings)
 }
 
+/*
+FromRaw Add a raw from clause to the query.
+
+ 1. FromRaw(goeloquent.Raw(`(select max(last_seen_at) as last_seen_at from "user_sessions") as "sessions""`))
+
+    select * from (select max(last_seen_at) as last_seen_at from "user_sessions") as "sessions"
+
+ 2. FromRaw("users as u")
+
+    select * from users as u
+*/
+func (q *QueryBuilder) FromRaw(raw string, bindings ...[]interface{}) *QueryBuilder {
+	expression := Raw(raw)
+	q.FromTable = expression
+	q.Components[COMPONENT_FROM] = struct{}{}
+	if len(bindings) > 0 {
+		q.AddBinding(bindings[0], COMPONENT_FROM)
+	}
+	return q
+}
+
+
 }
 
 /*
