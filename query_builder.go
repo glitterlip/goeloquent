@@ -270,6 +270,12 @@ func NewQueryBuilder(stmt ...*Statement) *QueryBuilder {
 	if len(stmt) > 0 {
 		qb.Statement = stmt[0]
 		stmt[0].QueryBuilder = qb
+		if stmt[0].Connection != nil {
+			prefix := stmt[0].Connection.GetTablePrefix()
+			if prefix != "" {
+				qb.TablePrefix = prefix
+			}
+		}
 	}
 	return qb
 }
