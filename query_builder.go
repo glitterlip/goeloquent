@@ -446,6 +446,76 @@ func (q *QueryBuilder) FromRaw(raw string, bindings ...[]interface{}) *QueryBuil
 	return q
 }
 
+/*
+CreateSub Creates a subquery and parse it.
+
+ 1. CreateSub(goeloquent.Raw("select max(id) from users"))
+
+    (select max(id) from users)
+
+ 2. CreateSub(func(qb *goeloquent.QueryBuilder) {
+    qb.Select("max(id)").From("users").Where("email", "like", "gmail.com")
+    })
+
+    (select max(id) from users where email like 'gmail.com')
+
+ 3. CreateSub(func(eb *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+    return eb.Select("max(id)").From("users").Where("email", "like", "gmail.com")
+    })
+
+    (select max(id) from users where email like 'gmail.com')
+*/
+func (q *QueryBuilder) CreateSub(query interface{}) (string, []interface{}) {
+	var builder *QueryBuilder
+	switch query.(type) {
+	case *QueryBuilder:
+		builder = query.(*QueryBuilder)
+		return q.ParseSub(builder)
+	case *EloquentBuilder:
+		builder = query.(*EloquentBuilder).QueryBuilder
+		return q.ParseSub(builder)
+	case func(*QueryBuilder):
+		builder = q.ForSubQuery()
+		query.(func(*QueryBuilder))(builder)
+		return q.ParseSub(builder)
+	case func(*QueryBuilder) *QueryBuilder:
+		builder = q.ForSubQuery()
+		builder = query.(func(*QueryBuilder) *QueryBuilder)(builder)
+		return q.ParseSub(builder)
+	case func(*EloquentBuilder):
+		eb := NewEloquentBuilder(q.ForSubQuery())
+		query.(func(*EloquentBuilder))(eb)
+		return q.ParseSub(eb.QueryBuilder)
+	case func(*EloquentBuilder) *EloquentBuilder:
+		eb := NewEloquentBuilder(q.ForSubQuery())
+		eb = query.(func(*EloquentBuilder) *EloquentBuilder)(eb)
+		return q.ParseSub(eb.QueryBuilder)
+	case string, Expression:
+		return q.ParseSub(query)
+	}
+	q.Statement.AddError(ErrorSubQueryInvalid)
+	return "", nil
+}
+
+/*
+ParseSub Parse the subquery into SQL and bindings.
+*/
+func (q *QueryBuilder) ParseSub(query interface{}) (string, []interface{}) {
+	switch query.(type) {
+	case string:
+		return query.(string), []interface{}{}
+	case Expression:
+		return string(query.(Expression)), []interface{}{}
+	case *QueryBuilder:
+		return query.(*QueryBuilder).ToSql(), query.(*QueryBuilder).GetBindings()
+	case *EloquentBuilder:
+		return query.(*EloquentBuilder).QueryBuilder.ToSql(), query.(*EloquentBuilder).QueryBuilder.GetBindings()
+	}
+
+	q.Statement.AddError(ErrorSubQueryInvalid)
+	return "", nil
+}
+
 
 }
 
