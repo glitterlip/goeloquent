@@ -329,10 +329,38 @@ func (q *QueryBuilder) Without(components []Component, bindings []Component) *Qu
 
 /*
 Select set the columns to be selected
+
  1. Select("name")
+
+    select `name` from table
+
  2. Select("name","email")
+
+    select `name`,`email` from table
+
  3. Select([]interface{}{"name","age"})
- 4. Select(Raw("raw sql"))
+
+    select `name`,`age` from table
+
+ 4. Select([]string{"name","age"})
+
+    select `name`,`age` from table
+
+ 5. Select("users.*",Raw("COUNT(posts.id) as post_count"))
+
+    select `users`.*,COUNT(posts.id) as post_count from table
+
+ 6. Select("users.*", func(qb *goeloquent.QueryBuilder) {
+    qb.Select("COUNT(posts.id)").From("posts").WhereColumn("posts.user_id", "users.id")
+    },"post_count")
+
+    select `users`.*, (select COUNT(posts.id) from posts where posts.user_id = users.id) as post_count from table
+
+ 5. Select("users.*", func(eb *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+    return eb.Select("COUNT(posts.id)").From("posts").WhereColumn("posts.user_id", "users.id")
+    },"post_count")
+
+    select `users`.*, (select COUNT(posts.id) from posts where posts.user_id = users.id) as post_count from table
 */
 func (q *QueryBuilder) Select(columns ...interface{}) *QueryBuilder {
 	q.Components[COMPONENT_COLUMN] = struct{}{}
@@ -342,6 +370,14 @@ func (q *QueryBuilder) Select(columns ...interface{}) *QueryBuilder {
 
 	for i := 0; i < len(columns); i++ {
 		if IsQueryable(columns[i]) {
+			if len(columns) != 2 {
+				q.Statement.AddError(errors.New("first parameter must be subquery,second parameter must be alias string when use subquery"))
+				return q
+			}
+			if _, ok := columns[1].(string); !ok {
+				q.Statement.AddError(errors.New("first parameter must be subquery,second parameter must be alias string when use subquery"))
+				return q
+			}
 			return q.SelectSub(columns[0], columns[1].(string))
 		}
 		switch columns[i].(type) {

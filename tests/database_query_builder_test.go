@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -78,6 +79,23 @@ func TestBasicSelect(t *testing.T) {
 	assert.Nil(t, query.Statement.Error)
 	assert.Equal(t, query.ToSql(), "select `id`, `name` from `users`")
 
+	query = GetBuilder()
+	query.Select("users.*", goeloquent.Raw("COUNT(posts.id) as post_count"))
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select `users`.*, COUNT(posts.id) as post_count")
+
+	query = GetBuilder()
+	query.Select(func(eb *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+		return eb.SelectRaw("COUNT(posts.id)").From("posts")
+	}, "post_count")
+	assert.Nil(t, query.Statement.Error)
+	assert.Equal(t, query.ToSql(), "select (select COUNT(posts.id) from `posts`) as `post_count`")
+
+	query = GetBuilder()
+	query.Select("user.id", func(eb *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+		return eb.SelectRaw("COUNT(posts.id)").From("posts")
+	}, "post_count")
+	assert.EqualError(t, errors.New("first parameter must be subquery,second parameter must be alias string when use subquery"), query.Statement.Error.Error())
 }
 func TestBasicSelectWithGetColumns(t *testing.T) {
 
