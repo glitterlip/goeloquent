@@ -390,6 +390,19 @@ func (q *QueryBuilder) SelectSub(query interface{}, as string) *QueryBuilder {
 	queryStr := fmt.Sprintf("(%s) as %s", qStr, q.Grammar.Wrap(as))
 
 	return q.SelectRaw(queryStr, bindings)
+}
+
+/*
+SelectRaw Add a new "raw" select expression to the query.
+*/
+func (q *QueryBuilder) SelectRaw(expression string, bindings ...[]interface{}) *QueryBuilder {
+	q.AddSelect(Expression(expression))
+	if len(bindings) > 0 {
+		q.AddBinding(bindings[0], COMPONENT_SELECT)
+	}
+	return q
+}
+
 
 }
 
