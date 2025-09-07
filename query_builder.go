@@ -215,7 +215,7 @@ type Aggregate struct {
 	AggregateColumns []interface{} //columns string or expression
 }
 type GroupLimit struct {
-	Value  int
+	Value  int64
 	Column string
 }
 type Order struct {
