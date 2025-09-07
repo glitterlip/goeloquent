@@ -403,6 +403,31 @@ func (q *QueryBuilder) SelectRaw(expression string, bindings ...[]interface{}) *
 	return q
 }
 
+/*
+FromSub Makes "from" fetch from a subquery.
+
+ 1. FromSub(goeloquent.Raw("select category, avg(price) as avg_price from products group by category"), "category_averages")
+
+    from(select category, avg(price) as avg_price from products group by category) as category_averages
+
+ 2. FromSub(func(qb *goeloquent.QueryBuilder) {
+    qb.Select("category").SelectRaw("avg(price) as avg_price").From("products").GroupBy("category")
+    }, "category_averages")
+
+    from(select category, avg(price) as avg_price from products group by category) as category_averages
+
+ 3. FromSub(func(eb *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+    return eb.Select("category").SelectRaw("avg(price) as avg_price").From("products").GroupBy("category")
+    }, "category_averages")
+
+    from(select category, avg(price) as avg_price from products group by category) as category_averages
+*/
+func (q *QueryBuilder) FromSub(table interface{}, as string) *QueryBuilder {
+	qStr, bindings := q.CreateSub(table)
+	queryStr := fmt.Sprintf("(%s) as %s", qStr, q.Grammar.WrapTable(as))
+
+	return q.FromRaw(queryStr, bindings)
+}
 
 }
 

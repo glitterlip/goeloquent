@@ -3443,6 +3443,10 @@ func TestFromSub(t *testing.T) {
 	assert.Equal(t, "select * from (select max(last_seen_at) as last from `user_sessions` where `active` = ?) as `sessions` where `bar` > ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{1, 1}, b.GetBindings())
 
+	b1 := GetBuilder()
+	b1.Select("avg_price", "category").FromSub(goeloquent.Raw("select category, avg(price) as avg_price from products group by category"), "category_averages").Where("avg_price", ">", 50)
+	assert.Equal(t, "select `avg_price`, `category` from (select category, avg(price) as avg_price from products group by category) as `category_averages` where `avg_price` > ?", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{50}, b1.GetBindings())
 }
 func TestFromSubWithPrefix(t *testing.T) {
 	c := GetConnection()
