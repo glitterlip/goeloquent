@@ -205,6 +205,7 @@ type QueryBuilder struct {
 	AfterQueryCallBacks  []StatementFunc
 	TablePrefix          string
 	Pretending           bool
+	Parent               *QueryBuilder
 	RawSql               string        //compiled sql
 	RawBindings          []interface{} //compiled sql bindings
 }
