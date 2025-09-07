@@ -366,7 +366,25 @@ func (q *QueryBuilder) Select(columns ...interface{}) *QueryBuilder {
 	return q
 }
 
-// SelectSub Add a subselect expression to the query.
+/*
+SelectSub Add a subselect expression to the query.
+
+ 1. SelectSub("select max(id) from users","max_id")
+
+    select *, (select max(id) from users) as max_id from table
+
+ 2. SelectSub(func(qb *goeloquent.QueryBuilder) {
+    qb.Select("max(id)").From("users").Where("email", "like", "gmail.com")
+    },"max_id")
+
+    select *, (select max(id) from users where email like 'gmail.com') as max_id from table
+
+ 3. SelectSub(func(eb *goeloquent.EloquentBuilder) *goeloquent.EloquentBuilder {
+    return eb.Select("max(id)").From("users").Where("email", "like", "gmail.com")
+    },"max_id")
+
+    select *, (select max(id) from users where email like 'gmail.com') as max_id from table
+*/
 func (q *QueryBuilder) SelectSub(query interface{}, as string) *QueryBuilder {
 	qStr, bindings := q.CreateSub(query)
 	queryStr := fmt.Sprintf("(%s) as %s", qStr, q.Grammar.Wrap(as))

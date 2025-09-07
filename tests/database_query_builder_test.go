@@ -2881,6 +2881,11 @@ func TestSubSelect(t *testing.T) {
 	assert.Equal(t, "select `foo`, `bar`, (select `baz` from `two` where `k2` = ?) as `sub` from `one` where `k` = ?", b.ToSql())
 	assert.ElementsMatch(t, []interface{}{"v2", "v"}, b.GetBindings())
 
+	b1 := GetBuilder()
+	b1.From("users").Select("*").SelectSub("select max(id) from users", "max_id")
+	assert.Equal(t, "select *, (select max(id) from users) as `max_id` from `users`", b1.ToSql())
+	assert.ElementsMatch(t, []interface{}{}, b1.GetBindings())
+
 }
 func TestSubSelectResetBindings(t *testing.T) {
 }
