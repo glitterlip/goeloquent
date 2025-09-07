@@ -236,22 +236,21 @@ type Having struct {
 }
 type WhereType string
 type Where struct {
-	Type             WhereType
-	Boolean          string
-	Column           string
-	ColumnExpression Expression
-	Columns          []interface{} //rowValues
-	Operator         string
-	First            string //wherecolumn first column
-	Second           string //wherecolumn second column
-	RawSql           interface{}
-	Value            interface{}
-	Values           []interface{} // wherein values
-	Not              bool          //not in,not between,not null
-	Mode             string        //fulltext mode
-	Expanded         bool          //fulltext expansion
-	CaseSensitive    bool          //like case sensitive
-	Query            *QueryBuilder //nested where
+	Type          WhereType
+	Boolean       string
+	Column        interface{}
+	Columns       []interface{} //rowValues
+	Operator      string
+	First         string //wherecolumn first column
+	Second        string //wherecolumn second column
+	RawSql        interface{}
+	Value         interface{}
+	Values        []interface{} // wherein values
+	Not           bool          //not in,not between,not null
+	Mode          string        //fulltext mode
+	Expanded      bool          //fulltext expansion
+	CaseSensitive bool          //like case-sensitive
+	Query         *QueryBuilder //nested where
 }
 type IndexHint struct {
 	Type  string
