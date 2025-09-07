@@ -594,6 +594,25 @@ func (q *QueryBuilder) AddSelect(columns ...interface{}) *QueryBuilder {
 	return q
 }
 
+/*
+Distinct Force the query to only return distinct results.
+
+ 1. Distinct().Select("foo", "bar").From("users")
+
+    select distinct `foo`,`bar` from users
+
+ 2. Distinct("foo").Select("foo", "bar").From("users")
+
+    select distinct `foo` from users
+*/
+func (q *QueryBuilder) Distinct(distinct ...string) *QueryBuilder {
+	q.IsDistinct = true
+	if len(distinct) > 0 {
+		q.DistinctColumns = append(q.DistinctColumns, distinct...)
+	}
+	return q
+}
+
 
 }
 
