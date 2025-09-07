@@ -280,7 +280,6 @@ func NewQueryBuilder(stmt ...*Statement) *QueryBuilder {
 	return qb
 }
 
-// Select set the columns to be selected
 /*
 Without unset components and bindings
 */
@@ -331,6 +330,14 @@ func (q *QueryBuilder) Without(components []Component, bindings []Component) *Qu
 	}
 	return q
 }
+
+/*
+Select set the columns to be selected
+ 1. Select("name")
+ 2. Select("name","email")
+ 3. Select([]interface{}{"name","age"})
+ 4. Select(Raw("raw sql"))
+*/
 func (q *QueryBuilder) Select(columns ...interface{}) *QueryBuilder {
 	q.Components[COMPONENT_COLUMN] = struct{}{}
 	if q.Columns == nil {
@@ -341,37 +348,19 @@ func (q *QueryBuilder) Select(columns ...interface{}) *QueryBuilder {
 		if IsQueryable(columns[i]) {
 			return q.SelectSub(columns[0], columns[1].(string))
 		}
-		switch columnType := columns[i].(type) {
-		case QuerybuilderFunc:
-			q.SelectSub(columns[0], columns[1].(string))
-			return q
-		case QuerybuilderChainFunc:
-		case string:
+		switch columns[i].(type) {
+		case string, Expression:
 			q.Columns = append(q.Columns, columns[i])
-		case map[string]interface{}:
-			for as, c := range columnType {
-				switch c.(type) {
-				case func(builder *QueryBuilder):
-					q.SelectSub(q, as)
-				case *QueryBuilder:
-					q.SelectSub(q, as)
-				case Expression:
-					q.AddSelect(q)
-				case string:
-					q.Columns = append(q.Columns, q)
-				default:
-					panic(errors.New("unsupported type for select"))
-				}
-			}
-		case Expression:
-			q.AddSelect(columnType)
+		case []interface{}:
+			cols := columns[i].([]interface{})
+			q.Columns = append(q.Columns, cols...)
 		case []string:
 			cols := columns[i].([]string)
 			for _, col := range cols {
 				q.Columns = append(q.Columns, col)
 			}
 		default:
-			panic(errors.New("unsupported type for select"))
+			q.Statement.AddError(errors.New("unsupported type for select"))
 		}
 	}
 	return q

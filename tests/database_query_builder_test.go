@@ -3167,12 +3167,9 @@ func TestPaginate(t *testing.T) {
 		b = conn.Query()
 
 		var res []map[string]interface{}
-		var sqls []string
-		var bindings []interface{}
+		var sts []*goeloquent.Statement
 		goeloquent.DB.Listen(goeloquent.EventQueryExecuted, func(name goeloquent.EventName, params ...interface{}) bool {
-			st := params[0].(*goeloquent.Statement)
-			sqls = append(sqls, st.RawSql)
-			bindings = append(bindings, st.GetBindings()...)
+			sts = append(sts, params[0].(*goeloquent.Statement))
 			return true
 		})
 
@@ -3181,11 +3178,10 @@ func TestPaginate(t *testing.T) {
 		assert.Equal(t, int64(9), p.Total)
 		items := p.Items.(*[]map[string]interface{})
 		assert.Equal(t, 2, len(*items))
-		assert.ElementsMatch(t, []string{
-			"select count(*) as aggregate from `users` where `id` > ?",
-			"select `id`, `name` from `users` where `id` > ? limit 2 offset 4",
-		}, sqls)
-		assert.ElementsMatch(t, []interface{}{1, 1}, bindings)
+		assert.Equal(t, "select count(*) as aggregate from `users` where `id` > ?", sts[0].RawSql)
+		assert.Equal(t, "select `id`, `name` from `users` where `id` > ? limit 2 offset 4", sts[1].RawSql)
+		assert.Equal(t, sts[0].GetBindings(), []interface{}{1})
+		assert.Equal(t, sts[1].GetBindings(), []interface{}{1})
 
 	})
 }
